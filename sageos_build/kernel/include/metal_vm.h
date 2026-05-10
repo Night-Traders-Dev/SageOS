@@ -22,7 +22,7 @@ extern "C" {
 // ============================================================================
 
 #ifndef METAL_STACK_SIZE
-#define METAL_STACK_SIZE      512     // Value stack depth
+#define METAL_STACK_SIZE      1024    // Value stack depth
 #endif
 
 #ifndef METAL_POOL_SIZE
@@ -42,7 +42,7 @@ extern "C" {
 #endif
 
 #ifndef METAL_ENV_DEPTH
-#define METAL_ENV_DEPTH       64      // Maximum scope chain depth
+#define METAL_ENV_DEPTH       128     // Maximum scope chain depth
 #endif
 
 #ifndef METAL_VARS_PER_SCOPE
@@ -160,7 +160,7 @@ typedef struct {
 } MetalFrame;
 
 #ifndef METAL_CALL_STACK
-#define METAL_CALL_STACK 32
+#define METAL_CALL_STACK 128
 #endif
 
 // ============================================================================
