@@ -663,6 +663,12 @@ static MetalValue n_sage_exec(MetalVM *vm, MetalValue *a, int c) {
     return mv_nil();
 }
 
+static MetalValue n_os_get_c0(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm; (void)a; (void)c;
+    /* Return nil for now; this is just to satisfy the shell's global lookup. */
+    return mv_nil();
+}
+
 /* -----------------------------------------------------------------------
  * Register all natives
  * --------------------------------------------------------------------- */
@@ -679,7 +685,7 @@ static void register_natives(MetalVM *vm) {
     /* Color */
     REG("os_set_color_hex", n_set_color_hex);
     REG("os_set_color",     n_set_color);
-    REG("os_get_color_debug", n_get_color);
+    REG("os_get_color",     n_get_color);
     /* Console */
     REG("os_console_clear", n_console_clear);
     REG("os_cursor_home",   n_cursor_home);
@@ -758,6 +764,7 @@ static void register_natives(MetalVM *vm) {
     REG("os_reboot",        n_reboot);
     REG("os_qemu_exit",     n_qemu_exit);
     REG("os_sage_exec",     n_sage_exec);
+    REG("os_get_c0",        n_os_get_c0);
 #undef REG
 }
 

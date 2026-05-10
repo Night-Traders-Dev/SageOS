@@ -225,6 +225,17 @@ MetalValue n_os_shell_exec(MetalVM* vm, MetalValue* args, int argc) {
     return mv_nil();
 }
 
+MetalValue n_os_get_c0(MetalVM* vm, MetalValue* args, int argc) {
+    (void)vm; (void)args; (void)argc;
+    return mv_nil();
+}
+
+MetalValue n_os_get_color(MetalVM* vm, MetalValue* args, int argc) {
+    (void)vm; (void)args; (void)argc;
+    extern uint32_t console_get_fg(void);
+    return mv_dbl((double)console_get_fg());
+}
+
 static void sage_register_repl_natives(MetalVM* vm) {
     metal_vm_register_native(vm, "len", n_len);
     metal_vm_register_native(vm, "os_strlen", n_os_strlen);
@@ -241,6 +252,8 @@ static void sage_register_repl_natives(MetalVM* vm) {
     metal_vm_register_native(vm, "os_get_mount_info", n_os_get_mount_info);
     metal_vm_register_native(vm, "os_swap_is_available", n_os_swap_is_available);
     metal_vm_register_native(vm, "os_shell_exec", n_os_shell_exec);
+    metal_vm_register_native(vm, "os_get_c0", n_os_get_c0);
+    metal_vm_register_native(vm, "os_get_color", n_os_get_color);
 }
 
 static void sage_repl_reset_vm(void) {
