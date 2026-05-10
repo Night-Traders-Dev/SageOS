@@ -6,6 +6,11 @@ SageOS is a small x86_64 UEFI operating system bring-up project targeting the **
 The kernel boots through UEFI, loads a freestanding kernel, initializes a GOP framebuffer console with graphics acceleration, runs a kernel-resident SageShell with fish-style line editing, discovers platform hardware through ACPI, and provides early diagnostics for keyboard, framebuffer, SMP, ACPI, timer, memory, and battery/EC support.
 
 Recent updates:
+- **Phase 8: Persistent USB Boot Log & Framebuffer Flush Fix** ✓:
+  - **USB Boot Log**: The UEFI loader now opens `BOOTLOG.TXT` on the ESP at startup and writes a timestamped log of every boot stage. The open EFI file handle is passed through `SageOSBootInfo` to the kernel, which continues appending via a new `bootlog` driver throughout all of `kmain`. Each write is immediately flushed to FAT32 so the data survives a hard reset — the last line in the file tells you exactly where the hardware hung. See [Boot Log Documentation](docs/boot_log.md).
+  - **Framebuffer Flush Fix**: Resolved a display-starvation bug where all kernel boot text was written to the back buffer but never copied to the LCD on real hardware. In firmware-input mode the PIT timer is skipped, so `console_periodic_flip()` was never called. Fix: explicit flush after the startup banner in `kmain`, plus a software counter in `timer_poll()` that fires `console_periodic_flip()` at ~10 Hz without needing a timer IRQ.
+  - **PCI Scan Optimisation**: `pci_enumerate()` now stops after 8 consecutive empty buses, eliminating multi-second wait-state stalls from phantom buses on the AMD Stoney Ridge IOMMU.
+  - **`SageOSBootInfo` Extended**: Added `log_file` and `log_offset` fields; both the bootloader and kernel structs are kept in sync.
 - **Phase 7: Programmable Init System** ✓:
   - **SageInit**: Implemented a programmable init system in SageLang (`/etc/init.sage`). See [Init System Documentation](docs/init_system.md).
   - **Early System Boot**: The kernel now hands off execution to the init script for service bring-up and system configuration.
@@ -41,7 +46,7 @@ Recent updates:
 ## Current Version
 
 ```text
-SageOS v0.1.2
+SageOS v0.1.3
 ```
 
 ## Target Hardware
@@ -63,6 +68,9 @@ CPU:    AMD x86_64, multi-core SMP enabled
 | PE/COFF BOOTX64.EFI | Working |
 | Kernel loading | Working |
 | GOP framebuffer console | Working |
+| **Persistent USB Boot Log** (Phase 8) | **Working** — `BOOTLOG.TXT` written to ESP; survives hard reset; shows exact hang point |
+| **Framebuffer Flush Fix** (Phase 8) | **Working** — Boot banner visible on real hardware without PIT IRQ |
+| **PCI Scan Optimisation** (Phase 8) | **Working** — Stops after 8 empty buses; eliminates AMD IOMMU wait-state stall |
 | **Programmable Init** (Phase 7) | **Working** — `/etc/init.sage` manages boot flow |
 | **Graphics Acceleration** (Phase 4) | **Working** — Double buffering, fast scrolling, instant clears |
 | Framebuffer back buffer | Working — 16MB allocated by UEFI loader, used for all rendering |
@@ -372,7 +380,9 @@ Kernel entry.S bridges ABI and stack
   ↓
 kmain()
   ↓
-serial → console → ACPI → SMP → IDT → PIT/IRQ → VFS → PCI → storage → net → keyboard → SageInit (/etc/init.sage) → shell
+serial → console → [bootlog_init] → ACPI → SMP → IDT → PIT/IRQ → VFS → PCI → storage → net → keyboard → SageInit (/etc/init.sage) → shell
+                         ↑
+               BOOTLOG.TXT on USB ESP — flushed after every step
 ```
 
 ## Boot Info Handoff
@@ -405,6 +415,8 @@ memory_total
 memory_usable
 kernel_base
 kernel_size
+log_file                   (Phase 8: EFI_FILE_PROTOCOL* for BOOTLOG.TXT, 0 if ExitBootServices called)
+log_offset                 (Phase 8: current write position in the log file)
 ```
 
 ## Shell Commands
@@ -648,7 +660,7 @@ file-backed shell commands and modules
 
 ## Roadmap
 
-### v0.1.2 — **CURRENT** (Graphics Acceleration & SageLang Scripting)
+### v0.1.2 — **COMPLETED** (Graphics Acceleration & SageLang Scripting)
 
 ✓ Phase 4 complete:
 ```text
@@ -660,7 +672,20 @@ file-backed shell commands and modules
 ✓ Production-ready graphics performance
 ```
 
-### v0.1.3 — Lid Suspend/Wake
+### v0.1.3 — **CURRENT** (Hardware Boot Diagnostics & Stability)
+
+✓ Phase 8 complete:
+```text
+✓ Persistent USB boot log (BOOTLOG.TXT on ESP — survives hard reset)
+✓ Full boot-stage instrumentation from UEFI loader through shell thread
+✓ Framebuffer flush fix — boot banner visible on real hardware without PIT IRQ
+✓ timer_poll() drives console_periodic_flip() at ~10 Hz in firmware-input mode
+✓ PCI scan optimised — stops after 8 empty buses (fixes AMD IOMMU wait stall)
+✓ SageOSBootInfo extended with log_file + log_offset fields
+✓ bootlog driver: zero-dependency EFI vtable access, MS-ABI safe, flush-on-write
+```
+
+### v0.1.4 — Lid Suspend/Wake
 
 ```text
 - ACPI SCI routing and GPE management
@@ -670,7 +695,7 @@ file-backed shell commands and modules
 - Resume path cleanup and validation
 ```
 
-### v0.1.4 — Persistent Storage Expansion
+### v0.1.5 — Persistent Storage Expansion
 
 ```text
 - initrd support for loaded modules
