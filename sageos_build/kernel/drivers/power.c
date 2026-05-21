@@ -17,12 +17,15 @@
 void power_qemu_exit(void) {
     if (sysinfo_is_qemu()) {
         console_write("\nExiting QEMU...");
-        outb(0x501, 0x00);
+        outw(0x501, 0x00);
         /* Fallback: halt */
         for (;;) cpu_hlt();
     } else {
         console_write("\nExiting (Hardware Shutdown)...");
         if (!acpi_poweroff()) {
+            /* If ACPI poweroff fails, we might still be in QEMU (if the CPU model hid the hypervisor bit).
+               Try the QEMU ISA debug exit as a last resort before halting. */
+            outw(0x501, 0x00);
             console_write("\nACPI S5 failed. Halting.");
             for (;;) cpu_hlt();
         }
