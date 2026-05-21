@@ -67,6 +67,10 @@ int btrfs_init(void) {
     return 0;
 }
 
+int btrfs_is_available(void) {
+    return btrfs_available;
+}
+
 void btrfs_ls(void) {
     if (!btrfs_available) return;
     uint8_t buffer[16384]; /* Assume max node size */
