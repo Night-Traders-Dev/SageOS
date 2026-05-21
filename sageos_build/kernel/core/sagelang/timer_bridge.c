@@ -38,9 +38,17 @@ static MetalValue native_sched_timer_tick(MetalVM* vm, MetalValue* args, int arg
     return mv_nil();
 }
 
+// Native function: timer_irq()
+static MetalValue native_timer_irq(MetalVM* vm, MetalValue* args, int argc) {
+    (void)vm; (void)args; (void)argc;
+    timer_irq();
+    return mv_nil();
+}
+
 void register_timer_native_bindings(MetalVM* vm) {
     metal_vm_register_native(vm, "outb", native_outb);
     metal_vm_register_native(vm, "console_periodic_flip", native_console_periodic_flip);
     metal_vm_register_native(vm, "ata_timer_tick", native_ata_timer_tick);
     metal_vm_register_native(vm, "sched_timer_tick", native_sched_timer_tick);
+    metal_vm_register_native(vm, "timer_irq", native_timer_irq);
 }
