@@ -798,7 +798,45 @@ static int fat32_be_readdir(VfsBackend *self, const char *rel_path,
     (void)self;
     SageOSBootInfo *info = kernel_get_boot_info();
     if (info && info->boot_services_active && info->root_dir) {
-        return 0;
+        EfiFileProtocol *root = (EfiFileProtocol *)info->root_dir;
+        uint16_t wpath[256];
+        ascii_to_utf16_path(rel_path, wpath, 256);
+
+        EfiFileProtocol *dir = NULL;
+        uint64_t status = root->Open(root, &dir, wpath, 1 /* READ */, 0);
+        if (status != 0) return -2;
+
+        int count = 0;
+        uint8_t info_buf[512];
+        while (count < max_entries) {
+            uint64_t buf_size = sizeof(info_buf);
+            status = dir->Read(dir, &buf_size, info_buf);
+            if (status != 0 || buf_size == 0) break;
+
+            /* EFI_FILE_INFO: Size(0), FileSize(8), PhysicalSize(16), CreateTime(24), 
+               LastAccessTime(40), ModificationTime(56), Attribute(72), FileName(80) */
+            uint64_t attr = *(uint64_t *)(info_buf + 72);
+            uint16_t *wname = (uint16_t *)(info_buf + 80);
+
+            /* Convert UTF-16 to ASCII */
+            int i = 0;
+            while (wname[i] && i < VFS_NAME_MAX - 1) {
+                entries[count].name[i] = (char)(wname[i] & 0x7F);
+                i++;
+            }
+            entries[count].name[i] = 0;
+
+            if (entries[count].name[0] == '.' && (entries[count].name[1] == 0 || (entries[count].name[1] == '.' && entries[count].name[2] == 0))) {
+                continue; /* Skip . and .. */
+            }
+
+            entries[count].type = (attr & 0x10) ? VFS_DIRECTORY : VFS_FILE;
+            entries[count].size = *(uint64_t *)(info_buf + 8);
+            count++;
+        }
+
+        dir->Close(dir);
+        return count;
     }
     return fat32_readdir(rel_path, entries, max_entries);
 }
