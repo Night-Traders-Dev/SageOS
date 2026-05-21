@@ -579,6 +579,23 @@ void sched_init(void) {
     dmesg_log("Scheduler: fair per-CPU queues initialized");
 }
 
+void thread_jump_to_user(void *user_func, void *stack_ptr) {
+    __asm__ volatile (
+        "movw $0x23, %%ax\n" /* Ring 3 Data Segment */
+        "movw %%ax, %%ds\n"
+        "movw %%ax, %%es\n"
+        "movw %%ax, %%fs\n"
+        "movw %%ax, %%gs\n"
+        "pushq $0x23\n"      /* User Data Selector */
+        "pushq %0\n"         /* User Stack Pointer */
+        "pushfq\n"
+        "pushq $0x1B\n"      /* User Code Selector (DPL3) */
+        "pushq %1\n"         /* User Function Entry */
+        "iretq\n"
+        : : "r"(stack_ptr), "r"(user_func) : "ax"
+    );
+}
+
 thread_t *sched_create_thread(const char *name,
                               void (*entry)(void *),
                               void *arg,

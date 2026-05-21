@@ -7,6 +7,8 @@ kernel_gdt:
     .quad 0x0000000000000000   /* 0x00: null */
     .quad 0x00AF9A000000FFFF   /* 0x08: 64-bit code, DPL0, present */
     .quad 0x00AF92000000FFFF   /* 0x10: 64-bit data, DPL0, present */
+    .quad 0x00AFFB000000FFFF   /* 0x18: 64-bit code, DPL3, present */
+    .quad 0x00AFF3000000FFFF   /* 0x20: 64-bit data, DPL3, present */
 kernel_gdt_end:
 
 .section .text

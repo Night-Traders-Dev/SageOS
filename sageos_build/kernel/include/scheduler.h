@@ -92,6 +92,7 @@ void sched_block(void);
 void sched_unblock(thread_t *thread);
 void sched_set_priority(thread_t *thread, thread_priority_t priority);
 void sched_set_affinity(thread_t *thread, int cpu_id);
+void thread_jump_to_user(void *user_func, void *stack_ptr);
 
 void sched_timer_tick(void);
 void sched_schedule(void);
