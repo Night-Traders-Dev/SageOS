@@ -544,12 +544,14 @@ void cmd_btop(void) {
     console_clear();
 
     while (running) {
+        /* Drive timer ticks before sampling so metrics are fresh */
+        timer_poll();
+
         uint32_t cpu = timer_cpu_percent();
         uint64_t used = ram_used_bytes();
         uint64_t total = ram_total_bytes();
         int bat = battery_percent();
 
-        timer_poll();
         btop_push_history(cpu, pct_u64(used, total));
 
         if (console_has_fb()) {
@@ -562,19 +564,26 @@ void cmd_btop(void) {
             btop_draw_serial(cpu, used, total, bat);
         }
 
-        for (int i = 0; i < 25; i++) {
+        /*
+         * Poll for input for ~500 ms using timer_delay_ms + timer_poll.
+         * We do NOT use sched_sleep() here: on real hardware without PIT
+         * IRQs the tick counter never advances, so sched_sleep() blocks
+         * forever.  timer_delay_ms() uses a calibrated busy loop that
+         * works in both firmware and native modes.
+         */
+        for (int i = 0; i < 20 && running; i++) {
             KeyEvent ev;
-            int refresh_now = 0;
             if (keyboard_poll_any_event(&ev) && ev.pressed) {
                 if (ev.ascii == 'q' || ev.ascii == 'Q' || ev.ascii == 3) {
                     running = 0;
+                    break;
                 }
                 if (ev.ascii == 'r' || ev.ascii == 'R') {
-                    i = 25;
-                    refresh_now = 1;
+                    break; /* immediate refresh */
                 }
             }
-            if (running && !refresh_now) sched_sleep(20);
+            timer_delay_ms(25); /* 20 × 25 ms = ~500 ms between refreshes */
+            timer_poll();       /* keep tick counter advancing */
         }
     }
 
@@ -583,6 +592,7 @@ void cmd_btop(void) {
     console_clear();
     serial_raw("\033[2J\033[H");
 }
+
 
 /* ------------------------------------------------------------------ */
 /* Nano                                                               */
@@ -856,4 +866,33 @@ void cmd_source(const char *path) {
 void cmd_dmesg(void) {
     console_write("\n");
     dmesg_dump();
+}
+
+/* ------------------------------------------------------------------ */
+/* bmesg — boot log from /fat32/BOOTLOG.TXT                          */
+/* ------------------------------------------------------------------ */
+
+void cmd_bmesg(void) {
+    char buf[512];
+    uint64_t offset = 0;
+    int n;
+
+    console_write("\n--- Boot Log (/fat32/BOOTLOG.TXT) ---\n");
+
+    while ((n = vfs_read("/fat32/BOOTLOG.TXT", offset, buf, sizeof(buf) - 1)) > 0) {
+        buf[n] = 0;
+        for (int i = 0; i < n; i++) {
+            char c = buf[i];
+            if (c == '\r') continue;  /* skip CR, only print LF */
+            console_putc(c);
+        }
+        offset += (uint64_t)n;
+        if (n < (int)(sizeof(buf) - 1)) break; /* EOF */
+    }
+
+    if (offset == 0) {
+        console_write("(no boot log found — FAT32 not mounted or log empty)\n");
+    } else {
+        console_write("\n--- End of boot log ---\n");
+    }
 }

@@ -36,7 +36,8 @@ typedef enum {
     NET_STATE_DOWN = 0,
     NET_STATE_PROBED,
     NET_STATE_FIRMWARE_STAGED,
-    NET_STATE_READY
+    NET_STATE_READY,
+    NET_STATE_CONNECTED
 } NetDeviceState;
 
 #define NETDEV_FLAG_PRESENT            (1u << 0)

@@ -9,5 +9,6 @@ void qca6174_cmd_upload(void);
 void qca6174_cmd_init_rings(void);
 void qca6174_cmd_scan(void);
 void qca6174_cmd_connect(const char *ssid, const char *pass);
+void qca6174_auto_connect(void);
 
 #endif /* SAGEOS_WIFI_QCA6174_H */

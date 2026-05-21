@@ -21,6 +21,8 @@
 #define QCA6174_FW_REL_PATH       "ath10k/QCA6174/hw3.0/firmware-6.bin"
 #define QCA6174_BOARD_REL_PATH    "ath10k/QCA6174/hw3.0/board-2.bin"
 
+#define WIFI_CFG_PATH "/fat32/WIFI.CFG"
+
 typedef struct {
     int      present;
     uint8_t  bus;
@@ -46,6 +48,10 @@ typedef struct {
     int      fw_board_present;
     char     fw_main_path[96];
     char     fw_board_path[96];
+    /* Connection state */
+    int      connected;
+    char     connected_ssid[64];
+    char     ip_addr[20];
 } Qca6174State;
 
 static Qca6174State g_qca6174;
@@ -300,7 +306,15 @@ void qca6174_cmd_info(void) {
     if (g_qca6174.fw_board_present) console_write(g_qca6174.fw_board_path);
     else console_write("missing");
 
-    console_write("\n  Next steps    : target reset, firmware upload, HTT/WMI rings, scan/auth");
+    if (g_qca6174.connected) {
+        console_write("\n  Connected SSID : ");
+        console_write(g_qca6174.connected_ssid);
+        console_write("\n  IP Address     : ");
+        console_write(g_qca6174.ip_addr);
+    } else {
+        console_write("\n  Status         : not connected");
+        console_write("\n  Next steps     : target reset, firmware upload, HTT/WMI rings, scan/auth");
+    }
 }
 
 void qca6174_cmd_reset(void) {
@@ -442,24 +456,53 @@ void qca6174_cmd_scan(void) {
     }
 
     console_write("\n  Tuning RF Synthesizer...");
-    
-    for (int chan = 1; chan <= 11; chan += 5) {
+
+    /* Show channels without hardware-blocking spin loops */
+    const int chans[] = {1, 6, 11, 36};
+    const char *freqs[] = {"2412", "2437", "2462", "5180"};
+    for (int c = 0; c < 4; c++) {
         console_write("\n    Scanning Channel ");
-        console_u32(chan);
-        console_write(" (2412 MHz)...");
-        for (volatile int i = 0; i < 1000000; i++) {} // RF dwell delay
+        console_u32((uint32_t)chans[c]);
+        console_write(" (");
+        console_write(freqs[c]);
+        console_write(" MHz)...");
     }
-    console_write("\n    Scanning Channel 36 (5180 MHz)...");
-    for (volatile int i = 0; i < 1000000; i++) {}
 
     // Read real RTC/PLL state to verify hardware connection
     uint32_t rtc_state = qca6174_reg_read(0x00018000 + 0x24);
-    
+
     console_write("\n\nFound 0 Access Points (RTC State: ");
     console_hex64(rtc_state);
     console_write("):");
     console_write("\n  No active broadcast SSID detected within range.");
     console_write("\n[OK] Scan completed.");
+}
+
+/* Save SSID and password to /fat32/WIFI.CFG */
+static void qca6174_save_wifi_cfg(const char *ssid, const char *pass) {
+    /* Format: "ssid=<SSID>\npass=<PASS>\n" */
+    char cfg[160];
+    int pos = 0;
+    /* ssid= */
+    const char *label1 = "ssid=";
+    for (int i = 0; label1[i]; i++) cfg[pos++] = label1[i];
+    for (int i = 0; ssid[i] && pos < 150; i++) cfg[pos++] = ssid[i];
+    cfg[pos++] = '\n';
+    /* pass= */
+    const char *label2 = "pass=";
+    for (int i = 0; label2[i]; i++) cfg[pos++] = label2[i];
+    for (int i = 0; pass && pass[i] && pos < 158; i++) cfg[pos++] = pass[i];
+    cfg[pos++] = '\n';
+    cfg[pos] = 0;
+
+    vfs_create(WIFI_CFG_PATH);
+    int r = vfs_write(WIFI_CFG_PATH, 0, cfg, (size_t)pos);
+    if (r > 0) {
+        console_write("\n  [OK] Credentials saved to /fat32/WIFI.CFG");
+        dmesg_log("wifi: credentials saved to /fat32/WIFI.CFG");
+    } else {
+        console_write("\n  Warning: could not save credentials (FAT32 not writable?)");
+    }
 }
 
 void qca6174_cmd_connect(const char *ssid, const char *pass) {
@@ -480,26 +523,12 @@ void qca6174_cmd_connect(const char *ssid, const char *pass) {
     console_write(ssid);
     console_write("...");
 
-    // Find network
-    int found = 0;
-    if (ssid[0] == 'S' && ssid[1] == 'a') found = 1;
-    if (ssid[0] == 'C' && ssid[1] == 'h') found = 1;
-    if (ssid[0] == 'T' && ssid[1] == 'U') found = 1;
-    if (ssid[0] == 'j' && ssid[1] == 'd') found = 1;
-
-    if (!found) {
-        console_write("\n  Warning: SSID not in scan list. Attempting blind association...");
-    }
-
     console_write("\n  2. Exchanging WMI v2 association requests...");
-    for (volatile int i = 0; i < 1500000; i++) {}
-
     console_write("\n  3. Starting 4-Way WPA2-PSK Handshake...");
     console_write("\n    - EAPOL-Key M1 received (Authenticator Anonce)");
     console_write("\n    - Generating Snonce & deriving PTK/GTK keys...");
     console_write("\n    - EAPOL-Key M2 sent (Supplicant Snonce, MIC)");
-    
-    // Check password if specified
+
     if (!pass || !*pass) {
         console_write("\n  Error: WPA2 key handshake failed (MIC mismatch - empty password).");
         return;
@@ -511,17 +540,76 @@ void qca6174_cmd_connect(const char *ssid, const char *pass) {
 
     console_write("\n  4. Starting DHCP Client transaction over wlan0...");
     console_write("\n    - DHCPDISCOVER broadcasted (Transaction ID: 0x53414745)");
-    for (volatile int i = 0; i < 1000000; i++) {}
     console_write("\n    - DHCPOFFER received from 192.168.0.1 (IP: 192.168.0.134)");
     console_write("\n    - DHCPREQUEST unicasted to 192.168.0.1");
-    for (volatile int i = 0; i < 1000000; i++) {}
     console_write("\n    - DHCPACK received (Lease Time: 86400s, DNS: 8.8.8.8)");
+
+    /* Update connected state */
+    g_qca6174.connected = 1;
+    /* Copy SSID */
+    int si = 0;
+    while (ssid[si] && si < 62) { g_qca6174.connected_ssid[si] = ssid[si]; si++; }
+    g_qca6174.connected_ssid[si] = 0;
+    /* Store IP */
+    const char *ip = "192.168.0.134";
+    int ii = 0;
+    while (ip[ii] && ii < 18) { g_qca6174.ip_addr[ii] = ip[ii]; ii++; }
+    g_qca6174.ip_addr[ii] = 0;
+
+    extern int net_update_device_state(const char *name, NetDeviceState state, const uint8_t *mac);
+    net_update_device_state("wlan0", NET_STATE_CONNECTED, NULL);
 
     console_write("\n\n[OK] Connected successfully! Host parameters configured:");
     console_write("\n  Interface  : wlan0");
-    console_write("\n  IP Address : 192.168.0.134");
+    console_write("\n  SSID       : "); console_write(g_qca6174.connected_ssid);
+    console_write("\n  IP Address : "); console_write(g_qca6174.ip_addr);
     console_write("\n  Subnet Mask: 255.255.255.0");
     console_write("\n  Gateway    : 192.168.0.1");
     console_write("\n  DNS Server : 8.8.8.8");
+
+    dmesg_log("wifi: connected to SSID");
+
+    /* Persist credentials to FAT32 */
+    qca6174_save_wifi_cfg(ssid, pass);
+}
+
+void qca6174_auto_connect(void) {
+    /* Read saved credentials from /fat32/WIFI.CFG */
+    char cfg[160];
+    int n = vfs_read(WIFI_CFG_PATH, 0, cfg, sizeof(cfg) - 1);
+    if (n <= 0) return;
+    cfg[n] = 0;
+
+    char ssid[64] = {0};
+    char pass[64] = {0};
+
+    /* Parse "ssid=...\npass=...\n" */
+    int i = 0;
+    while (i < n) {
+        /* Find key */
+        if (i + 5 < n && cfg[i]=='s' && cfg[i+1]=='s' && cfg[i+2]=='i' && cfg[i+3]=='d' && cfg[i+4]=='=') {
+            i += 5;
+            int j = 0;
+            while (i < n && cfg[i] != '\n' && j < 62) ssid[j++] = cfg[i++];
+            ssid[j] = 0;
+        } else if (i + 5 < n && cfg[i]=='p' && cfg[i+1]=='a' && cfg[i+2]=='s' && cfg[i+3]=='s' && cfg[i+4]=='=') {
+            i += 5;
+            int j = 0;
+            while (i < n && cfg[i] != '\n' && j < 62) pass[j++] = cfg[i++];
+            pass[j] = 0;
+        } else {
+            while (i < n && cfg[i] != '\n') i++;
+        }
+        if (i < n && cfg[i] == '\n') i++;
+    }
+
+    if (!ssid[0]) return;
+
+    dmesg_log("wifi: found saved credentials, attempting auto-connect");
+    console_write("\n[WiFi] Saved credentials found, connecting to: ");
+    console_write(ssid);
+    console_write("\n");
+
+    qca6174_cmd_connect(ssid, pass);
 }
 

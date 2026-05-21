@@ -58,7 +58,7 @@ static int  shell_history_nav;
 
 static const char *const shell_commands[] = {
     "about", "acpi", "acpi battery", "acpi fadt", "acpi lid", "acpi madt",
-    "acpi tables", "battery", "btop", "cat", "clear", "color", "cp", "dmesg", "echo",
+    "acpi tables", "battery", "bmesg", "btop", "cat", "clear", "color", "cp", "dmesg", "echo",
     "execelf", "exit", "fb", "halt", "help", "hexdump", "history", "input", "install",
     "keydebug", "ls", "mkdir", "nano", "neofetch", "net", "net selftest",
     "pci", "poweroff", "pwd", "q", "reboot", "rm", "sage",
@@ -382,6 +382,7 @@ static void help(void) {
     console_write("\n  echo <text>       print text");
     console_write("\n  color <name>      white green amber blue red cyan purple reset");
     console_write("\n  dmesg             early kernel log");
+    console_write("\n  bmesg             boot log from /fat32/BOOTLOG.TXT");
     console_write("\n  fb                framebuffer info");
     console_write("\n  input             input backend info");
     console_write("\n\nHardware & Platform:");
@@ -721,6 +722,7 @@ void shell_exec_command(const char *cmd) {
     if (starts_word(cmd, "color"))   { cmd_color(arg_after(cmd, "color")); return; }
     if (starts_with(cmd, "cp"))      { cmd_cp(arg_after(cmd, "cp")); return; }
     if (starts_with(cmd, "hexdump")) { cmd_hexdump(arg_after(cmd, "hexdump")); return; }
+    if (starts_word(cmd, "bmesg"))   { extern void cmd_bmesg(void); cmd_bmesg(); return; }
     if (starts_word(cmd, "dmesg"))   { extern void cmd_dmesg(void); cmd_dmesg(); return; }
     if (starts_word(cmd, "shutdown") || starts_word(cmd, "poweroff")) { power_shutdown(); return; }
     if (starts_word(cmd, "suspend")) { power_suspend(); return; }

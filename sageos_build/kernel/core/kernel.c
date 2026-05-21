@@ -23,6 +23,7 @@
 #include "ata.h"
 #include "scheduler.h"
 #include "net.h"
+#include "wifi_qca6174.h"
 #include "metal_vm.h"
 #include "vmm.h"
 #include "phys_alloc.h"
@@ -197,6 +198,11 @@ void kmain(SageOSBootInfo *info) {
     net_init();
     dmesg_log("network subsystem initialized");
     bootlog("[KRN] net_init: OK\r\n");
+
+    /* Attempt auto-connect from saved /fat32/WIFI.CFG */
+    bootlog("[KRN] wifi_auto_connect: start\r\n");
+    qca6174_auto_connect();
+    bootlog("[KRN] wifi_auto_connect: done\r\n");
 
     bootlog("[KRN] keyboard_init: start\r\n");
     keyboard_init();
