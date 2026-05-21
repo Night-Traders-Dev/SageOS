@@ -15,6 +15,8 @@
 #include "ramfs.h"
 #include "fat32.h"
 #include "power.h"
+#include "swap.h"
+#include "sysinfo.h"
 #include "status.h"
 #include "timer.h"
 #include "acpi.h"
@@ -660,6 +662,15 @@ static MetalValue n_reboot(MetalVM *vm, MetalValue *a, int c) {
 static MetalValue n_qemu_exit(MetalVM *vm, MetalValue *a, int c) {
     (void)vm;(void)a;(void)c; power_qemu_exit(); return mv_nil();
 }
+static MetalValue n_swap_info(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm;(void)a;(void)c; swap_info(); return mv_nil();
+}
+static MetalValue n_swap_available(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm;(void)a;(void)c; return mv_dbl((double)swap_is_available());
+}
+static MetalValue n_is_qemu(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm;(void)a;(void)c; return mv_dbl((double)sysinfo_is_qemu());
+}
 static MetalValue n_sage_exec(MetalVM *vm, MetalValue *a, int c) {
     (void)vm;
     extern void sage_run_file(const char *path);
@@ -767,6 +778,9 @@ static void register_natives(MetalVM *vm) {
     REG("os_suspend",       n_suspend);
     REG("os_halt",          n_halt);
     REG("os_reboot",        n_reboot);
+    REG("os_swap_info",     n_swap_info);
+    REG("os_swap_available",n_swap_available);
+    REG("os_is_qemu",       n_is_qemu);
     REG("os_qemu_exit",     n_qemu_exit);
     REG("os_sage_exec",     n_sage_exec);
     REG("os_get_c0",        n_os_get_c0);

@@ -685,6 +685,89 @@ proc cmd_status():
 end
 
 # =============================================================================
+# SageOS Swap Device Driver - Pure SageLang Port
+# swap.sage
+#
+# C source kept: sageos_build/kernel/drivers/swap.c (unchanged, regression baseline)
+#
+# Partition layout (hardcoded, matches C):
+#   1: ESP  (FAT32,  64 MiB,  LBA 2048)
+#   2: Root (BTRFS, 128 MiB)
+#   3: Swap         125 MiB)
+# =============================================================================
+
+let SWAP_ESP_MIB   = 64
+let SWAP_BTRFS_MIB = 128
+let SWAP_SIZE_MIB  = 125
+let SWAP_START_LBA = 2048 + (SWAP_ESP_MIB * 1024 * 1024 / 512) + (SWAP_BTRFS_MIB * 1024 * 1024 / 512)
+
+proc cmd_swap():
+    os_write_str("\n")
+    if os_swap_available() == 0:
+        os_write_str("SWAP: No swap device active")
+        os_write_str("\n")
+        return nil
+    end
+
+    os_write_str("SWAP: Partition start LBA: ")
+    os_write_str(os_num_to_str(SWAP_START_LBA))
+    os_write_str("\n  Size: ")
+    os_write_str(os_num_to_str(SWAP_SIZE_MIB))
+    os_write_str(" MiB")
+    os_write_str("\n  Status: active")
+    os_write_str("\n")
+end
+# =============================================================================
+# SageOS Power Management - Pure SageLang Port
+# power.sage
+#
+# C source kept: sageos_build/kernel/drivers/power.c (unchanged, regression baseline)
+#
+# All hardware I/O (outb 0x501, outb 0x64, HLT loop, ACPI S3/S5) is delegated
+# to the C driver via VM bindings. This module handles the interactive shell
+# layer: confirmation messages, dmesg logging, and dispatch.
+# =============================================================================
+
+proc cmd_shutdown():
+    os_write_str("\nRequesting ACPI S5 poweroff...")
+    os_write_str("\n")
+    os_shutdown()
+end
+
+proc cmd_poweroff():
+    cmd_shutdown()
+end
+
+proc cmd_suspend():
+    os_write_str("\nRequesting ACPI S3 suspend...")
+    os_write_str("\n")
+    os_suspend()
+end
+
+proc cmd_halt():
+    os_write_str("\nHalting.")
+    os_write_str("\n")
+    os_halt()
+end
+
+proc cmd_reboot():
+    os_write_str("\nRebooting via i8042...")
+    os_write_str("\n")
+    os_reboot()
+end
+
+proc cmd_exit():
+    if os_is_qemu() != 0:
+        os_write_str("\nExiting QEMU...")
+        os_write_str("\n")
+        os_qemu_exit()
+    else:
+        os_write_str("\nExit: calling ACPI S5 shutdown...")
+        os_write_str("\n")
+        os_shutdown()
+    end
+end
+# =============================================================================
 # SageOS Shell - Main Shell Loop
 # shell.sage
 #
@@ -707,6 +790,34 @@ proc shell_dispatch(line):
     end
     if os_streq(line, "status"):
         cmd_status()
+        return nil
+    end
+    if os_streq(line, "swap"):
+        cmd_swap()
+        return nil
+    end
+    if os_streq(line, "shutdown"):
+        cmd_shutdown()
+        return nil
+    end
+    if os_streq(line, "poweroff"):
+        cmd_poweroff()
+        return nil
+    end
+    if os_streq(line, "halt"):
+        cmd_halt()
+        return nil
+    end
+    if os_streq(line, "reboot"):
+        cmd_reboot()
+        return nil
+    end
+    if os_streq(line, "suspend"):
+        cmd_suspend()
+        return nil
+    end
+    if os_streq(line, "exit"):
+        cmd_exit()
         return nil
     end
     if os_streq(line, "help"):

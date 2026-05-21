@@ -23,6 +23,34 @@ proc shell_dispatch(line):
         cmd_status()
         return nil
     end
+    if os_streq(line, "swap"):
+        cmd_swap()
+        return nil
+    end
+    if os_streq(line, "shutdown"):
+        cmd_shutdown()
+        return nil
+    end
+    if os_streq(line, "poweroff"):
+        cmd_poweroff()
+        return nil
+    end
+    if os_streq(line, "halt"):
+        cmd_halt()
+        return nil
+    end
+    if os_streq(line, "reboot"):
+        cmd_reboot()
+        return nil
+    end
+    if os_streq(line, "suspend"):
+        cmd_suspend()
+        return nil
+    end
+    if os_streq(line, "exit"):
+        cmd_exit()
+        return nil
+    end
     if os_streq(line, "help"):
         cmd_help()
         return nil
