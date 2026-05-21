@@ -25,8 +25,6 @@ static uint32_t cpu_history_idx;
 static uint32_t cpu_history_sum;
 static uint32_t cpu_history_count;
 
-static volatile uint32_t flip_counter = 0;
-
 /* Forward declaration for framebuffer flip */
 void console_periodic_flip(void);
 

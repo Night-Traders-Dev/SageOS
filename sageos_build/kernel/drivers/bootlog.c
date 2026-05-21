@@ -62,9 +62,9 @@ typedef EFI_STATUS (EFIAPI *EFI_FILE_FLUSH_FN)(
  *   8  GetInfo
  *   9  SetInfo
  *  10  Flush        ← slot 10
- *
- * We access them via a raw pointer array to avoid including the full struct
  /*
+  * We access them via a raw pointer array to avoid including the full struct.
+  *
   * We only need the vtable slots we actually call.
   */
  #define EFI_FILE_VTABLE_WRITE        5
