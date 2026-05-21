@@ -17,6 +17,8 @@ static int is_used(uint64_t page) {
 }
 
 void phys_init(void *memory_map, uint64_t map_size) {
+    (void)memory_map;
+    (void)map_size;
     /* For now, just mark the first 1MB as used (BIOS/UEFI legacy) */
     for (uint64_t i = 0; i < 256; i++) {
         mark_used(i);

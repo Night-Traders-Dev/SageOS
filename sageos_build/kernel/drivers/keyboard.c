@@ -196,11 +196,6 @@ int keyboard_wait_event(KeyEvent *ev) {
     }
 }
 
-char keyboard_getchar(void) {
-    KeyEvent ev;
-    for (;;) {
-        if (keyboard_wait_event(&ev)) {
-            if (ev.pressed && ev.ascii) return ev.ascii;
-        }
-    }
+void keyboard_keydebug(void) {
+    console_write("\nKEYDEBUG NOT SUPPORTED IN NATIVE MODE\n");
 }
