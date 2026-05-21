@@ -68,7 +68,7 @@ void kmain(SageOSBootInfo *info) {
 
     sage_kernel_early_init();
 
-    phys_init(NULL, 0);
+    phys_init(info);
     vmm_init();
 
     metal_vm_call(&g_repl_vm, "bootlog_init_driver", NULL, 0);

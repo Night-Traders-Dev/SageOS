@@ -16,13 +16,31 @@ static int is_used(uint64_t page) {
     return bitmap[page / 8] & (1 << (page % 8));
 }
 
-void phys_init(void *memory_map, uint64_t map_size) {
-    (void)memory_map;
-    (void)map_size;
-    /* For now, just mark the first 1MB as used (BIOS/UEFI legacy) */
+extern char __kernel_start[];
+extern char __kernel_end[];
+
+void phys_init(SageOSBootInfo *info) {
+    /* Mark the first 1MB as used (BIOS/UEFI legacy / early pages) */
     for (uint64_t i = 0; i < 256; i++) {
         mark_used(i);
     }
+
+    /* Mark all kernel pages as used */
+    uint64_t start_page = (uint64_t)__kernel_start / PAGE_SIZE;
+    uint64_t end_page = ((uint64_t)__kernel_end + PAGE_SIZE - 1) / PAGE_SIZE;
+    for (uint64_t i = start_page; i < end_page; i++) {
+        mark_used(i);
+    }
+
+    /* Mark backbuffer pages as used if present */
+    if (info && info->backbuffer_address) {
+        uint64_t bb_start = info->backbuffer_address / PAGE_SIZE;
+        uint64_t bb_pages = 4096; /* 16MB */
+        for (uint64_t i = bb_start; i < bb_start + bb_pages; i++) {
+            mark_used(i);
+        }
+    }
+
     dmesg_log("phys_alloc: initialized");
 }
 

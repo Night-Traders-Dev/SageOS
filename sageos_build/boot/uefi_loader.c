@@ -1000,6 +1000,12 @@ EFI_STATUS EFIAPI EfiMain(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tabl
     log_line("[BL] ExitBootServices: starting", 0);
     log_line("[BL] ExitBootServices: OK — log ends here", 0);
 
+    /* Cleanly close UEFI log file handle before ExitBootServices */
+    if (gLogFile) {
+        gLogFile->Close(gLogFile);
+        gLogFile = 0;
+    }
+
     gBootInfo.boot_services_active = 0;
     gBootInfo.input_mode = 2;
     gBootInfo.log_file   = 0;
