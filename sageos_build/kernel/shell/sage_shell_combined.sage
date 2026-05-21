@@ -646,7 +646,6 @@ proc status_refresh():
     end
 
     let text = "BAT " + bat_str + "%  CPU " + cpu_str + "%  RAM " + ram_str + "%"
-    os_draw_status_bar(text)
 end
 
 proc cmd_status():

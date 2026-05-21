@@ -32,7 +32,7 @@ typedef uint64_t EFI_VIRTUAL_ADDRESS;
 #define KERNEL_LOAD_ADDR   0x100000ULL
 
 #ifndef SAGEOS_EXIT_BOOT_SERVICES
-#define SAGEOS_EXIT_BOOT_SERVICES 0
+#define SAGEOS_EXIT_BOOT_SERVICES 1
 #endif
 
 typedef struct {
@@ -998,13 +998,17 @@ EFI_STATUS EFIAPI EfiMain(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tabl
 #if SAGEOS_EXIT_BOOT_SERVICES
     print(L"Exiting boot services...\r\n");
     log_line("[BL] ExitBootServices: starting", 0);
+    log_line("[BL] ExitBootServices: OK — log ends here", 0);
 
     gBootInfo.boot_services_active = 0;
     gBootInfo.input_mode = 2;
+    gBootInfo.log_file   = 0;
+    gBootInfo.log_offset = 0;
 
     status = handoff_memory_map(image_handle, 1);
 
     if (status != EFI_SUCCESS) {
+        gBootInfo.log_file   = (UINT64)(uintptr_t)gLogFile;
         log_write("[BL] ExitBootServices FAILED: ");
         log_hex64(status);
         log_write("\r\n");
@@ -1013,10 +1017,6 @@ EFI_STATUS EFIAPI EfiMain(EFI_HANDLE image_handle, EFI_SYSTEM_TABLE *system_tabl
         print(L"\r\n");
         for (;;) {}
     }
-    log_line("[BL] ExitBootServices: OK — log ends here", 0);
-    /* After ExitBootServices the log file handle is invalid. Clear it. */
-    gBootInfo.log_file   = 0;
-    gBootInfo.log_offset = 0;
 #else
     print(L"Keeping boot services active for firmware keyboard input.\r\n");
     log_line("[BL] boot services kept active (firmware keyboard mode)", 0);
