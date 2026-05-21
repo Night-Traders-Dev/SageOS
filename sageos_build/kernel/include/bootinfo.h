@@ -43,6 +43,7 @@ typedef struct {
      */
     uint64_t log_file;    /* EFI_FILE_PROTOCOL* cast to uint64_t, 0 if none */
     uint64_t log_offset;  /* current write position in the log file       */
+    uint64_t root_dir;    /* EFI_FILE_PROTOCOL* of the volume root        */
 } __attribute__((packed)) SageOSBootInfo;
 
 #endif

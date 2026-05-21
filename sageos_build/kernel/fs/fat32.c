@@ -326,7 +326,13 @@ int fat32_init(void) {
 }
 
 int fat32_is_available(void) {
-    return fat32_available;
+    if (fat32_available) return 1;
+    extern SageOSBootInfo *kernel_get_boot_info(void);
+    SageOSBootInfo *info = kernel_get_boot_info();
+    if (info && info->boot_services_active && info->root_dir) {
+        return 1;
+    }
+    return 0;
 }
 
 /*
@@ -677,30 +683,188 @@ int fat32_write(const char *path, uint64_t offset, const void *buffer, size_t si
     return (int)bytes_written;
 }
 
-/* -----------------------------------------------------------------------
- * VFS Backend adapter
- * ----------------------------------------------------------------------- */
+#include "bootinfo.h"
+
+// Forward declaration of EFI protocols
+struct EfiFileProtocol;
+
+typedef uint64_t (__attribute__((ms_abi)) *EfiFileOpen)(
+    struct EfiFileProtocol *This,
+    struct EfiFileProtocol **NewHandle,
+    const uint16_t *FileName,
+    uint64_t OpenMode,
+    uint64_t Attributes
+);
+
+typedef uint64_t (__attribute__((ms_abi)) *EfiFileClose)(
+    struct EfiFileProtocol *This
+);
+
+typedef uint64_t (__attribute__((ms_abi)) *EfiFileRead)(
+    struct EfiFileProtocol *This,
+    uint64_t *BufferSize,
+    void *Buffer
+);
+
+typedef uint64_t (__attribute__((ms_abi)) *EfiFileWrite)(
+    struct EfiFileProtocol *This,
+    uint64_t *BufferSize,
+    const void *Buffer
+);
+
+typedef uint64_t (__attribute__((ms_abi)) *EfiFileSetPosition)(
+    struct EfiFileProtocol *This,
+    uint64_t Position
+);
+
+typedef uint64_t (__attribute__((ms_abi)) *EfiFileGetInfo)(
+    struct EfiFileProtocol *This,
+    const uint8_t *InformationType,
+    uint64_t *BufferSize,
+    void *Buffer
+);
+
+typedef struct EfiFileProtocol {
+    uint64_t Revision;
+    EfiFileOpen Open;
+    EfiFileClose Close;
+    void *Delete;
+    EfiFileRead Read;
+    EfiFileWrite Write;
+    void *GetPosition;
+    EfiFileSetPosition SetPosition;
+    EfiFileGetInfo GetInfo;
+    void *SetInfo;
+    void *Flush;
+} EfiFileProtocol;
+
+static const uint8_t g_efi_file_info_guid[16] = {
+    0x92, 0x6E, 0x57, 0x09, 0x3F, 0x6D, 0xD2, 0x11,
+    0x8E, 0x39, 0x00, 0xA0, 0xC9, 0x69, 0x72, 0x3B
+};
+
+extern SageOSBootInfo *kernel_get_boot_info(void);
+
+static void ascii_to_utf16_path(const char *src, uint16_t *dst, int max_len) {
+    int i = 0;
+    // Always start with backslash for root volume path
+    dst[i++] = '\\';
+    while (*src && i < max_len - 2) {
+        char c = *src++;
+        if (c == '/') c = '\\';
+        dst[i++] = c;
+    }
+    dst[i] = 0;
+}
 
 static int fat32_be_stat(VfsBackend *self, const char *rel_path, VfsStat *out) {
     (void)self;
+    SageOSBootInfo *info = kernel_get_boot_info();
+    if (info && info->boot_services_active && info->root_dir) {
+        EfiFileProtocol *root = (EfiFileProtocol *)info->root_dir;
+        uint16_t wpath[256];
+        ascii_to_utf16_path(rel_path, wpath, 256);
+
+        EfiFileProtocol *file = NULL;
+        uint64_t status = root->Open(root, &file, wpath, 1 /* READ */, 0);
+        if (status != 0) {
+            return -2; // ENOENT
+        }
+
+        uint8_t info_buf[256];
+        uint64_t buf_size = sizeof(info_buf);
+        status = file->GetInfo(file, g_efi_file_info_guid, &buf_size, info_buf);
+
+        if (status == 0) {
+            uint64_t file_size = *(uint64_t *)(info_buf + 8);
+            uint64_t attr = *(uint64_t *)(info_buf + 24);
+
+            int i = 0;
+            const char *p = rel_path;
+            while (*p) p++;
+            while (p > rel_path && *(p - 1) != '/') p--;
+            while (*p && i < 63) out->name[i++] = *p++;
+            out->name[i] = 0;
+
+            out->type = (attr & 0x10) ? VFS_DIRECTORY : VFS_FILE;
+            out->size = file_size;
+        }
+
+        file->Close(file);
+        return (status == 0) ? 0 : -5;
+    }
     return fat32_stat(rel_path, out);
 }
 
 static int fat32_be_readdir(VfsBackend *self, const char *rel_path,
                             VfsDirEntry *entries, int max_entries) {
     (void)self;
+    SageOSBootInfo *info = kernel_get_boot_info();
+    if (info && info->boot_services_active && info->root_dir) {
+        return 0;
+    }
     return fat32_readdir(rel_path, entries, max_entries);
 }
 
 static int fat32_be_read(VfsBackend *self, const char *rel_path,
                          uint64_t offset, void *buffer, size_t size) {
     (void)self;
+    SageOSBootInfo *info = kernel_get_boot_info();
+    if (info && info->boot_services_active && info->root_dir) {
+        EfiFileProtocol *root = (EfiFileProtocol *)info->root_dir;
+        uint16_t wpath[256];
+        ascii_to_utf16_path(rel_path, wpath, 256);
+
+        EfiFileProtocol *file = NULL;
+        uint64_t status = root->Open(root, &file, wpath, 1 /* READ */, 0);
+        if (status != 0) {
+            return -2; // ENOENT
+        }
+
+        if (file->SetPosition) {
+            file->SetPosition(file, offset);
+        }
+
+        uint64_t read_len = size;
+        status = file->Read(file, &read_len, buffer);
+
+        file->Close(file);
+
+        if (status != 0) return -5; // EIO
+        return (int)read_len;
+    }
     return fat32_read(rel_path, offset, buffer, size);
 }
 
 static int fat32_be_write(VfsBackend *self, const char *rel_path,
                           uint64_t offset, const void *buffer, size_t size) {
     (void)self;
+    SageOSBootInfo *info = kernel_get_boot_info();
+    if (info && info->boot_services_active && info->root_dir) {
+        EfiFileProtocol *root = (EfiFileProtocol *)info->root_dir;
+        uint16_t wpath[256];
+        ascii_to_utf16_path(rel_path, wpath, 256);
+
+        EfiFileProtocol *file = NULL;
+        uint64_t status = root->Open(root, &file, wpath, 3 /* READ | WRITE */, 0);
+        if (status != 0) {
+            // Try to create it
+            status = root->Open(root, &file, wpath, 0x8000000000000003ULL /* CREATE | READ | WRITE */, 0);
+            if (status != 0) return -5; // EIO
+        }
+
+        if (file->SetPosition) {
+            file->SetPosition(file, offset);
+        }
+
+        uint64_t write_len = size;
+        status = file->Write(file, &write_len, buffer);
+
+        file->Close(file);
+
+        if (status != 0) return -5;
+        return (int)write_len;
+    }
     return fat32_write(rel_path, offset, buffer, size);
 }
 
@@ -719,3 +883,4 @@ static VfsBackend g_fat32_backend = {
 VfsBackend *fat32_get_backend(void) {
     return &g_fat32_backend;
 }
+

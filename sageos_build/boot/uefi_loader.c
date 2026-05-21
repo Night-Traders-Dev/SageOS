@@ -421,6 +421,7 @@ typedef struct {
      */
     UINT64 log_file;    /* EFI_FILE_PROTOCOL* cast to UINT64, 0 if none */
     UINT64 log_offset;  /* current write position in the log file        */
+    UINT64 root_dir;    /* EFI_FILE_PROTOCOL* of the volume root         */
 } __attribute__((packed)) SageOSBootInfo;
 
 #define SAGEOS_BOOT_MAGIC 0x534147454F534249ULL
@@ -885,9 +886,8 @@ static EFI_STATUS open_log_file(EFI_HANDLE image_handle) {
         );
     }
 
-    root->Close(root);
-
     if (status != EFI_SUCCESS) {
+        root->Close(root);
         gLogFile = 0;
         return status;
     }
@@ -900,6 +900,7 @@ static EFI_STATUS open_log_file(EFI_HANDLE image_handle) {
 
     gBootInfo.log_file   = (UINT64)(uintptr_t)gLogFile;
     gBootInfo.log_offset = 0;
+    gBootInfo.root_dir   = (UINT64)(uintptr_t)root;
     return EFI_SUCCESS;
 }
 
