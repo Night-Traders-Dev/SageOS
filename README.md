@@ -284,7 +284,7 @@ sudo apt install -y \
   lld \
   llvm \
   qemu-system-x86 \
-  ovmf \
+  ovmf-generic \
   dosfstools \
   mtools \
   gdisk \
@@ -310,13 +310,13 @@ qemu-system-x86_64
 ## Prerequisites
 
 - Linux host system
-- Required tools: clang, lld, llvm, qemu-system-x86, ovmf, dosfstools, mtools, gdisk, util-linux
+- Required tools: clang, lld, llvm, qemu-system-x86, ovmf-generic, dosfstools, mtools, gdisk, util-linux
 
 Install on Ubuntu/Debian:
 
 ```bash
 sudo apt update
-sudo apt install -y clang lld llvm qemu-system-x86 ovmf dosfstools mtools gdisk util-linux
+sudo apt install -y clang lld llvm qemu-system-x86 ovmf-generic dosfstools mtools gdisk util-linux
 ```
 
 ## Building

@@ -231,9 +231,13 @@ struct MetalVM {
 // Public API
 // ============================================================================
 
+// FNV-1a hash of a string
+unsigned int metal_fnv1a(const char* s);
+
 // Register a native C function callable from Sage as fn_name(...)
 // Returns 1 on success, 0 if the native table is full.
 int metal_vm_register_native(MetalVM* vm, const char* name, MetalNativeFn fn);
+
 
 // Look up a native function by FNV-1a hash (used internally by OP_CALL dispatch)
 MetalNativeFn metal_vm_find_native(MetalVM* vm, unsigned int hash);
