@@ -302,41 +302,12 @@ static int parse_serial_escape(KeyEvent *ev) {
     if (next == 'B') { ev->scancode = 0x50; ev->pressed = 1; ev->extended = 1; ev->ascii = 0; return 1; }
     if (next == 'C') { ev->scancode = 0x4D; ev->pressed = 1; ev->extended = 1; ev->ascii = 0; return 1; }
     if (next == 'D') { ev->scancode = 0x4B; ev->pressed = 1; ev->extended = 1; ev->ascii = 0; return 1; }
-
-    if (next == '3') {
-        wait = 0;
-        while (wait++ < 2000) {
-            if (serial_poll_char(&next)) break;
-            status_tick_poll();
-            cpu_hlt();
-        }
-        if (next == '~') { ev->scancode = 0x53; ev->pressed = 1; ev->extended = 1; ev->ascii = 0; return 1; }
-    }
-
-    if (next == '1') {
-        wait = 0;
-        while (wait++ < 2000) {
-            if (serial_poll_char(&next)) break;
-            status_tick_poll();
-            cpu_hlt();
-        }
-        if (next == '~') { ev->scancode = 0x47; ev->pressed = 1; ev->extended = 1; ev->ascii = 0; return 1; } /* Home */
-    }
-
-    if (next == '4') {
-        wait = 0;
-        while (wait++ < 2000) {
-            if (serial_poll_char(&next)) break;
-            status_tick_poll();
-            cpu_hlt();
-        }
-        if (next == '~') { ev->scancode = 0x4F; ev->pressed = 1; ev->extended = 1; ev->ascii = 0; return 1; } /* End */
-    }
-
+    
+    /* Not an arrow key, fallback */
     ev->scancode = 0;
     ev->pressed  = 1;
     ev->extended = 0;
-    ev->ascii    = 27;
+    ev->ascii    = next; // return the character that followed [
     return 1;
 }
 
