@@ -9,15 +9,16 @@
 #include <stdint.h>
 #include "console.h"
 #include "vm_core_shared.h"
+#include "vm_hal.h"
 
-// Bare-metal libc stubs (from bare_metal.c or provided by host)
-extern void* memset(void* s, int c, unsigned long n);
-extern void* memcpy(void* dest, const void* src, unsigned long n);
-extern unsigned long strlen(const char* s);
-
-extern void console_write(const char* s);
-extern void console_u32(uint32_t v);
-extern int strcmp(const char* s1, const char* s2);
+// Bare-metal HAL implementations
+void* vm_memset(void* s, int c, size_t n) { return memset(s, c, n); }
+void* vm_memcpy(void* dest, const void* src, size_t n) { return memcpy(dest, src, n); }
+size_t vm_strlen(const char* s) { return strlen(s); }
+void vm_console_write(const char* s) { console_write(s); }
+void vm_console_u32(uint32_t v) { console_u32(v); }
+void* vm_alloc(size_t size) { /* Implement using static heap pool */ return NULL; }
+void vm_free(void* ptr) { /* Implement using static heap pool */ }
 
 // ============================================================================
 // Helpers
