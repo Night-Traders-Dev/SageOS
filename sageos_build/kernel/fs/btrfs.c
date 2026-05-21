@@ -21,8 +21,14 @@
 static int btrfs_available = 0;
 static btrfs_super_block g_super;
 
-static int btrfs_read_sector(uint32_t lba, uint8_t *buffer) {
-    return ata_read_sector(lba, (uint16_t *)buffer);
+static int btrfs_read_node(uint64_t logical_addr, void *buffer) {
+    /* For now, assume logical address is directly mapped to sector offset 
+       ignoring complex chunk mapping. */
+    uint32_t lba = BTRFS_PARTITION_START_LBA + (uint32_t)(logical_addr / 512);
+    for (int i = 0; i < (int)(g_super.nodesize / 512); i++) {
+        if (!btrfs_read_sector(lba + i, (uint8_t*)buffer + (i * 512))) return 0;
+    }
+    return 1;
 }
 
 int btrfs_init(void) {
@@ -57,8 +63,19 @@ int btrfs_init(void) {
     return 0;
 }
 
-int btrfs_is_available(void) {
-    return btrfs_available;
+void btrfs_ls(void) {
+    if (!btrfs_available) return;
+    uint8_t buffer[16384]; /* Assume max node size */
+    if (!btrfs_read_node(g_super.root, buffer)) return;
+    
+    btrfs_leaf *leaf = (btrfs_leaf *)buffer;
+    console_write("\n/BTRFS (Root Tree):");
+    for (uint32_t i = 0; i < leaf->header.nritems; i++) {
+        console_write("\n  ObjectID: ");
+        console_hex64(leaf->items[i].key.objectid);
+        console_write(" Type: ");
+        console_u32(leaf->items[i].key.type);
+    }
 }
 
 static int btrfs_be_stat(VfsBackend *self, const char *rel_path, VfsStat *out) {

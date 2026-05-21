@@ -65,6 +65,35 @@ typedef struct {
     uint8_t super_roots[512];
 } __attribute__((packed)) btrfs_super_block;
 
+typedef struct {
+    uint8_t csum[32];
+    uint8_t fsid[16];
+    uint64_t bytenr;
+    uint64_t flags;
+    uint16_t level;
+    uint16_t generation;
+    uint64_t owner;
+    uint32_t nritems;
+    uint8_t header_flags;
+} __attribute__((packed)) btrfs_header;
+
+typedef struct {
+    uint64_t objectid;
+    uint8_t type;
+    uint64_t offset;
+} __attribute__((packed)) btrfs_key;
+
+typedef struct {
+    btrfs_key key;
+    uint32_t offset;
+    uint32_t size;
+} __attribute__((packed)) btrfs_item;
+
+typedef struct {
+    btrfs_header header;
+    btrfs_item items[];
+} __attribute__((packed)) btrfs_leaf;
+
 int btrfs_init(void);
 int btrfs_is_available(void);
 VfsBackend *btrfs_get_backend(void);
