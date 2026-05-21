@@ -8,6 +8,7 @@
 #include "metal_vm.h"
 #include <stdint.h>
 #include "console.h"
+#include "vm_core_shared.h"
 
 // Bare-metal libc stubs (from bare_metal.c or provided by host)
 extern void* memset(void* s, int c, unsigned long n);
@@ -17,59 +18,6 @@ extern unsigned long strlen(const char* s);
 extern void console_write(const char* s);
 extern void console_u32(uint32_t v);
 extern int strcmp(const char* s1, const char* s2);
-
-// Bytecode opcodes — subset matching src/vm/bytecode.h
-#define OP_CONSTANT       0
-#define OP_NIL            1
-#define OP_TRUE           2
-#define OP_FALSE          3
-#define OP_POP            4
-#define OP_GET_GLOBAL     5
-#define OP_DEFINE_GLOBAL  6
-#define OP_SET_GLOBAL     7
-#define OP_DEFINE_FN      8
-#define OP_GET_PROPERTY   9
-#define OP_SET_PROPERTY   10
-#define OP_GET_INDEX      11
-#define OP_SET_INDEX      12
-#define OP_SLICE          13
-#define OP_ADD            14
-#define OP_SUB            15
-#define OP_MUL            16
-#define OP_DIV            17
-#define OP_MOD            18
-#define OP_NEGATE         19
-#define OP_EQUAL          20
-#define OP_NOT_EQUAL      21
-#define OP_GREATER        22
-#define OP_GREATER_EQ     23
-#define OP_LESS           24
-#define OP_LESS_EQ        25
-#define OP_BIT_AND        26
-#define OP_BIT_OR         27
-#define OP_BIT_XOR        28
-#define OP_BIT_NOT        29
-#define OP_SHIFT_LEFT     30
-#define OP_SHIFT_RIGHT    31
-#define OP_NOT            32
-#define OP_TRUTHY         33
-#define OP_JUMP           34
-#define OP_JUMP_IF_FALSE  35
-#define OP_CALL           36
-#define OP_CALL_METHOD    37
-#define OP_ARRAY          38
-#define OP_TUPLE          39
-#define OP_DICT           40
-#define OP_PRINT          41
-#define OP_RETURN         43
-#define OP_PUSH_ENV       44
-#define OP_POP_ENV        45
-#define OP_DUP            46
-#define OP_ARRAY_LEN      47
-#define OP_BREAK          48
-#define OP_CONTINUE       49
-#define OP_LOOP_BACK      50
-#define OP_HALT           0xFF
 
 // ============================================================================
 // Helpers
