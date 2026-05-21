@@ -717,11 +717,9 @@ typedef uint64_t (__attribute__((ms_abi)) *EfiFileSetPosition)(
     uint64_t Position
 );
 
-typedef uint64_t (__attribute__((ms_abi)) *EfiFileGetInfo)(
+typedef uint64_t (__attribute__((ms_abi)) *EfiFileGetPosition)(
     struct EfiFileProtocol *This,
-    const uint8_t *InformationType,
-    uint64_t *BufferSize,
-    void *Buffer
+    uint64_t *Position
 );
 
 typedef struct EfiFileProtocol {
@@ -731,9 +729,9 @@ typedef struct EfiFileProtocol {
     void *Delete;
     EfiFileRead Read;
     EfiFileWrite Write;
-    void *GetPosition;
+    EfiFileGetPosition GetPosition;
     EfiFileSetPosition SetPosition;
-    EfiFileGetInfo GetInfo;
+    void *GetInfo;
     void *SetInfo;
     void *Flush;
 } EfiFileProtocol;
@@ -760,16 +758,6 @@ static void ascii_to_utf16_path(const char *src, uint16_t *dst, int max_len) {
 static int fat32_be_stat(VfsBackend *self, const char *rel_path, VfsStat *out) {
     (void)self;
     SageOSBootInfo *info = kernel_get_boot_info();
-    console_write("\n[DEBUG] fat32_be_stat: rel_path=");
-    console_write(rel_path);
-    if (!info) {
-        console_write(" -> info is NULL!");
-    } else {
-        console_write(" active=");
-        console_u32(info->boot_services_active);
-        console_write(" root_dir=");
-        console_hex64(info->root_dir);
-    }
     if (info && info->boot_services_active && info->root_dir) {
         EfiFileProtocol *root = (EfiFileProtocol *)info->root_dir;
         uint16_t wpath[256];
@@ -777,33 +765,35 @@ static int fat32_be_stat(VfsBackend *self, const char *rel_path, VfsStat *out) {
 
         EfiFileProtocol *file = NULL;
         uint64_t status = root->Open(root, &file, wpath, 1 /* READ */, 0);
-        console_write(" Open_status=");
-        console_hex64(status);
         if (status != 0) {
             return -2; // ENOENT
         }
 
-        uint8_t info_buf[256];
-        uint64_t buf_size = sizeof(info_buf);
-        status = file->GetInfo(file, g_efi_file_info_guid, &buf_size, info_buf);
-
-        if (status == 0) {
-            uint64_t file_size = *(uint64_t *)(info_buf + 8);
-            uint64_t attr = *(uint64_t *)(info_buf + 24);
-
-            int i = 0;
-            const char *p = rel_path;
-            while (*p) p++;
-            while (p > rel_path && *(p - 1) != '/') p--;
-            while (*p && i < 63) out->name[i++] = *p++;
-            out->name[i] = 0;
-
-            out->type = (attr & 0x10) ? VFS_DIRECTORY : VFS_FILE;
-            out->size = file_size;
+        uint64_t file_size = 0;
+        if (file->SetPosition) {
+            file->SetPosition(file, 0xFFFFFFFFFFFFFFFFULL);
+        }
+        if (file->GetPosition) {
+            file->GetPosition(file, &file_size);
         }
 
+        // Restore position
+        if (file->SetPosition) {
+            file->SetPosition(file, 0);
+        }
+
+        int i = 0;
+        const char *p = rel_path;
+        while (*p) p++;
+        while (p > rel_path && *(p - 1) != '/') p--;
+        while (*p && i < 63) out->name[i++] = *p++;
+        out->name[i] = 0;
+
+        out->type = VFS_FILE;
+        out->size = file_size;
+
         file->Close(file);
-        return (status == 0) ? 0 : -5;
+        return 0;
     }
     return fat32_stat(rel_path, out);
 }
