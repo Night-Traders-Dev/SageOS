@@ -552,10 +552,13 @@ void cmd_btop(void) {
         timer_poll();
         btop_push_history(cpu, pct_u64(used, total));
 
-        if (console_has_fb()) console_set_serial_echo(0);
-        btop_draw_console(cpu, used, total, bat);
         if (console_has_fb()) {
+            console_set_serial_echo(0);
+            btop_draw_console(cpu, used, total, bat);
+            console_periodic_flip();
             console_set_serial_echo(saved_serial_echo);
+            btop_draw_serial(cpu, used, total, bat);
+        } else {
             btop_draw_serial(cpu, used, total, bat);
         }
 

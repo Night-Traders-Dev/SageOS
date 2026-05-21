@@ -65,8 +65,27 @@ void timer_init(void) {
 
 extern MetalVM g_repl_vm;
 
+static void timer_update_cpu_percent(void) {
+    static uint64_t last_update_ticks = 0;
+    if (ticks - last_update_ticks >= 10) {
+        uint64_t diff_idle = idle_loops - last_idle_loops;
+        uint64_t diff_total = total_loops - last_total_loops;
+        if (diff_total > 0) {
+            uint32_t idle_pct = (uint32_t)((diff_idle * 100ULL) / diff_total);
+            if (idle_pct > 100) idle_pct = 100;
+            cached_cpu_percent = 100 - idle_pct;
+        } else {
+            cached_cpu_percent = 0;
+        }
+        last_idle_loops = idle_loops;
+        last_total_loops = total_loops;
+        last_update_ticks = ticks;
+    }
+}
+
 void timer_irq(void) {
     ticks++;
+    timer_update_cpu_percent();
     // Direct call into SageLang timer_irq
     metal_vm_call(&g_repl_vm, "timer_irq", NULL, 0);
 }
@@ -76,6 +95,7 @@ void timer_poll(void) {
 
     /* Update ticks in firmware mode */
     ticks++;
+    timer_update_cpu_percent();
 
     /*
      * Drive the framebuffer periodic flip in firmware-input mode.
