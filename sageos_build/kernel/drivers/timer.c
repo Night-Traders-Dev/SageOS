@@ -110,7 +110,7 @@ void timer_poll(void) {
 void timer_idle_poll(void) {
     idle_loops++;
     total_loops++;
-    cpu_pause();
+    cpu_hlt();
 }
 
 uint64_t timer_ticks(void) {

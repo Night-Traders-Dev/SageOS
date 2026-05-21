@@ -112,15 +112,47 @@ static int btrfs_be_read(VfsBackend *self, const char *rel_path,
     return VFS_EIO; /* Placeholder */
 }
 
+static int btrfs_be_write(VfsBackend *self, const char *rel_path,
+                          uint64_t offset, const void *data, size_t size) {
+    (void)self;
+    (void)rel_path;
+    (void)offset;
+    (void)data;
+    (void)size;
+    dmesg_log("btrfs: write (copy-on-write) requested but not fully implemented");
+    return VFS_EROFS; /* Read-only for now */
+}
+
+static int btrfs_be_mkdir(VfsBackend *self, const char *rel_path) {
+    (void)self;
+    (void)rel_path;
+    dmesg_log("btrfs: mkdir requested but not fully implemented");
+    return VFS_EROFS;
+}
+
+static int btrfs_be_create(VfsBackend *self, const char *rel_path) {
+    (void)self;
+    (void)rel_path;
+    dmesg_log("btrfs: create requested but not fully implemented");
+    return VFS_EROFS;
+}
+
+static int btrfs_be_unlink(VfsBackend *self, const char *rel_path) {
+    (void)self;
+    (void)rel_path;
+    dmesg_log("btrfs: unlink requested but not fully implemented");
+    return VFS_EROFS;
+}
+
 static VfsBackend g_btrfs_backend = {
     .name    = "btrfs",
     .stat    = btrfs_be_stat,
     .readdir = btrfs_be_readdir,
     .read    = btrfs_be_read,
-    .write   = NULL,
-    .mkdir   = NULL,
-    .create  = NULL,
-    .unlink  = NULL,
+    .write   = btrfs_be_write,
+    .mkdir   = btrfs_be_mkdir,
+    .create  = btrfs_be_create,
+    .unlink  = btrfs_be_unlink,
     .priv    = NULL
 };
 

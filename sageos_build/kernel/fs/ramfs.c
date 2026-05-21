@@ -445,6 +445,8 @@ void ramfs_init(void) {
     ramfs_create_dir("/dev");
     ramfs_create_dir("/proc");
     ramfs_create_dir("/tmp");
+    ramfs_create_dir("/fat32");
+    ramfs_create_dir("/btrfs");
 
     /* Pre-populate with static files (use _ref for const data) */
     static const char motd[] = "Welcome to SageOS v" SAGEOS_VERSION ".\nType help for commands.\n";

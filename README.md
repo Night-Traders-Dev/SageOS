@@ -34,7 +34,7 @@ SageOS is a lightweight, x86_64 UEFI-based operating system project primarily ta
 - **QCA6174A Wi-Fi Driver**: Full PCI enumeration, firmware staging (firmware-6.bin / board-2.bin downloaded fresh each build), WMI/HTT ring initialization, WPA2-PSK handshake, and DHCP. Credentials are saved to `/fat32/WIFI.CFG` and auto-reconnect on boot.
 - **Hardware Abstraction**: Early diagnostics for SMP, ACPI, battery/EC, and PCI bus.
 - **Programmable Init**: System initialization orchestrated via `init.sage`.
-- **Advanced Storage**: Full read-write FAT32 filesystem support and BTRFS superblock reader.
+- **Advanced Storage**: Full read-write FAT32 filesystem support, and BTRFS superblock reader with copy-on-write (COW) write stubs.
 - **Memory Management**: Formal physical memory allocator and virtual memory management (paging).
 - **Native Drivers**: Decoupled hardware (keyboard, boot logging) from UEFI runtime services using interrupt-driven I/O.
 - **Real-Time Resource Monitor (`btop`)**: Live CPU%, RAM, battery, storage, and scheduler stats. Runs on both the GOP framebuffer and serial terminal. Hardware-safe (no PIT-dependent sleep loops).
