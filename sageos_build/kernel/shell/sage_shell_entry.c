@@ -28,6 +28,8 @@
 #include "sdhci.h"
 #include "shell.h"
 #include "elf.h"
+#include "dmesg.h"
+#include "scheduler.h"
 #include "version.h"
 #include "dmesg.h"
 #include "bootinfo.h"
@@ -684,6 +686,32 @@ static MetalValue n_os_get_c0(MetalVM *vm, MetalValue *a, int c) {
     return mv_nil();
 }
 
+/* --- dmesg write --- */
+static MetalValue n_dmesg_log(MetalVM *vm, MetalValue *a, int c) {
+    dmesg_log(arg_str(vm, a, c, 0)); return mv_nil();
+}
+
+/* --- Scheduler stats --- */
+static MetalValue n_sched_info(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm;(void)a;(void)c; sched_cmd_info(); return mv_nil();
+}
+static MetalValue n_sched_thread_count(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm;(void)a;(void)c;
+    return mv_dbl((double)sched_get_stats()->thread_count);
+}
+static MetalValue n_sched_cpu_count(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm;(void)a;(void)c;
+    return mv_dbl((double)sched_get_stats()->cpu_count);
+}
+static MetalValue n_sched_context_switches(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm;(void)a;(void)c;
+    return mv_dbl((double)sched_get_stats()->context_switches);
+}
+static MetalValue n_sched_migrations(MetalVM *vm, MetalValue *a, int c) {
+    (void)vm;(void)a;(void)c;
+    return mv_dbl((double)sched_get_stats()->migrations);
+}
+
 /* -----------------------------------------------------------------------
  * Register all natives
  * --------------------------------------------------------------------- */
@@ -754,10 +782,17 @@ static void register_natives(MetalVM *vm) {
     REG("os_shell_print_completions", n_shell_print_completions);
     REG("os_keydebug",      n_keydebug);
     REG("os_dmesg_dump",    n_dmesg_dump);
+    REG("os_dmesg_log",     n_dmesg_log);
     REG("os_dmesg_get_total", n_dmesg_get_total);
     REG("os_dmesg_get_head",  n_dmesg_get_head);
     REG("os_dmesg_get_size",  n_dmesg_get_size);
     REG("os_dmesg_get_char",  n_dmesg_get_char);
+    /* Scheduler stats */
+    REG("os_sched_info",           n_sched_info);
+    REG("os_sched_thread_count",   n_sched_thread_count);
+    REG("os_sched_cpu_count",      n_sched_cpu_count);
+    REG("os_sched_context_switches",n_sched_context_switches);
+    REG("os_sched_migrations",     n_sched_migrations);
     REG("os_status_print",  n_status_print);
     REG("os_status_refresh",n_status_refresh);
     REG("os_draw_status_bar",n_draw_status_bar);

@@ -24,13 +24,15 @@ NEOFETCH="${SAGE_SHELL_DIR}/sage_shell/neofetch.sage"
 STATUS="${SAGE_SHELL_DIR}/sage_shell/status.sage"
 SWAP="${SAGE_SHELL_DIR}/sage_shell/swap.sage"
 POWER="${SAGE_SHELL_DIR}/sage_shell/power.sage"
+SCHED="${SAGE_SHELL_DIR}/sage_shell/sched.sage"
+KERNEL_INFO="${SAGE_SHELL_DIR}/sage_shell/kernel_info.sage"
 INPUT_HELPER="${SAGE_SHELL_DIR}/sage_shell/input.sage"
 BYTECODE="${SAGE_SHELL_DIR}/sage_shell.bc"
 OUT_H="${SAGE_SHELL_DIR}/sage_shell_bytecode.h"
 COMBINED="${SAGE_SHELL_DIR}/sage_shell_combined.sage"
 
 echo "[sage-shell] Combining .sage sources..."
-cat "${INPUT_HELPER}" "${COMMANDS}" "${DMESG}" "${NEOFETCH}" "${STATUS}" "${SWAP}" "${POWER}" "${INPUT}" > "${COMBINED}"
+cat "${INPUT_HELPER}" "${COMMANDS}" "${DMESG}" "${NEOFETCH}" "${STATUS}" "${SWAP}" "${POWER}" "${SCHED}" "${KERNEL_INFO}" "${INPUT}" > "${COMBINED}"
 
 echo "[sage-shell] Compiling to bytecode..."
 # sage --compile-bytecode outputs a raw binary bytecode file

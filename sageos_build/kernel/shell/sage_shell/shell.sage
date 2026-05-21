@@ -51,6 +51,14 @@ proc shell_dispatch(line):
         cmd_exit()
         return nil
     end
+    if os_streq(line, "sched"):
+        cmd_sched()
+        return nil
+    end
+    if os_streq(line, "kernel"):
+        cmd_kernel()
+        return nil
+    end
     if os_streq(line, "help"):
         cmd_help()
         return nil
