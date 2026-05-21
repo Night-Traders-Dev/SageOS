@@ -12,6 +12,7 @@
 
 extern void register_timer_native_bindings(MetalVM* vm);
 extern void register_bootlog_native_bindings(MetalVM* vm);
+extern void register_power_native_bindings(MetalVM* vm);
 
 #include <stdio.h>
 #include <string.h>
@@ -400,6 +401,7 @@ static void sage_register_repl_natives(MetalVM* vm) {
     metal_vm_register_native(vm, "os_get_color", n_os_get_color);
     register_timer_native_bindings(vm);
     register_bootlog_native_bindings(vm);
+    register_power_native_bindings(vm);
 }
 
 static void sage_repl_reset_vm(void) {

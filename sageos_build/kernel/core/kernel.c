@@ -26,6 +26,8 @@
 #include "metal_vm.h"
 
 extern void register_timer_native_bindings(MetalVM* vm);
+extern void register_bootlog_native_bindings(MetalVM* vm);
+extern void register_power_native_bindings(MetalVM* vm);
 
 extern int fat32_init(void);
 
