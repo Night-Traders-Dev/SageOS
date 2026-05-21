@@ -6,6 +6,7 @@
 // Define external kernel functions to be bridged
 extern void ata_timer_tick(void);
 extern void console_periodic_flip(void);
+extern void timer_irq(void);
 
 // Native function: outb(port, val)
 static MetalValue native_outb(MetalVM* vm, MetalValue* args, int argc) {
