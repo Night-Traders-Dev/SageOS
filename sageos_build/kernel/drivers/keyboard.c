@@ -257,6 +257,8 @@ static int firmware_poll_key(KeyEvent *ev) {
             ev->ascii    = 27;
             return 1;
         default:
+            /* If we can't map it, set extended to 0 and hope it's not a printable */
+            ev->extended = 0;
             return 0;
         }
     }
