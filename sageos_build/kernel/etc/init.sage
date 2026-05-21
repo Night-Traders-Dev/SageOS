@@ -34,6 +34,3 @@ if os_path_exists("/dev/sda"):
 os_write_str("System ready.\n\n")
 
 # The kernel will launch the shell after this script finishes.
-
-# Automate shutdown for testing
-os_shell_exec("exit")
