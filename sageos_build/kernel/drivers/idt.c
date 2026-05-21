@@ -23,20 +23,25 @@ typedef struct __attribute__((packed)) {
 
 static IdtEntry idt[256];
 
-static void idt_set_gate(uint8_t vector, void *handler) {
+static void idt_set_gate(uint8_t vector, void *handler, int dpl) {
     uint64_t addr = (uint64_t)(uintptr_t)handler;
 
     idt[vector].offset_low = (uint16_t)(addr & 0xFFFF);
-    idt[vector].selector = 0x08;  /* kernel_gdt: 64-bit code segment */
+    idt[vector].selector = 0x08;
     idt[vector].ist = 0;
-    idt[vector].type_attr = 0x8E;
+    /* DPL 3 allows user-mode access for syscalls */
+    idt[vector].type_attr = (uint8_t)(0x8E | (dpl << 5));
     idt[vector].offset_mid = (uint16_t)((addr >> 16) & 0xFFFF);
     idt[vector].offset_high = (uint32_t)((addr >> 32) & 0xFFFFFFFF);
     idt[vector].zero = 0;
 }
 
 void idt_set_interrupt_handler(uint8_t vector, void *handler) {
-    idt_set_gate(vector, handler);
+    idt_set_gate(vector, handler, 0);
+}
+
+void idt_set_syscall_handler(uint8_t vector, void *handler) {
+    idt_set_gate(vector, handler, 3);
 }
 
 static void lidt(IdtPtr *ptr) {
@@ -98,10 +103,51 @@ static void pic_remap(void) {
     (void)a2;
 }
 
-void irq0_handler_c(void);
-void irq1_handler_c(void);
-void sci_handler_c(void);
-void ata_handler_c(void);
+void syscall_handler_c(void *regs);
+
+__attribute__((naked)) void syscall_stub(void) {
+    __asm__ volatile (
+        "pushq %rax\n"
+        "pushq %rbx\n"
+        "pushq %rcx\n"
+        "pushq %rdx\n"
+        "pushq %rsi\n"
+        "pushq %rdi\n"
+        "pushq %rbp\n"
+        "pushq %r8\n"
+        "pushq %r9\n"
+        "pushq %r10\n"
+        "pushq %r11\n"
+        "pushq %r12\n"
+        "pushq %r13\n"
+        "pushq %r14\n"
+        "pushq %r15\n"
+        "movq %rsp, %rdi\n"
+        "call syscall_handler_c\n"
+        "popq %r15\n"
+        "popq %r14\n"
+        "popq %r13\n"
+        "popq %r12\n"
+        "popq %r11\n"
+        "popq %r10\n"
+        "popq %r9\n"
+        "popq %r8\n"
+        "popq %rbp\n"
+        "popq %rdi\n"
+        "popq %rsi\n"
+        "popq %rdx\n"
+        "popq %rcx\n"
+        "popq %rbx\n"
+        "popq %rax\n"
+        "iretq\n"
+    );
+}
+
+void syscall_handler_c(void *regs) {
+    /* To be implemented: Syscall dispatcher */
+    (void)regs;
+    console_write("\nSyscall received\n");
+}
 
 __attribute__((naked)) void sci_stub(void) {
     __asm__ volatile (
@@ -296,16 +342,19 @@ void idt_init(void) {
     irq_disable();
 
     for (int i = 0; i < 256; i++) {
-        idt_set_gate((uint8_t)i, default_irq_stub);
+        idt_set_gate((uint8_t)i, default_irq_stub, 0);
     }
 
-    idt_set_gate(32, irq0_stub);
-    idt_set_gate(33, irq1_stub);
-    idt_set_gate(46, ata_stub); /* IRQ 14 = 32 + 14 */
+    idt_set_gate(32, irq0_stub, 0);
+    idt_set_gate(33, irq1_stub, 0);
+    idt_set_gate(46, ata_stub, 0); /* IRQ 14 = 32 + 14 */
+
+    /* Syscall gate */
+    idt_set_syscall_handler(0x80, syscall_stub);
 
     const AcpiInfo *acpi = acpi_info();
     if (acpi && acpi->sci_irq > 0 && acpi->sci_irq < 16) {
-        idt_set_gate((uint8_t)(32 + acpi->sci_irq), sci_stub);
+        idt_set_gate((uint8_t)(32 + acpi->sci_irq), sci_stub, 0);
     }
 
     IdtPtr ptr;
