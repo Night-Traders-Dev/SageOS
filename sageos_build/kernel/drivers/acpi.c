@@ -507,11 +507,11 @@ static int acpi_enter_sleep(uint8_t typa, uint8_t typb) {
     uint16_t val_a = (uint16_t)(((uint16_t)typa << 10) | slp_en | sci_en);
     uint16_t val_b = (uint16_t)(((uint16_t)typb << 10) | slp_en | sci_en);
 
-    dmesg_log("ACPI: writing 0x%x to PM1a_CNT (0x%x)", (unsigned)val_a, (unsigned)g_acpi.pm1a_cnt);
+    dmesg_log("ACPI: writing to PM1a_CNT");
     outw((uint16_t)g_acpi.pm1a_cnt, val_a);
 
     if (g_acpi.pm1b_cnt) {
-        dmesg_log("ACPI: writing 0x%x to PM1b_CNT (0x%x)", (unsigned)val_b, (unsigned)g_acpi.pm1b_cnt);
+        dmesg_log("ACPI: writing to PM1b_CNT");
         outw((uint16_t)g_acpi.pm1b_cnt, val_b);
     }
 
@@ -535,7 +535,7 @@ int acpi_poweroff(void) {
         dmesg_log("ACPI: _S5_ package not found");
         return 0;
     }
-    dmesg_log("ACPI: found _S5_, typa=%d typb=%d", (int)a, (int)b);
+    dmesg_log("ACPI: found _S5_ package");
 
     return acpi_enter_sleep(a, b);
 }
