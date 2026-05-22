@@ -303,6 +303,7 @@ static void btop_draw_history_console(uint32_t row,
 }
 
 static void btop_draw_console(uint32_t cpu_avg, uint64_t used, uint64_t total, int bat) {
+    (void)cpu_avg;
     uint32_t old_fg = console_get_fg();
     uint32_t start_row = console_has_fb() ? 2 : 0;
     uint32_t cols = console_cols();
@@ -490,6 +491,7 @@ static void btop_serial_box_top(const char *title) {
 }
 
 static void btop_draw_serial(uint32_t cpu_avg, uint64_t used, uint64_t total, int bat) {
+    (void)cpu_avg;
     uint32_t mem_pct = pct_u64(used, total);
     const sched_stats_t *sched = sched_get_stats();
     uint32_t cpu_count = smp_cpu_count();
@@ -637,7 +639,7 @@ void cmd_btop(void) {
                     break; /* immediate refresh */
                 }
             }
-            sched_sleep(25); /* 20 × 25 ms = ~500 ms between refreshes */
+            timer_delay_ms(25); /* 20 × 25 ms = ~500 ms between refreshes */
             timer_poll();       /* keep tick counter advancing */
         }
     }

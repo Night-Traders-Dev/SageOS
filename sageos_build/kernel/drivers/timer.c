@@ -149,6 +149,7 @@ void timer_delay_ms(uint32_t ms) {
     uint64_t end = start + (ms * PIT_HZ) / 1000;
     if (end == start && ms > 0) end++;
     while (ticks < end) {
+        timer_poll();
         sched_yield();
     }
 }
