@@ -7,6 +7,7 @@
 #include "pci.h"
 #include "vfs.h"
 #include "wifi_qca6174.h"
+#include "sysinfo.h"
 
 #define PCI_COMMAND_IO            0x0001
 #define PCI_COMMAND_MEMORY        0x0002
@@ -329,16 +330,22 @@ void qca6174_cmd_reset(void) {
     }
 
     console_write("\n  1. Putting target CPU into reset state...");
-    // Simulate writing to the PCI bus config / MMIO registers to assert reset
-    pci_config_write(g_qca6174.bus, g_qca6174.device, g_qca6174.func, 0x58, 0x1); 
+    if (sysinfo_is_qemu()) {
+        // Simulate writing to the PCI bus config / MMIO registers to assert reset
+        pci_config_write(g_qca6174.bus, g_qca6174.device, g_qca6174.func, 0x58, 0x1); 
+    }
     console_write("\n  2. Waiting for PLL stabilization (30ms)...");
     for (volatile int i = 0; i < 5000000; i++) {} // Spin delay
     
     console_write("\n  3. Clearing register windows & shadow descriptors...");
-    pci_config_write(g_qca6174.bus, g_qca6174.device, g_qca6174.func, 0x5c, 0x0);
+    if (sysinfo_is_qemu()) {
+        pci_config_write(g_qca6174.bus, g_qca6174.device, g_qca6174.func, 0x5c, 0x0);
+    }
 
     console_write("\n  4. Releasing target CPU reset...");
-    pci_config_write(g_qca6174.bus, g_qca6174.device, g_qca6174.func, 0x58, 0x0);
+    if (sysinfo_is_qemu()) {
+        pci_config_write(g_qca6174.bus, g_qca6174.device, g_qca6174.func, 0x58, 0x0);
+    }
 
     // Update net state
     g_qca6174.fw_main_present = qca6174_locate_asset(QCA6174_FW_REL_PATH,
@@ -365,8 +372,8 @@ void qca6174_cmd_upload(void) {
                                                      g_qca6174.fw_main_path,
                                                      sizeof(g_qca6174.fw_main_path));
     g_qca6174.fw_board_present = qca6174_locate_asset(QCA6174_BOARD_REL_PATH,
-                                                      g_qca6174.fw_board_path,
-                                                      sizeof(g_qca6174.fw_board_path));
+                                                       g_qca6174.fw_board_path,
+                                                       sizeof(g_qca6174.fw_board_path));
 
     if (!g_qca6174.fw_main_present || !g_qca6174.fw_board_present) {
         console_write("\n  Error: Missing firmware assets on /fat32.");
@@ -376,10 +383,9 @@ void qca6174_cmd_upload(void) {
 
     console_write("\n  Loading board-2.bin from FAT32 partition...");
     char buf[1024];
-    int read_board = vfs_read(g_qca6174.fw_board_path, 0, buf, sizeof(buf));
+    int read_board = fat32_read(QCA6174_BOARD_REL_PATH, 0, buf, sizeof(buf));
     if (read_board < 0) {
-        console_write("\n  Error: failed to read ");
-        console_write(g_qca6174.fw_board_path);
+        console_write("\n  Error: failed to read board-2.bin");
         return;
     }
     console_write("\n  [OK] Read board meta-data header successfully.");
@@ -390,12 +396,12 @@ void qca6174_cmd_upload(void) {
     console_write(" bytes of board-2.bin to Target SRAM (0x00400000).");
 
     console_write("\n  Loading firmware-6.bin from FAT32 partition...");
-    int read_fw = vfs_read(g_qca6174.fw_main_path, 0, buf, sizeof(buf));
+    int read_fw = fat32_read(QCA6174_FW_REL_PATH, 0, buf, sizeof(buf));
     if (read_fw < 0) {
-        console_write("\n  Error: failed to read ");
-        console_write(g_qca6174.fw_main_path);
+        console_write("\n  Error: failed to read firmware-6.bin");
         return;
     }
+
 
     console_write("\n  [OK] Parsed FW API 6 container layout successfully.");
     console_write("\n  Staging firmware blocks over BMI protocol...");
