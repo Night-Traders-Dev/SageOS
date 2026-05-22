@@ -24,7 +24,7 @@ SageOS is a lightweight, x86_64 UEFI-based operating system project primarily ta
    ```
 4. **Flash to USB (Hardware Deployment):**
    ```bash
-   ./lenovo_300e.sh flash /dev/sdX  # Replace /dev/sdX with your USB device
+   ./lenovo_300e.sh flash live /dev/sdX  # Replace /dev/sdX with your USB device
    ```
 
 ## Key Features
@@ -34,7 +34,7 @@ SageOS is a lightweight, x86_64 UEFI-based operating system project primarily ta
 - **QCA6174A Wi-Fi Driver**: Full PCI enumeration, firmware staging (firmware-6.bin / board-2.bin downloaded fresh each build), WMI/HTT ring initialization, WPA2-PSK handshake, and DHCP. Credentials are saved to `/fat32/WIFI.CFG` and auto-reconnect on boot.
 - **Hardware Abstraction**: Early diagnostics for SMP, ACPI, battery/EC, and PCI bus.
 - **Programmable Init**: System initialization orchestrated via `init.sage`.
-- **Advanced Storage**: Full read-write FAT32 filesystem support, and BTRFS superblock reader with copy-on-write (COW) write stubs.
+- **Advanced Storage**: Full read-write case-insensitive FAT32 filesystem support, and BTRFS superblock reader with copy-on-write (COW) write stubs.
 - **Memory Management**: Formal physical memory allocator and virtual memory management (paging).
 - **Native Drivers**: Decoupled hardware (keyboard, boot logging) from UEFI runtime services using interrupt-driven I/O.
 - **Real-Time Resource Monitor (`btop`)**: Live CPU%, RAM, battery, storage, and scheduler stats. Runs on both the GOP framebuffer and serial terminal. Hardware-safe (no PIT-dependent sleep loops).
@@ -72,13 +72,16 @@ Credentials saved to `/fat32/WIFI.CFG` are automatically loaded on boot and a re
 
 - **[Boot Log](docs/boot_log.md)**: Persistent USB boot logging — use `bmesg` to read in-shell.
 - **[Init System](docs/init_system.md)**: Deep dive into the programmable initialization process.
-- **[Hardware Support](docs/lenovo_300e_ast_hardware.md)**: Hardware-specific architectural details for the Lenovo 300e.
+- **[Hardware Support](docs/lenovo_300e_ast_hardware.md)**: Hardware-specific architectural details for the Lenovo 300e AST.
+- **[VFS Architecture](docs/vfs_architecture.md)**: The Virtual Filesystem layer, SageLang bridge, mount table, and case-insensitive resolution.
+- **[Wi-Fi Driver Architecture](docs/wifi_driver.md)**: Qualcomm QCA6174A PCI hardware support, staging sequence, and WPA2-PSK association.
 
 ## Directory Structure
 
 ```text
 SageOS_300e/
 ├── lenovo_300e.sh           # Unified build/flash/qemu script
+├── VERSION                  # Current operating system version (0.1.9)
 ├── sageos_build/
 │   ├── kernel/              # Core kernel, drivers, VFS, shell
 │   │   ├── core/            # Kernel entry, scheduler, VMM, SageLang VM
