@@ -310,6 +310,14 @@ build_image() {
     # Compile SageLang shell sources -> bytecode -> C header
     echo "--- Compiling SageLang shell sources (SageShell) ---"
     
+    # Integrate SagePkg
+    echo "--- Integrating SagePkg ---"
+    local kernel_bin="$KERNEL/bin"
+    mkdir -p "$kernel_bin"
+    cp "$BUILD/sage_pkg/packages/sagepkg/universal/sagepkg.sage" "$kernel_bin/sagepkg.sage"
+    cp "$BUILD/sage_pkg/lib/json.sage" "$kernel_bin/json.sage"
+    cp "$BUILD/sage_pkg/packages.json" "$KERNEL/etc/packages.json"
+
     # Generate embedded commands and etc files header
     if [ -d "$KERNEL/etc" ]; then
         python3 "$KERNEL/fs/embed_commands.py" "$KERNEL/etc" "$KERNEL/fs/commands_embed.h"

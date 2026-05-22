@@ -61,7 +61,7 @@ static const char *const shell_commands[] = {
     "acpi tables", "battery", "bmesg", "btop", "cat", "clear", "color", "cp", "dmesg", "echo",
     "execelf", "exit", "fb", "halt", "help", "hexdump", "history", "input", "install",
     "keydebug", "ls", "mkdir", "nano", "neofetch", "net", "net selftest",
-    "pci", "poweroff", "pwd", "q", "reboot", "rm", "sage",
+    "pci", "poweroff", "pwd", "q", "reboot", "rm", "sage", "sagepkg",
     "sched", "sageshell", "sdhci", "sh", "shutdown", "smp", "smp start", "source", "stat",
     "status", "stop", "suspend", "swap", "sysinfo", "timer", "touch", "uname", "version",
     "wifi", "write",
@@ -405,6 +405,7 @@ static void help(void) {
     console_write("\n\nSageLang:");
     console_write("\n  sage              interactive SageLang REPL");
     console_write("\n  sage run <path>   execute .sage or .sgvm file");
+    console_write("\n  sagepkg           SageOS package manager");
     console_write("\n  sageshell         launch SageShell");
     console_write("\n\nPower:");
     console_write("\n  shutdown          ACPI S5 shutdown");
@@ -702,6 +703,11 @@ void shell_exec_command(const char *cmd) {
         const char *path = arg_after(cmd, "sh");
         if (!*path) { console_write("\nusage: sh <path>"); return; }
         cmd_source(path);
+        return;
+    }
+    if (starts_word(cmd, "sagepkg")) {
+        extern void sage_run_file(const char *path);
+        sage_run_file("/bin/sagepkg.sage");
         return;
     }
     if (starts_with(cmd, "sageshell")) { sage_shell_run(); return; }

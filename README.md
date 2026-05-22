@@ -40,6 +40,7 @@ SageOS is a lightweight, x86_64 UEFI-based operating system project primarily ta
 - **Real-Time Resource Monitor (`btop`)**: Live CPU%, RAM, battery, storage, and scheduler stats. Runs on both the GOP framebuffer and serial terminal. Hardware-safe (no PIT-dependent sleep loops).
 - **Persistent Boot Log (`bmesg`)**: Full kernel boot sequence written to `/fat32/BOOTLOG.TXT`, readable via the `bmesg` shell command.
 - **Live dmesg**: Kernel messages logged throughout boot and runtime, persisted to ATA sectors, viewable with `dmesg`.
+- **SagePkg Package Manager**: Integrated package management. Automatically pulls, builds, and installs modular packages from the official repository directly within the OS.
 
 ## Shell Commands
 
@@ -50,7 +51,7 @@ SageOS is a lightweight, x86_64 UEFI-based operating system project primarily ta
 | Networking | `net`, `net selftest`, `wifi`, `wifi reset`, `wifi upload`, `wifi init-rings`, `wifi scan`, `wifi connect <ssid> <pass>` |
 | Diagnostics | `dmesg`, `bmesg`, `btop`, `keydebug` |
 | Power | `reboot`, `shutdown`, `poweroff`, `halt`, `suspend` |
-| SageLang | `sage <module>`, `sageshell`, `source <script>` |
+| SageLang | `sage <module>`, `sageshell`, `source <script>`, `sagepkg` |
 | Storage | `swap`, `sdhci`, `install` |
 | Scripting | `sh`, `echo`, `color`, `history`, `execelf` |
 
