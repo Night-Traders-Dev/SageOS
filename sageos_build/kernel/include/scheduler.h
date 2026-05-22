@@ -100,6 +100,7 @@ thread_t *sched_current_thread(void);
 uint32_t sched_cpu_id(void);
 
 const sched_stats_t *sched_get_stats(void);
+int sched_get_thread_info(uint32_t index, char *name, thread_state_t *state, uint32_t *cpu);
 void sched_cmd_info(void);
 
 #endif

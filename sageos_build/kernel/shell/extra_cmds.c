@@ -302,7 +302,7 @@ static void btop_draw_history_console(uint32_t row,
     }
 }
 
-static void btop_draw_console(uint32_t cpu, uint64_t used, uint64_t total, int bat) {
+static void btop_draw_console(uint32_t cpu_avg, uint64_t used, uint64_t total, int bat) {
     uint32_t old_fg = console_get_fg();
     uint32_t start_row = console_has_fb() ? 2 : 0;
     uint32_t cols = console_cols();
@@ -310,6 +310,7 @@ static void btop_draw_console(uint32_t cpu, uint64_t used, uint64_t total, int b
     uint32_t width;
     uint32_t mem_pct = pct_u64(used, total);
     const sched_stats_t *sched = sched_get_stats();
+    uint32_t cpu_count = smp_cpu_count();
 
     if (cols == 0) cols = 80;
     if (rows == 0) rows = 25;
@@ -328,41 +329,50 @@ static void btop_draw_console(uint32_t cpu, uint64_t used, uint64_t total, int b
     console_set_fg(0x9AA4B2);
     console_write("q quit | r refresh");
 
+    uint32_t cpu_box_height = 4 + cpu_count;
     btop_box_top(start_row + 2, width, " cpu ", 0x80C8FF);
-    btop_box_mid(start_row + 3, width);
-    btop_box_mid(start_row + 4, width);
-    btop_box_mid(start_row + 5, width);
-    btop_box_bottom(start_row + 6, width);
+    for (uint32_t r = 0; r < cpu_box_height - 2; r++) btop_box_mid(start_row + 3 + r, width);
+    btop_box_bottom(start_row + cpu_box_height + 1, width);
 
-    console_set_cursor(start_row + 3, 2);
-    console_set_fg(0x79FFB0);
-    console_write("usage ");
-    draw_bar(cpu, 100, 28);
-    console_write(" ");
-    console_u32(cpu);
-    console_write("%  ");
+    for (uint32_t i = 0; i < cpu_count; i++) {
+        uint32_t cpu_pct = timer_cpu_percent_at(i);
+        console_set_cursor(start_row + 3 + i, 2);
+        console_set_fg(0x79FFB0);
+        console_write("cpu");
+        console_u32(i);
+        console_write(" ");
+        draw_bar(cpu_pct, 100, 20);
+        console_write(" ");
+        console_u32(cpu_pct);
+        console_write("%");
+    }
+
+    console_set_cursor(start_row + 3, 35);
     console_set_fg(0xE8E8E8);
     console_write("cores ");
-    console_u32(smp_cpu_count());
+    console_u32(cpu_count);
     console_write("  uptime ");
     print_uptime_compact();
-    console_set_cursor(start_row + 4, 2);
+
+    console_set_cursor(start_row + 4, 35);
     console_set_fg(0x9AA4B2);
     console_write("history ");
-    btop_draw_history_console(start_row + 4, 10, width > 16 ? width - 16 : 32, btop_cpu_history, 0x80C8FF);
-    console_set_cursor(start_row + 5, 2);
+    btop_draw_history_console(start_row + 4, 43, width > 45 ? width - 45 : 12, btop_cpu_history, 0x80C8FF);
+
+    console_set_cursor(start_row + 5, 35);
     console_set_fg(0x9AA4B2);
     console_write("input ");
     console_set_fg(0xE8E8E8);
     console_write(keyboard_backend());
 
-    btop_box_top(start_row + 8, width, " mem ", 0xFFBF40);
-    btop_box_mid(start_row + 9, width);
-    btop_box_mid(start_row + 10, width);
-    btop_box_mid(start_row + 11, width);
-    btop_box_bottom(start_row + 12, width);
+    uint32_t mem_box_row = start_row + cpu_box_height + 3;
+    btop_box_top(mem_box_row, width, " mem ", 0xFFBF40);
+    btop_box_mid(mem_box_row + 1, width);
+    btop_box_mid(mem_box_row + 2, width);
+    btop_box_mid(mem_box_row + 3, width);
+    btop_box_bottom(mem_box_row + 4, width);
 
-    console_set_cursor(start_row + 9, 2);
+    console_set_cursor(mem_box_row + 1, 2);
     console_set_fg(0xFFBF40);
     console_write("ram   ");
     draw_bar(mem_pct, 100, 28);
@@ -372,11 +382,11 @@ static void btop_draw_console(uint32_t cpu, uint64_t used, uint64_t total, int b
     print_mb(used);
     console_write(" / ");
     print_mb(total);
-    console_set_cursor(start_row + 10, 2);
+    console_set_cursor(mem_box_row + 2, 2);
     console_set_fg(0x9AA4B2);
     console_write("trend ");
-    btop_draw_history_console(start_row + 10, 10, width > 16 ? width - 16 : 32, btop_mem_history, 0xFFBF40);
-    console_set_cursor(start_row + 11, 2);
+    btop_draw_history_console(mem_box_row + 2, 10, width > 16 ? width - 16 : 32, btop_mem_history, 0xFFBF40);
+    console_set_cursor(mem_box_row + 3, 2);
     console_set_fg(0xFF7070);
     console_write("bat   ");
     if (bat >= 0) {
@@ -388,20 +398,21 @@ static void btop_draw_console(uint32_t cpu, uint64_t used, uint64_t total, int b
         console_write("[------------ unavailable ------------]");
     }
 
-    btop_box_top(start_row + 14, width, " storage & proc ", 0xDDA0FF);
-    for (uint32_t r = start_row + 15; r < start_row + 21; r++) btop_box_mid(r, width);
-    btop_box_bottom(start_row + 21, width);
+    uint32_t proc_box_row = mem_box_row + 6;
+    btop_box_top(proc_box_row, width, " storage & proc ", 0xDDA0FF);
+    for (uint32_t r = 0; r < 8; r++) btop_box_mid(proc_box_row + 1 + r, width);
+    btop_box_bottom(proc_box_row + 9, width);
 
     /* Storage info */
     int m_count = vfs_get_mount_count();
-    for (int i = 0; i < m_count && i < 3; i++) {
+    for (int i = 0; i < m_count && i < 2; i++) {
         VfsMountInfo mi;
         if (vfs_get_mount_info(i, &mi) == 0) {
-            console_set_cursor(start_row + 15 + i, 2);
+            console_set_cursor(proc_box_row + 1 + i, 2);
             console_set_fg(0x79FFB0);
             console_write("fs   ");
             console_write(mi.path);
-            console_set_cursor(start_row + 15 + i, 20);
+            console_set_cursor(proc_box_row + 1 + i, 20);
             console_set_fg(0x9AA4B2);
             console_write("type ");
             console_set_fg(0xE8E8E8);
@@ -410,32 +421,50 @@ static void btop_draw_console(uint32_t cpu, uint64_t used, uint64_t total, int b
     }
 
     /* Swap info */
-    console_set_cursor(start_row + 18, 2);
+    console_set_cursor(proc_box_row + 3, 2);
     console_set_fg(0x79FFB0);
     console_write("swap ");
     if (swap_is_available()) {
-        draw_bar(0, 100, 10);
-        console_write(" 0%  125 MB free");
+        console_write("125 MB free");
     } else {
         console_write("[ none ]");
     }
 
     /* Proc info */
-    console_set_cursor(start_row + 19, 2);
+    console_set_cursor(proc_box_row + 4, 2);
     console_set_fg(0x9AA4B2);
-    console_write("sched threads=");
+    console_write("scheduler: ");
     console_set_fg(0xE8E8E8);
     console_u32(sched ? sched->thread_count : 0);
-    console_set_fg(0x9AA4B2);
-    console_write(" ctx=");
-    console_set_fg(0xE8E8E8);
+    console_write(" threads, ");
     console_u32((uint32_t)(sched ? sched->context_switches : 0));
+    console_write(" switches");
 
-    console_set_cursor(start_row + 20, 2);
-    console_set_fg(0x9AA4B2);
-    console_write("tasks ");
-    console_set_fg(0xE8E8E8);
-    console_write("kernel shell status-bar timer");
+    console_set_cursor(proc_box_row + 5, 2);
+    console_set_fg(0x80C8FF);
+    console_write("TASKS:");
+    
+    int task_line = 0;
+    for (uint32_t i = 0; i < SCHED_MAX_THREADS && task_line < 3; i++) {
+        char name[32];
+        thread_state_t state;
+        uint32_t cpu_id;
+        if (sched_get_thread_info(i, name, &state, &cpu_id)) {
+            console_set_cursor(proc_box_row + 6 + task_line, 2);
+            console_set_fg(0xE8E8E8);
+            console_write(name);
+            console_set_cursor(proc_box_row + 6 + task_line, 18);
+            console_set_fg(0x9AA4B2);
+            if (state == THREAD_STATE_RUNNING) console_set_fg(0x79FFB0);
+            console_write(state == THREAD_STATE_RUNNING ? "RUN" : 
+                         (state == THREAD_STATE_SLEEPING ? "SLP" : "RDY"));
+            console_set_cursor(proc_box_row + 6 + task_line, 24);
+            console_set_fg(0x9AA4B2);
+            console_write("cpu");
+            console_u32(cpu_id);
+            task_line++;
+        }
+    }
 
     console_set_fg(old_fg);
 }
@@ -460,23 +489,33 @@ static void btop_serial_box_top(const char *title) {
     serial_raw("+\r\n");
 }
 
-static void btop_draw_serial(uint32_t cpu, uint64_t used, uint64_t total, int bat) {
+static void btop_draw_serial(uint32_t cpu_avg, uint64_t used, uint64_t total, int bat) {
     uint32_t mem_pct = pct_u64(used, total);
     const sched_stats_t *sched = sched_get_stats();
+    uint32_t cpu_count = smp_cpu_count();
 
     serial_raw("\033[2J\033[H");
     serial_raw("btop  SageOS resources                                      q quit | r refresh\r\n");
 
     btop_serial_box_top("cpu");
-    serial_raw("| usage ");
-    serial_bar(cpu, 100, 28);
-    serial_raw(" ");
-    serial_u32(cpu);
-    serial_raw("%  cores ");
-    serial_u32(smp_cpu_count());
-    serial_raw("  uptime ");
-    serial_uptime_compact();
-    serial_raw("\r\n| history ");
+    for (uint32_t i = 0; i < cpu_count; i++) {
+        uint32_t cpu_pct = timer_cpu_percent_at(i);
+        serial_raw("| cpu");
+        serial_u32(i);
+        serial_raw(" ");
+        serial_bar(cpu_pct, 100, 20);
+        serial_raw(" ");
+        serial_u32(cpu_pct);
+        serial_raw("%  ");
+        if (i == 0) {
+            serial_raw("cores ");
+            serial_u32(cpu_count);
+            serial_raw("  uptime ");
+            serial_uptime_compact();
+        }
+        serial_raw("\r\n");
+    }
+    serial_raw("| history ");
     btop_serial_history(btop_cpu_history, 48);
     serial_raw("\r\n| input   ");
     serial_raw(keyboard_backend());
@@ -507,7 +546,7 @@ static void btop_draw_serial(uint32_t cpu, uint64_t used, uint64_t total, int ba
     btop_serial_box_top("storage & proc");
     /* Storage info */
     int m_count = vfs_get_mount_count();
-    for (int i = 0; i < m_count && i < 3; i++) {
+    for (int i = 0; i < m_count && i < 2; i++) {
         VfsMountInfo mi;
         if (vfs_get_mount_info(i, &mi) == 0) {
             serial_raw("| fs ");
@@ -521,19 +560,35 @@ static void btop_draw_serial(uint32_t cpu, uint64_t used, uint64_t total, int ba
     /* Swap info */
     serial_raw("| swap ");
     if (swap_is_available()) {
-        serial_bar(0, 100, 10);
-        serial_raw(" 0%  125 MB free\r\n");
+        serial_raw("125 MB free\r\n");
     } else {
         serial_raw("[ none ]\r\n");
     }
 
     /* Proc info */
-    serial_raw("| scheduler: threads=");
+    serial_raw("| scheduler: ");
     serial_u32(sched ? sched->thread_count : 0);
-    serial_raw(" switches=");
+    serial_raw(" threads, ");
     serial_u32((uint32_t)(sched ? sched->context_switches : 0));
-    serial_raw("\r\n| tasks: kernel shell status-bar timer\r\n");
-    serial_raw("+-----------------------------------------------------------------------+\r\n");
+    serial_raw(" switches\r\n");
+    
+    serial_raw("| TASKS: ");
+    int task_count = 0;
+    for (uint32_t i = 0; i < SCHED_MAX_THREADS && task_count < 4; i++) {
+        char name[32];
+        thread_state_t state;
+        uint32_t cpu_id;
+        if (sched_get_thread_info(i, name, &state, &cpu_id)) {
+            if (task_count > 0) serial_raw(", ");
+            serial_raw(name);
+            serial_raw("(");
+            serial_raw(state == THREAD_STATE_RUNNING ? "R" : 
+                      (state == THREAD_STATE_SLEEPING ? "S" : "W"));
+            serial_raw(")");
+            task_count++;
+        }
+    }
+    serial_raw("\r\n+-----------------------------------------------------------------------+\r\n");
 }
 
 void cmd_btop(void) {

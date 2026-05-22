@@ -855,6 +855,24 @@ const sched_stats_t *sched_get_stats(void) {
     return &sched_stats;
 }
 
+int sched_get_thread_info(uint32_t index, char *name, thread_state_t *state, uint32_t *cpu) {
+    if (index >= SCHED_MAX_THREADS) return 0;
+    thread_t *thread = &threads[index];
+    if (thread->id == 0 || thread->state == THREAD_STATE_TERMINATED) return 0;
+    
+    if (name) {
+        size_t i = 0;
+        while (thread->name[i] && i < 31) {
+            name[i] = thread->name[i];
+            i++;
+        }
+        name[i] = 0;
+    }
+    if (state) *state = thread->state;
+    if (cpu) *cpu = thread->cpu_id;
+    return 1;
+}
+
 static const char *state_name(thread_state_t state) {
     switch (state) {
     case THREAD_STATE_READY:      return "ready";

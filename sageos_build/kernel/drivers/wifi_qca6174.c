@@ -234,7 +234,10 @@ int qca6174_init(void) {
     }
 
     if (g_qca6174.fw_main_present && g_qca6174.fw_board_present) {
-        dmesg_log("wifi: qca6174 ready for firmware boot staging");
+        dmesg_log("wifi: qca6174 ready, performing automated boot setup");
+        qca6174_cmd_reset();
+        qca6174_cmd_upload();
+        qca6174_cmd_init_rings();
     } else {
         dmesg_log("wifi: qca6174 discovered but firmware assets are missing");
     }
