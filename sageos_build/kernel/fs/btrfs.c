@@ -88,28 +88,56 @@ void btrfs_ls(void) {
 
 static int btrfs_be_stat(VfsBackend *self, const char *rel_path, VfsStat *out) {
     (void)self;
-    (void)rel_path;
-    (void)out;
-    return VFS_ENOENT; /* Placeholder */
+    if (!btrfs_available) return VFS_EIO;
+    if (rel_path[0] == '/' && rel_path[1] == 0) {
+        strncpy(out->name, "/", VFS_NAME_MAX);
+        out->type = VFS_DIRECTORY;
+        out->size = 0;
+        out->mode = 0755;
+        return VFS_OK;
+    }
+    return VFS_ENOENT;
 }
 
 static int btrfs_be_readdir(VfsBackend *self, const char *rel_path,
                             VfsDirEntry *entries, int max_entries) {
     (void)self;
-    (void)rel_path;
-    (void)entries;
-    (void)max_entries;
-    return 0; /* Placeholder */
+    if (!btrfs_available) return VFS_EIO;
+    if (rel_path[0] != '/' || rel_path[1] != 0) return VFS_ENOTDIR;
+
+    uint8_t buffer[16384]; /* Assume max node size */
+    if (!btrfs_read_node(g_super.root, buffer)) return VFS_EIO;
+    
+    btrfs_leaf *leaf = (btrfs_leaf *)buffer;
+    int count = 0;
+    for (uint32_t i = 0; i < leaf->header.nritems && count < max_entries; i++) {
+        /* Filter for ROOT_ITEM to show something meaningful from the metadata tree */
+        if (leaf->items[i].key.type == 132 /* ROOT_ITEM */) {
+            strncpy(entries[count].name, "tree_root", VFS_NAME_MAX);
+            /* Just a dummy name based on objectid */
+            entries[count].type = VFS_FILE;
+            entries[count].size = 0;
+            count++;
+        }
+    }
+    return count;
 }
 
 static int btrfs_be_read(VfsBackend *self, const char *rel_path,
                          uint64_t offset, void *buffer, size_t size) {
     (void)self;
-    (void)rel_path;
-    (void)offset;
-    (void)buffer;
-    (void)size;
-    return VFS_EIO; /* Placeholder */
+    if (!btrfs_available) return VFS_EIO;
+    
+    /* Dummy content for testing the VFS path */
+    const char *msg = "BTRFS: Filesystem mounted. Full read support pending extent-tree implementation.\n";
+    size_t msg_len = strlen(msg);
+    
+    if (offset >= msg_len) return 0;
+    size_t to_copy = msg_len - (size_t)offset;
+    if (to_copy > size) to_copy = size;
+    
+    memcpy(buffer, msg + offset, to_copy);
+    return (int)to_copy;
 }
 
 static int btrfs_be_write(VfsBackend *self, const char *rel_path,

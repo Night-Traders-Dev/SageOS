@@ -654,6 +654,11 @@ void shell_exec_command(const char *cmd) {
         if (r < 0) { console_write("\nrm: "); console_write(vfs_strerror(r)); }
         return;
     }
+    if (starts_word(cmd, "swapinfo")) {
+        extern void swap_info(void);
+        swap_info();
+        return;
+    }
     if (starts_word(cmd, "stat")) {
         const char *path = arg_after(cmd, "stat");
         if (!*path) { console_write("\nusage: stat <path>"); return; }

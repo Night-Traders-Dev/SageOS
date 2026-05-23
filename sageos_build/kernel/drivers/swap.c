@@ -42,13 +42,14 @@ int swap_is_available(void) {
 
 void swap_info(void) {
     if (!g_swap.active) {
-        console_write("\nSWAP: No swap device active");
+        console_write("\n  [--] No swap device active (disk not detected?)");
         return;
     }
 
-    console_write("\nSWAP: Partition start LBA: ");
+    console_write("\n  [OK] Swap device active:");
+    console_write("\n       Partition start LBA: ");
     console_u32(g_swap.partition_lba);
-    console_write("\n  Size: ");
+    console_write("\n       Size: ");
     console_u32((uint32_t)(g_swap.size_bytes / 1024 / 1024));
-    console_write(" MiB");
+    console_write(" MB");
 }

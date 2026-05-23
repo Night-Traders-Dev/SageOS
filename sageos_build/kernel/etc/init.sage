@@ -20,17 +20,24 @@ os_write_str("Initializing system services...\n")
 if os_path_exists("/etc/motd"):
     os_cat("/etc/motd")
 
-# 2. Check for installer hint
-if os_path_exists("/dev/sda"):
-    os_write_str("Local storage detected.\n")
+os_write_str("\nStorage Status:\n")
 
-# 3. Mount additional filesystems if any (placeholder)
-# os_shell_exec("mount /dev/sda1 /mnt")
+# 2. Check FAT32
+if os_path_exists("/fat32"):
+    os_write_str("  [OK] /fat32 mounted (EFI System Partition)\n")
+else:
+    os_write_str("  [--] /fat32 not mounted\n")
 
-# 4. Start background services (placeholder)
-# os_write_str("Starting network stack...\n")
-# os_shell_exec("net start")
+# 3. Check BTRFS
+if os_path_exists("/btrfs"):
+    os_write_str("  [OK] /btrfs mounted (Root Filesystem)\n")
+else:
+    os_write_str("  [--] /btrfs not mounted\n")
 
-os_write_str("System ready.\n\n")
+# 4. Check Swap (via a new native binding or just checking device)
+os_write_str("  [..] checking swap...\n")
+os_shell_exec("swapinfo")
+
+os_write_str("\nSystem ready.\n\n")
 
 # The kernel will launch the shell after this script finishes.
