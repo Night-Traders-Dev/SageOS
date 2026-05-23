@@ -1145,6 +1145,10 @@ void cmd_curl(const char *args) {
     if (is_https) {
         if (!g_curl_tls_conf) {
             g_curl_tls_conf = altcp_tls_create_config_client(NULL, 0);
+            if (g_curl_tls_conf) {
+                extern void altcp_tls_config_disable_verify(struct altcp_tls_config *config);
+                altcp_tls_config_disable_verify(g_curl_tls_conf);
+            }
         }
         tls_allocator.alloc = altcp_tls_alloc;
         tls_allocator.arg = g_curl_tls_conf;
