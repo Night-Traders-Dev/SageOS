@@ -2,8 +2,23 @@
 #include <mbedtls/entropy.h>
 #include "sage_libc_shim.h"
 #include "timer.h"
+#include "lwip/mem.h"
 
 /* mbed TLS platform functions */
+
+static void *mbedtls_port_calloc(size_t n, size_t size) {
+    void *ptr = mem_malloc((mem_size_t)(n * size));
+    if (ptr) {
+        sage_memset(ptr, 0, n * size);
+    }
+    return ptr;
+}
+
+static void mbedtls_port_free(void *ptr) {
+    if (ptr) {
+        mem_free(ptr);
+    }
+}
 
 void mbedtls_platform_exit_alt(int status) {
     (void)status;
@@ -28,6 +43,6 @@ int mbedtls_hardware_poll(void *data, unsigned char *output, size_t len, size_t 
 }
 
 void mbedtls_port_init(void) {
-    /* Configure MbedTLS to use SageOS memory functions */
-    mbedtls_platform_set_calloc_free(sage_calloc, sage_free);
+    /* Configure MbedTLS to use persistent lwIP memory functions */
+    mbedtls_platform_set_calloc_free(mbedtls_port_calloc, mbedtls_port_free);
 }

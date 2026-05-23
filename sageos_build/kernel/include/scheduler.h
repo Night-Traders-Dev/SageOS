@@ -5,7 +5,7 @@
 #include <stddef.h>
 
 #define SCHED_MAX_THREADS       64
-#define SCHED_STACK_SIZE        16384
+#define SCHED_STACK_SIZE        65536
 #define SCHED_BASE_SLICE_TICKS  2
 #define SCHED_BALANCE_TICKS     25
 #define SCHED_VRUNTIME_SCALE    1024ULL

@@ -12,13 +12,18 @@
 
 /* Memory configuration */
 #define MEM_ALIGNMENT           8
-#define MEM_SIZE                (256 * 1024)
-#define MEMP_NUM_PBUF           128
+#define MEM_SIZE                (1024 * 1024)
+#define MEMP_NUM_PBUF           512
 #define MEMP_NUM_UDP_PCB        16
 #define MEMP_NUM_TCP_PCB        16
 #define MEMP_NUM_TCP_PCB_LISTEN 8
 #define MEMP_NUM_TCP_SEG        255
-#define PBUF_POOL_SIZE          128
+#define PBUF_POOL_SIZE          512
+
+/* TCP configuration */
+#define TCP_MSS                 1460
+#define TCP_WND                 (32 * 1024)
+#define TCP_SND_BUF             (16 * 1024)
 
 /* Protocols */
 #define LWIP_ARP                1
