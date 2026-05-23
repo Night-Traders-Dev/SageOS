@@ -802,7 +802,11 @@ int metal_vm_step(MetalVM* vm) {
         case OP_LOOP_BACK: vm->ip -= read_u16(vm); break;
 
         case OP_IMPORT: {
-            int idx = read_u16(vm); (void)idx;
+            int idx = read_u16(vm);
+            if (vm->error) return 0;
+            const char* name = metal_string_get(vm, vm->constants[idx].as.str_idx);
+            extern void sage_import_module(MetalVM* vm, const char* name);
+            sage_import_module(vm, name);
             break;
         }
         case OP_EXEC_AST_STMT: {

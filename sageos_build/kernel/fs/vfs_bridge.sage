@@ -90,11 +90,14 @@ end
 proc vfs_read(path, offset, size):
     let res = vfs_resolve(path)
     if res == nil: return nil end
-    return os_backend_read(res["mount"]["backend"], res["rel"], offset, size)
+    let data = os_backend_read(res["mount"]["backend"], res["rel"], offset, size)
+    if data == nil: return nil end
+    # Return [data, actual_length]
+    return [data, os_strlen(data)]
 end
 
-proc vfs_write(path, offset, data):
+proc vfs_write(path, offset, data, size):
     let res = vfs_resolve(path)
-    if res == nil: return nil end
-    return os_backend_write(res["mount"]["backend"], res["rel"], offset, data)
+    if res == nil: return 0 end
+    return os_backend_write(res["mount"]["backend"], res["rel"], offset, data, size)
 end

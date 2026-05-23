@@ -591,18 +591,18 @@ void shell_exec_command(const char *cmd) {
     }
     if (starts_word(cmd, "sdhci"))        { sdhci_cmd_info(); return; }
     if (starts_word(cmd, "exit") || streq(cmd, "q")) { power_qemu_exit(); return; }
-    if (starts_with(cmd, "ls")) {
+    if (starts_word(cmd, "ls")) {
         const char *path = arg_after(cmd, "ls");
         if (!*path) path = "/";
         vfs_ls(path);
         return;
     }
-    if (starts_with(cmd, "curl")) {
+    if (starts_word(cmd, "curl")) {
         extern void cmd_curl(const char *args);
         cmd_curl(arg_after(cmd, "curl"));
         return;
     }
-    if (starts_with(cmd, "cat")) {
+    if (starts_word(cmd, "cat")) {
         const char *path = arg_after(cmd, "cat");
         if (!*path) { console_write("\nusage: cat <path>"); return; }
         /* Read in 512-byte chunks and print */
@@ -623,21 +623,21 @@ void shell_exec_command(const char *cmd) {
         }
         return;
     }
-    if (starts_with(cmd, "mkdir")) {
+    if (starts_word(cmd, "mkdir")) {
         const char *path = arg_after(cmd, "mkdir");
         if (!*path) { console_write("\nusage: mkdir <path>"); return; }
         int r = vfs_mkdir(path);
         if (r < 0) { console_write("\nmkdir: "); console_write(vfs_strerror(r)); }
         return;
     }
-    if (starts_with(cmd, "touch")) {
+    if (starts_word(cmd, "touch")) {
         const char *path = arg_after(cmd, "touch");
         if (!*path) { console_write("\nusage: touch <path>"); return; }
         int r = vfs_create(path);
         if (r < 0 && r != VFS_EEXIST) { console_write("\ntouch: "); console_write(vfs_strerror(r)); }
         return;
     }
-    if (starts_with(cmd, "rm")) {
+    if (starts_word(cmd, "rm")) {
         const char *path = arg_after(cmd, "rm");
         int recursive = 0;
         if (starts_word(path, "-rf")) {
@@ -665,7 +665,7 @@ void shell_exec_command(const char *cmd) {
         console_write("\n  Size: "); console_u32((uint32_t)st.size); console_write(" B");
         return;
     }
-    if (starts_with(cmd, "write")) {
+    if (starts_word(cmd, "write")) {
         /* write <path> <content> */
         const char *rest = arg_after(cmd, "write");
         if (!*rest) { console_write("\nusage: write <path> <content>"); return; }
@@ -685,7 +685,7 @@ void shell_exec_command(const char *cmd) {
         if (r < 0) { console_write("\nwrite: "); console_write(vfs_strerror(r)); }
         return;
     }
-    if (starts_with(cmd, "execelf")) {
+    if (starts_word(cmd, "execelf")) {
         const char *path = arg_after(cmd, "execelf");
         if (!*path) { console_write("\nusage: execelf <path>"); return; }
         const char *file_data;
@@ -717,8 +717,8 @@ void shell_exec_command(const char *cmd) {
         sage_run_file("/bin/sagepkg.sage");
         return;
     }
-    if (starts_with(cmd, "sageshell")) { sage_shell_run(); return; }
-    if (starts_with(cmd, "sage")) {
+    if (starts_word(cmd, "sageshell")) { sage_shell_run(); return; }
+    if (starts_word(cmd, "sage")) {
         const char *mod = arg_after(cmd, "sage");
         if (starts_word(mod, "run")) {
             const char *path = arg_after(mod, "run");

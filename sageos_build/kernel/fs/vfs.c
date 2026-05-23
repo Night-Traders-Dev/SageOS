@@ -132,12 +132,14 @@ static MetalValue n_os_backend_read(MetalVM* vm, MetalValue* args, int argc) {
 }
 
 static MetalValue n_os_backend_write(MetalVM* vm, MetalValue* args, int argc) {
-    if (argc < 4 || args[0].type != MV_PTR || args[1].type != MV_STR || args[3].type != MV_STR) return mv_nil();
+    if (argc < 5 || args[0].type != MV_PTR || args[1].type != MV_STR || args[3].type != MV_STR || args[4].type != MV_NUM) return mv_nil();
     VfsBackend* b = (VfsBackend*)args[0].as.ptr;
     const char* rel = metal_string_get(vm, args[1].as.str_idx);
     uint64_t offset = args[2].as.num_bits;
     const char* data = metal_string_get(vm, args[3].as.str_idx);
-    int n = b->write(b, rel, offset, data, strlen(data));
+    union { double d; uint64_t u; } v; v.u = args[4].as.num_bits;
+    int size = (int)v.d;
+    int n = b->write(b, rel, offset, data, (size_t)size);
     return mv_num(n >= 0 ? (uint64_t)n : 0);
 }
 
@@ -475,13 +477,18 @@ int vfs_read(const char *path, uint64_t offset, void *buffer, size_t size) {
         args[1] = mv_num(offset);
         args[2] = mv_num((uint64_t)size);
         MetalValue res = metal_vm_call(&g_vfs_vm, "vfs_read", args, 3);
-        if (res.type == MV_STR) {
-            const char* data = metal_string_get(&g_vfs_vm, res.as.str_idx);
-            int n = strlen(data);
-            if (n > (int)size) n = (int)size;
-            extern void *sage_memcpy(void *dest, const void *src, size_t n);
-            sage_memcpy(buffer, data, n);
-            return n;
+        if (res.type == MV_ARR) {
+            MetalValue mv_data = metal_array_get(&g_vfs_vm, res.as.arr_idx, 0);
+            MetalValue mv_len = metal_array_get(&g_vfs_vm, res.as.arr_idx, 1);
+            if (mv_data.type == MV_STR && mv_len.type == MV_NUM) {
+                const char* data = metal_string_get(&g_vfs_vm, mv_data.as.str_idx);
+                union { double d; uint64_t u; } v; v.u = mv_len.as.num_bits;
+                int n = (int)v.d;
+                if (n > (int)size) n = (int)size;
+                extern void *sage_memcpy(void *dest, const void *src, size_t n);
+                sage_memcpy(buffer, data, n);
+                return n;
+            }
         }
     }
 
@@ -495,19 +502,20 @@ int vfs_read(const char *path, uint64_t offset, void *buffer, size_t size) {
 
     return m->backend->read(m->backend, rel, offset, buffer, size);
 }
-
 int vfs_write(const char *path, uint64_t offset, const void *data, size_t size) {
     if (g_vfs_vm_inited) {
-        MetalValue args[3];
+        MetalValue args[4];
         args[0] = mv_str(&g_vfs_vm, path, strlen(path));
         args[1] = mv_num(offset);
         args[2] = mv_str(&g_vfs_vm, (const char*)data, (int)size);
-        MetalValue res = metal_vm_call(&g_vfs_vm, "vfs_write", args, 3);
+        args[3] = mv_num((uint64_t)size);
+        MetalValue res = metal_vm_call(&g_vfs_vm, "vfs_write", args, 4);
         if (res.type == MV_NUM) {
-            return (int)res.as.num_bits;
+            union { double d; uint64_t u; } v;
+            v.u = res.as.num_bits;
+            return (int)v.d;
         }
     }
-
     char norm[VFS_MAX_PATH];
     vfs_normalize_path(path, norm, VFS_MAX_PATH);
 

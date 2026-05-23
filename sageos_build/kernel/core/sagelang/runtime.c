@@ -880,7 +880,7 @@ static int sage_repl_build_function(void* data, ProcStmt* proc,
     return 1;
 }
 
-static void sage_repl_step_internal(const char* line, int interactive) {
+static void sage_execute_internal(MetalVM* vm, const char* line, int interactive) {
     char error[256];
     
     if (!line || !*line) return;
@@ -905,7 +905,7 @@ static void sage_repl_step_internal(const char* line, int interactive) {
 
         bytecode_chunk_init(&chunk);
         if (!bytecode_compile_statement_with_functions(&chunk, stmt, BYTECODE_COMPILE_STRICT,
-                                                       sage_repl_build_function, &g_repl_vm,
+                                                       sage_repl_build_function, vm,
                                                        error, sizeof(error))) {
             if (!sage_exit_flag) {
                 printf("Compile error: %s\n", error);
@@ -923,7 +923,7 @@ static void sage_repl_step_internal(const char* line, int interactive) {
             break;
         }
 
-        if (!sage_import_chunk_constants(&g_repl_vm, &chunk, error, sizeof(error), &const_offset)) {
+        if (!sage_import_chunk_constants(vm, &chunk, error, sizeof(error), &const_offset)) {
             printf("Compile error: %s\n", error);
             bytecode_chunk_free(&chunk);
             sage_clear_exit_state();
@@ -931,14 +931,14 @@ static void sage_repl_step_internal(const char* line, int interactive) {
         }
         sage_patch_main_chunk_indices(&chunk, const_offset);
 
-        sage_prepare_vm_for_step(&g_repl_vm);
-        metal_vm_load(&g_repl_vm, chunk.code, chunk.code_count);
-        metal_vm_run(&g_repl_vm);
+        sage_prepare_vm_for_step(vm);
+        metal_vm_load(vm, chunk.code, chunk.code_count);
+        metal_vm_run(vm);
 
-        if (g_repl_vm.error) {
-            printf("Runtime error: %s\n", g_repl_vm.error_msg ? g_repl_vm.error_msg : "unknown");
-            g_repl_vm.error = 0;
-            g_repl_vm.error_msg = 0;
+        if (vm->error) {
+            printf("Runtime error: %s\n", vm->error_msg ? vm->error_msg : "unknown");
+            vm->error = 0;
+            vm->error_msg = 0;
         }
 
         bytecode_chunk_free(&chunk);
@@ -946,8 +946,26 @@ static void sage_repl_step_internal(const char* line, int interactive) {
     sage_clear_exit_state();
 }
 
+void sage_import_module(MetalVM* vm, const char* name) {
+    char path[128];
+    snprintf(path, sizeof(path), "/bin/%s.sage", name);
+    
+    char* buf = (char*)sage_malloc(32768);
+    int n = vfs_read(path, 0, buf, 32767);
+    if (n <= 0) {
+        snprintf(path, sizeof(path), "/etc/%s.sage", name);
+        n = vfs_read(path, 0, buf, 32767);
+    }
+    
+    if (n > 0) {
+        buf[n] = '\0';
+        sage_execute_internal(vm, buf, 0);
+    }
+    sage_free(buf);
+}
+
 void sage_repl_step(const char* line) {
-    sage_repl_step_internal(line, 1);
+    sage_execute_internal(&g_repl_vm, line, 1);
 }
 
 static int command_matches(const char* line, const char* cmd, const char** arg_out) {
@@ -1367,5 +1385,5 @@ void sage_execute(const char* line) {
     }
 
     console_putc('\n');
-    sage_repl_step_internal(line, 0);
+    sage_execute_internal(&g_repl_vm, line, 0);
 }
