@@ -6,8 +6,9 @@
 
 extern void console_write(const char *s);
 extern int sage_printf(const char *fmt, ...);
+extern void dmesg_printf(const char *fmt, ...);
 
-#define LWIP_PLATFORM_DIAG(x) do { sage_printf x; } while(0)
+#define LWIP_PLATFORM_DIAG(x) do { dmesg_printf x; } while(0)
 #define LWIP_PLATFORM_ASSERT(x) do { console_write("LWIP ASSERT: "); console_write(x); console_write("\n"); } while(0)
 
 #define X8_F  "02x"

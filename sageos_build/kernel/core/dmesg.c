@@ -51,6 +51,16 @@ void dmesg_load_persistent(void) {
     dmesg_head = bytes_loaded % DMESG_SIZE;
 }
 
+void dmesg_printf(const char *fmt, ...) {
+    char buf[256];
+    __builtin_va_list ap;
+    __builtin_va_start(ap, fmt);
+    extern int sage_vsnprintf(char *buf, size_t n, const char *fmt, __builtin_va_list ap);
+    sage_vsnprintf(buf, sizeof(buf), fmt, ap);
+    __builtin_va_end(ap);
+    dmesg_log(buf);
+}
+
 void dmesg_log(const char *msg) {
     uint64_t ticks = timer_ticks();
     uint64_t sec = ticks / 100;

@@ -2,6 +2,7 @@
 #include <stddef.h>
 
 void dmesg_log(const char *msg);
+void dmesg_printf(const char *fmt, ...);
 void dmesg_dump(void);
 void dmesg_save_persistent(void);
 void dmesg_load_persistent(void);

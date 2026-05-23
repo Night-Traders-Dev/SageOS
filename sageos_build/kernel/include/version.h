@@ -1,1 +1,1 @@
-#define SAGEOS_VERSION "0.1.93"
+#define SAGEOS_VERSION "0.1.94"

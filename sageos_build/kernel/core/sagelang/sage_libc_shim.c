@@ -185,21 +185,28 @@ done:
     return 0;
 }
 
-int sage_snprintf(char *buf, size_t n, const char *fmt, ...) {
-    __builtin_va_list ap; __builtin_va_start(ap, fmt);
+int sage_vsnprintf(char *buf, size_t n, const char *fmt, __builtin_va_list ap) {
     size_t pos = 0;
     while (*fmt && pos + 1 < n) {
         if (*fmt != '%') { buf[pos++] = *fmt++; continue; }
         fmt++;
         if (*fmt == 's') { const char *s = __builtin_va_arg(ap, const char *); if (!s) s = "(null)"; while (*s && pos + 1 < n) buf[pos++] = *s++; }
         else if (*fmt == 'd') { int v = __builtin_va_arg(ap, int); char tmp[21]; int tp = 20; tmp[tp] = 0; int neg = v < 0; uint64_t uv = neg ? (uint64_t)(-(int64_t)v) : (uint64_t)v; if (uv == 0) tmp[--tp] = '0'; while (uv > 0) { tmp[--tp] = '0' + (char)(uv % 10); uv /= 10; } if (neg) tmp[--tp] = '-'; const char *r = &tmp[tp]; while (*r && pos + 1 < n) buf[pos++] = *r++; }
+        else if (*fmt == 'u') { unsigned v = __builtin_va_arg(ap, unsigned); char tmp[21]; int tp = 20; tmp[tp] = 0; if (v == 0) tmp[--tp] = '0'; while (v > 0) { tmp[--tp] = '0' + (char)(v % 10); v /= 10; } const char *r = &tmp[tp]; while (*r && pos + 1 < n) buf[pos++] = *r++; }
+        else if (*fmt == 'x') { unsigned v = __builtin_va_arg(ap, unsigned); char tmp[17]; int tp = 16; tmp[tp] = 0; if (v == 0) tmp[--tp] = '0'; while (v > 0) { int d = v % 16; tmp[--tp] = (char)(d < 10 ? '0' + d : 'a' + d - 10); v /= 16; } const char *r = &tmp[tp]; while (*r && pos + 1 < n) buf[pos++] = *r++; }
         else if (*fmt == '%') { buf[pos++] = '%'; }
         else { (void)__builtin_va_arg(ap, int); }
         fmt++;
     }
     if (n > 0) buf[pos] = '\0';
-    __builtin_va_end(ap);
     return (int)pos;
+}
+
+int sage_snprintf(char *buf, size_t n, const char *fmt, ...) {
+    __builtin_va_list ap; __builtin_va_start(ap, fmt);
+    int res = sage_vsnprintf(buf, n, fmt, ap);
+    __builtin_va_end(ap);
+    return res;
 }
 
 /* --- Control flow --- */

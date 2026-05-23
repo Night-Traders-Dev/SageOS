@@ -1182,15 +1182,11 @@ void cmd_curl(const char *args) {
     }
 
     if (ctx.result == HTTPC_RESULT_OK) {
-        console_write("curl: (100) Download complete. ");
-        console_u32(ctx.bytes_received);
-        console_write(" bytes received.\n");
+        dmesg_printf("curl: (100) Download complete. %u bytes received.", ctx.bytes_received);
+        console_write("curl: download complete.\n");
     } else {
-        console_write("curl: download failed (result=");
-        console_u32((uint32_t)ctx.result);
-        console_write(", lwip_err=");
-        console_write(lwip_strerr((err_t)ctx.lwip_err));
-        console_write(")\n");
+        dmesg_printf("curl: download failed (result=%u, lwip_err=%s)", (uint32_t)ctx.result, lwip_strerr((err_t)ctx.lwip_err));
+        console_write("curl: download failed (see dmesg for details)\n");
     }
 }
 
