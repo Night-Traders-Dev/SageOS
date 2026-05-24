@@ -33,6 +33,7 @@ COMBINED="${SAGE_SHELL_DIR}/sage_shell_combined.sage"
 
 echo "[sage-shell] Combining .sage sources..."
 cat "${INPUT_HELPER}" "${COMMANDS}" "${DMESG}" "${NEOFETCH}" "${STATUS}" "${SWAP}" "${POWER}" "${SCHED}" "${KERNEL_INFO}" "${INPUT}" > "${COMBINED}"
+cp "${COMBINED}" "sageos_build/kernel/bin/sage_shell_combined.sage"
 
 echo "[sage-shell] Compiling to bytecode..."
 # sage --compile-bytecode outputs a raw binary bytecode file
