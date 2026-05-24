@@ -234,6 +234,7 @@ void kmain(SageOSBootInfo *info) {
     bootlog("[KRN] sched_init: OK\r\n");
 
     dmesg_log("init system starting");
+    vfs_ls("/etc");
     bootlog("[KRN] sage_init_run: start\r\n");
     sage_init_run();
     bootlog("[KRN] sage_init_run: OK\r\n");

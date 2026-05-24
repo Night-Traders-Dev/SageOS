@@ -1,10 +1,6 @@
-# sys.sage — SageOS system bridge (non-class version)
-
-proc args():
-    return sys_args_builtin()
-
-proc getenv(name):
-    return _sys_getenv(name)
-
-proc exec(cmd):
-    return _sys_exec(cmd)
+class _Sys:
+    proc exec(cmd):
+        return sys_exec(cmd)
+    proc args():
+        return sys_args_builtin()
+let sys = _Sys()

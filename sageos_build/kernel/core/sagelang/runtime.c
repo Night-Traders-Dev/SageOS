@@ -34,9 +34,10 @@ void sage_repl_init(void) {
 
     // Register SageOS kernel natives
     register_sageos_natives(g_kernel_module_cache);
-
-    // Load standard library if possible
-    // init_stdlib(g_kernel_global_env);
+    
+    // Add /etc and /bin to search paths
+    add_search_path(g_kernel_module_cache, "/etc");
+    add_search_path(g_kernel_module_cache, "/bin");
 }
 
 void sage_execute(const char* line) {
@@ -53,7 +54,9 @@ void sage_execute(const char* line) {
 
         ExecResult result = interpret(stmt, g_kernel_global_env);
         if (result.is_throwing) {
-            printf("\nRuntime error (exception thrown)\n");
+            printf("\nRuntime error: ");
+            print_value(result.exception_value);
+            printf("\n");
         }
     }
 }
@@ -73,5 +76,10 @@ void sage_import_module(const char* name) {
     load_module(g_kernel_module_cache, name);
 }
 
-// The old REPL VM global
+// Unify the shell: use the new interpreter to run the shell script
+void sage_shell_run(void) {
+    sage_run_file("/bin/sage_shell_combined.sage");
+}
+
+// Global variable expected by some kernel parts
 void* g_repl_vm = NULL;

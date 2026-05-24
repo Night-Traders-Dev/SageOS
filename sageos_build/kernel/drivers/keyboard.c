@@ -70,12 +70,14 @@ static void enqueue_scancode(uint8_t sc) {
     uint8_t next = (uint8_t)queue_next(scancode_head);
     if (next == scancode_tail) return;
     scancode_queue[scancode_head] = sc;
+    __sync_synchronize();
     scancode_head = next;
 }
 
 static int dequeue_scancode(uint8_t *sc) {
     if (scancode_head == scancode_tail) return 0;
     *sc = scancode_queue[scancode_tail];
+    __sync_synchronize();
     scancode_tail = (uint8_t)queue_next(scancode_tail);
     return 1;
 }

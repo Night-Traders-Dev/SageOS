@@ -11,18 +11,59 @@
 #include "sage_libc_shim.h"
 #include "metal_vm.h"
 #include "metal_value.h"
+#include "vfs.h"
 
-/* Helper to provide both standard and sage_ prefixed symbols */
-#define PROVIDE_STUB(name, ret, args, body) \
-    ret name args body \
-    ret sage_##name args body
+// Define struct stat to match the one in our libc/sys/stat.h
+struct stat {
+    uint64_t st_dev;
+    uint64_t st_ino;
+    uint32_t st_mode;
+    uint32_t st_nlink;
+    uint32_t st_uid;
+    uint32_t st_gid;
+    uint64_t st_rdev;
+    uint64_t st_size;
+    int64_t st_blksize;
+    int64_t st_blocks;
+};
 
-/* 1. Missing Standard C / POSIX symbols */
+#undef errno
+int errno = 0;
+
+#undef strerror
+char* strerror(int e) { (void)e; return "Unknown error"; }
+char* sage_strerror(int e) { return strerror(e); }
 
 #undef strrchr
+char* strrchr(const char* s, int c) {
+    char* last = (void*)0;
+    do { if (*s == (char)c) last = (char*)s; } while (*s++);
+    return last;
+}
+char* sage_strrchr(const char* s, int c) { return strrchr(s, c); }
+
 #undef getenv
+char* getenv(const char* n) { (void)n; return (void*)0; }
+char* sage_getenv(const char* n) { return getenv(n); }
+
 #undef system
+int system(const char* c) { (void)c; return -1; }
+int sage_system(const char* c) { return system(c); }
+
 #undef stat
+int stat(const char* p, struct stat* b) {
+    VfsStat vst;
+    if (vfs_stat(p, &vst) == 0) {
+        sage_memset(b, 0, sizeof(struct stat));
+        b->st_size = vst.size;
+        b->st_mode = (vst.type == VFS_DIRECTORY) ? 0040000 : 0100000;
+        return 0;
+    }
+    return -1;
+}
+int sage_stat(const char* p, void* b) { return stat(p, (struct stat*)b); }
+
+typedef void FILE;
 #undef fopen
 #undef fclose
 #undef fwrite
@@ -31,26 +72,9 @@
 #undef ftell
 #undef rewind
 #undef remove
-#undef opendir
-#undef readdir
-#undef closedir
-#undef getline
-#undef nanosleep
-#undef gettimeofday
 #undef fgets
-#undef errno
-#undef strerror
 #undef fputs
-#undef exit
-#undef abort
-#undef dlopen
-#undef dlerror
-#undef dlclose
-#undef dlsym
-
-int errno = 0;
-char* strerror(int e) { (void)e; return "Unknown error"; }
-char* sage_strerror(int e) { return strerror(e); }
+#undef getline
 
 void* fopen(const char* p, const char* m) { (void)p; (void)m; return (void*)0; }
 void* sage_fopen(const char* p, const char* m) { return fopen(p, m); }
@@ -79,64 +103,38 @@ int sage_remove(const char* p) { return remove(p); }
 char* fgets(char* s, int n, void* f) { (void)s; (void)n; (void)f; return (void*)0; }
 char* sage_fgets(char* s, int n, void* f) { return fgets(s, n, f); }
 
-int fputs(const char* s, void* f) { (void)s; (void)f; return 0; }
+int fputs(const char* s, void* f) {
+    if (!s) return -1;
+    extern void console_write(const char*);
+    console_write(s);
+    return 0;
+}
 int sage_fputs(const char* s, void* f) { return fputs(s, f); }
-
-void* opendir(const char* n) { (void)n; return (void*)0; }
-void* sage_opendir(const char* n) { return opendir(n); }
-
-void* readdir(void* d) { (void)d; return (void*)0; }
-void* sage_readdir(void* d) { return readdir(d); }
-
-int closedir(void* d) { (void)d; return 0; }
-int sage_closedir(void* d) { return closedir(d); }
 
 long getline(char** l, size_t* n, void* f) { (void)l; (void)n; (void)f; return -1; }
 long sage_getline(char** l, size_t* n, void* f) { return getline(l, n, f); }
 
-char* getenv(const char* n) { (void)n; return (void*)0; }
-char* sage_getenv(const char* n) { return getenv(n); }
+#undef opendir
+#undef readdir
+#undef closedir
+void* opendir(const char* n) { (void)n; return (void*)0; }
+void* sage_opendir(const char* n) { return opendir(n); }
+void* readdir(void* d) { (void)d; return (void*)0; }
+void* sage_readdir(void* d) { return readdir(d); }
+int closedir(void* d) { (void)d; return 0; }
+int sage_closedir(void* d) { return closedir(d); }
 
-int system(const char* c) { (void)c; return -1; }
-int sage_system(const char* c) { return system(c); }
-
-struct stat;
-int stat(const char* p, struct stat* b) { (void)p; (void)b; return -1; }
-int sage_stat(const char* p, void* b) { return stat(p, (struct stat*)b); }
-
+#undef nanosleep
 struct timespec;
-int nanosleep(const struct timespec* req, struct timespec* rem) { (void)req; (void)rem; return -1; }
-int sage_nanosleep(const void* req, void* rem) { return nanosleep((const struct timespec*)req, (struct timespec*)rem); }
+int nanosleep(const void* req, void* rem) { (void)req; (void)rem; return -1; }
+int sage_nanosleep(const void* req, void* rem) { return nanosleep(req, rem); }
 
+#undef gettimeofday
 struct timeval;
-int gettimeofday(struct timeval* tv, void* tz) { (void)tv; (void)tz; return -1; }
-int sage_gettimeofday(struct timeval* tv, void* tz) { return gettimeofday((struct timeval*)tv, tz); }
+int gettimeofday(void* tv, void* tz) { (void)tv; (void)tz; return -1; }
+int sage_gettimeofday(void* tv, void* tz) { return gettimeofday(tv, tz); }
 
-char* strrchr(const char* s, int c) {
-    char* last = (void*)0;
-    do { if (*s == (char)c) last = (char*)s; } while (*s++);
-    return last;
-}
-char* sage_strrchr(const char* s, int c) { return strrchr(s, c); }
-
-/* 2. Math Stubs (ones not in shim) */
-#undef cos
-#undef tan
-#undef asin
-#undef acos
-#undef atan
-#undef atan2
-#undef log
-#undef log10
-#undef exp
-#undef round
-#undef fabs
-#undef floor
-#undef ceil
-#undef pow
-#undef sqrt
-#undef fmod
-
+/* 2. Math Stubs */
 double sin(double x) { (void)x; return 0; }
 double cos(double x) { (void)x; return 0; }
 double tan(double x) { (void)x; return 0; }
@@ -212,3 +210,13 @@ MetalValue n_os_array_push(MetalVM* vm, MetalValue* args, int argc) { (void)vm; 
 MetalValue n_os_write_str(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
 MetalValue n_os_num_to_str(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
 MetalValue n_os_stat(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
+
+/* 7. Bridge functions */
+char* realpath(const char* p, char* r) {
+    if (!r) { extern void* kernel_malloc(size_t); r = kernel_malloc(256); }
+    extern char* sage_strncpy(char*, const char*, size_t);
+    sage_strncpy(r, p, 255);
+    r[255] = '\0';
+    return r;
+}
+char* sage_realpath(const char* p, char* r) { return realpath(p, r); }
