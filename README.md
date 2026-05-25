@@ -9,6 +9,7 @@ SageOS uses a modular structure to maximize code reuse across architectures.
 - **`sageos_build/`**: The **Source of Truth** for architecture-agnostic core components.
   - `kernel/`: VFS, Shell, and common kernel logic.
   - `sage_lang/`: The SageLang compiler and VM.
+- **`docs/`**: [Comprehensive Documentation](docs/README.md) for all architectures and devices.
 - **`arch/`**: Architecture-specific ports (Git Submodules).
   - Each port (e.g., `arch/arm64`) includes this main repository as a submodule named `core` to access the agnostic components.
 
@@ -17,13 +18,16 @@ SageOS uses a modular structure to maximize code reuse across architectures.
 - **[arm64](https://github.com/Night-Traders-Dev/SageOS_arm64)**: ARM 64-bit (RPi4).
 - **[rv64](https://github.com/Night-Traders-Dev/SageOS_rv64)**: RISC-V 64-bit.
 
-## Core Components (Agnostic)
+## Quick Start: Raspberry Pi 4 (QEMU)
 
-These components are shared across all architectures:
-- **SageLang VM**: High-performance bytecode execution engine for OS logic.
-- **VFS Layer**: Virtual Filesystem with FAT32 and BTRFS support.
-- **SageShell**: Kernel-resident shell and diagnostic environment.
-- **System Libraries**: Standard SageLang scripts (`os.boot`, `os.serial`, etc.) for kernel bootstrapping.
+SageOS includes a master management script for easy building and testing.
+
+1.  **Build and Run**:
+    ```bash
+    ./sageos.sh arm64 rpi4 run
+    ```
+
+For detailed instructions on other targets, see the [Management Script Guide](docs/guides/management_script.md).
 
 ## Getting Started
 
@@ -32,22 +36,8 @@ To clone SageOS with all architecture ports:
 git clone --recursive https://github.com/Night-Traders-Dev/SageOS.git
 ```
 
-## Quick Start: Raspberry Pi 4 (QEMU)
-
-SageOS includes a demo pipeline for RPi4.
-
-1.  **Build the Kernel**:
-    ```bash
-    ./sageos_build/sage_lang/core/sage examples/boot/rpi4_demo.sage
-    chmod +x build_rpi4.sh && ./build_rpi4.sh
-    ```
-2.  **Run in QEMU**:
-    ```bash
-    qemu-system-aarch64 -machine raspi4b -cpu cortex-a72 -m 1G -nographic -kernel rpi4_boot_demo/kernel.elf
-    ```
-
 ### Developing for a Specific Architecture
-The architecture ports are located in the `arch/` directory. Each port is an independent repository designed to link against the `core/` submodule (which points back to this repository).
+The architecture ports are located in the `arch/` directory. Each port is an independent repository designed to link against the `core/` submodule.
 
 To build a specific architecture (e.g., ARM64):
 1.  Navigate to the port directory: `cd arch/arm64`
