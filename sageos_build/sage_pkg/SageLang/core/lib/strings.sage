@@ -1,0 +1,83 @@
+# strings.sage — String manipulation utilities
+# @inline on simple wrappers and hot string ops.
+
+proc words(text):
+    let raw = split(strip(text), " ")
+    let result = []
+    for part in raw:
+        if part != "":
+            push(result, part)
+    return result
+
+@inline
+proc compact(text):
+    return join(words(text), " ")
+
+@inline
+proc contains(text, part):
+    if part == "":
+        return true
+    return len(split(text, part)) > 1
+
+@inline
+proc count_substring(text, part):
+    if part == "":
+        return 0
+    return len(split(text, part)) - 1
+
+proc repeat(text, count):
+    let pieces = []
+    let i = 0
+    while i < count:
+        push(pieces, text)
+        i = i + 1
+    return join(pieces, "")
+
+proc pad_left(text, width, pad):
+    if len(text) >= width:
+        return text
+    return repeat(pad, width - len(text)) + text
+
+proc pad_right(text, width, pad):
+    if len(text) >= width:
+        return text
+    return text + repeat(pad, width - len(text))
+
+@inline
+proc surround(text, left, right):
+    return left + text + right
+
+@inline
+proc csv(values):
+    return join(values, ",")
+
+@inline
+proc dash_case(text):
+    return lower(join(words(replace(text, "_", " ")), "-"))
+
+@inline
+proc snake_case(text):
+    return lower(join(words(replace(text, "-", " ")), "_"))
+
+proc endswith(a, b):
+    let tail = split(a, "")
+    if tail[len(tail) - 1] == b:
+        return true
+    else:
+        return false
+
+proc from_bin(bits):
+    let start = 0
+    let bitList = split(bits, "")
+    if len(bits) >= 2:
+        if bitList[0] == "0":
+            if bitList[1] == "b":
+                start = 2
+    let result = 0
+    let i = start
+    while i < len(bits):
+        result = result * 2
+        if bitList[i] == "1":
+            result = result + 1
+        i = i + 1
+    return result

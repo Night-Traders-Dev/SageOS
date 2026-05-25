@@ -1,0 +1,9 @@
+{
+  "name": "sagepkg",
+  "version": "2.1.3",
+  "main": "universal/sagepkg.sage",
+  "files": [
+    "universal/sagepkg.sage",
+    "universal/json.sage"
+  ]
+}

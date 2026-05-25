@@ -1,0 +1,92 @@
+import sys
+import io
+
+let ESC = chr(27)
+let RESET = ESC + "[0m"
+let REVERSE = ESC + "[7m"
+let BOLD = ESC + "[1m"
+
+proc get_term_size():
+    sys.exec("stty size 2>/dev/null > /tmp/sage_nano_size")
+    let s = io.readfile("/tmp/sage_nano_size")
+    if s == "" or s == nil:
+        return [24, 80]
+    let parts = split(s, " ")
+    if len(parts) < 2:
+        return [24, 80]
+    let h = tonumber(parts[0])
+    let w = tonumber(parts[1])
+    if h == nil:
+        h = 24
+    if w == nil:
+        w = 80
+    return [h, w]
+
+proc draw_title_bar(cols, filename, modified):
+    let title = "  SageNano 1.0.1"
+    let status = ""
+    if modified:
+        status = "Modified"
+    
+    let f_display = filename
+    if f_display == "":
+        f_display = "New Buffer"
+    
+    let center = f_display
+    if status != "":
+        center = center + " (" + status + ")"
+        
+    let left_pad = (cols - len(title) - len(center)) / 2 | 0
+    if left_pad < 0:
+        left_pad = 0
+    
+    let line = title
+    for i in range(left_pad):
+        line = line + " "
+    line = line + center
+    while len(line) < cols:
+        line = line + " "
+    
+    return REVERSE + string.substr(line, 0, cols) + RESET + "\r\n"
+
+proc draw_status_bar(cols, message):
+    let line = message
+    while len(line) < cols:
+        line = line + " "
+    return REVERSE + string.substr(line, 0, cols) + RESET + "\r\n"
+
+proc draw_shortcut_bar(cols):
+    let s1 = "^G Help      ^O Write Out  ^W Where Is   ^K Cut Text   ^J Justify    ^C Cur Pos"
+    let s2 = "^X Exit      ^R Read File  ^\\ Replace    ^U Uncut Text ^T To Spell   ^Y Prev Page"
+    
+    # We'll actually only implement a subset but show the 1:1 UI
+    let line1 = string.substr(s1, 0, cols)
+    while len(line1) < cols:
+        line1 = line1 + " "
+    
+    let line2 = string.substr(s2, 0, cols)
+    while len(line2) < cols:
+        line2 = line2 + " "
+    
+    return REVERSE + line1 + RESET + "\r\n" + REVERSE + line2 + RESET
+
+proc set_cursor(y, x):
+    return ESC + "[" + str(y) + ";" + str(x) + "H"
+
+proc hide_cursor():
+    return ESC + "[?25l"
+
+proc show_cursor():
+    return ESC + "[?25h"
+
+proc clear_line():
+    return ESC + "[K"
+
+proc clear_screen():
+    return ESC + "[2J" + ESC + "[H"
+
+proc enter_alt_buffer():
+    return ESC + "[?1049h"
+
+proc exit_alt_buffer():
+    return ESC + "[?1049l"

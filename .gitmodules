@@ -1,0 +1,9 @@
+[submodule "arch/x64"]
+	path = arch/x64
+	url = https://github.com/Night-Traders-Dev/SageOS_x64.git
+[submodule "arch/arm64"]
+	path = arch/arm64
+	url = https://github.com/Night-Traders-Dev/SageOS_arm64.git
+[submodule "arch/rv64"]
+	path = arch/rv64
+	url = https://github.com/Night-Traders-Dev/SageOS_rv64.git

@@ -1,37 +1,32 @@
 # SageOS - The Multi-Architecture Operating System
 
-SageOS is a lightweight, modular operating system project designed to run across multiple hardware architectures. This repository serves as the central hub and index for the various architecture-specific ports and components of the SageOS ecosystem.
+SageOS is a lightweight, modular operating system project. This repository is the central hub containing the **architecture-agnostic core** and linking to architecture-specific ports via submodules.
 
 ## Project Structure
 
-The SageOS project is divided into specialized repositories based on target CPU architectures. Each repository contains specific branches for supported hardware platforms.
+- **`sageos_build/kernel/`**: The shared core components (SageLang, VFS, Shell, etc.).
+- **`arch/`**: Architecture-specific ports (Git Submodules).
+  - **[x64](https://github.com/Night-Traders-Dev/SageOS_x64)**: Intel/AMD 64-bit.
+  - **[arm64](https://github.com/Night-Traders-Dev/SageOS_arm64)**: ARM 64-bit (RPi4).
+  - **[rv64](https://github.com/Night-Traders-Dev/SageOS_rv64)**: RISC-V 64-bit.
 
-### [SageOS_x64](https://github.com/Night-Traders-Dev/SageOS_x64)
-Primary port for 64-bit Intel and AMD processors.
-- **[300e](https://github.com/Night-Traders-Dev/SageOS_x64/tree/300e)**: Target branch for the Lenovo 300e Chromebook (2nd Gen AST). *This is currently the most mature port.*
+## Core Components (Agnostic)
 
-### [SageOS_arm64](https://github.com/Night-Traders-Dev/SageOS_arm64)
-Port for 64-bit ARM (AArch64) architectures.
-- **[RPi4](https://github.com/Night-Traders-Dev/SageOS_arm64/tree/RPi4)**: Target branch for the Raspberry Pi 4 Model B.
-
-### [SageOS_rv64](https://github.com/Night-Traders-Dev/SageOS_rv64)
-Port for 64-bit RISC-V architectures.
-- **[OrangePi_RV_2](https://github.com/Night-Traders-Dev/SageOS_rv64/tree/OrangePi_RV_2)**: Target branch for the Orange Pi RV 2.
-
----
-
-## Shared Components
-
-- **[SageLang](https://github.com/Night-Traders-Dev/SageOS_x64/tree/300e/sageos_build/sage_lang)**: The core system language and VM used across all ports.
-- **[SagePkg](https://github.com/Night-Traders-Dev/SageOS_x64/tree/300e/sageos_build/sage_pkg)**: The unified package manager.
+These components are shared across all architectures:
+- **SageLang VM**: High-performance bytecode execution engine.
+- **VFS Layer**: Virtual Filesystem with FAT32 and BTRFS support.
+- **SageShell**: Kernel-resident shell and diagnostic environment.
+- **System Libraries**: Standard SageLang scripts and utilities.
 
 ## Getting Started
 
-For the most complete experience, we recommend starting with the **[SageOS x64 (300e)](https://github.com/Night-Traders-Dev/SageOS_x64/tree/300e)** port, which includes full Wi-Fi support, a kernel-resident shell, and programmable initialization.
+To clone SageOS with all architecture ports:
+```bash
+git clone --recursive https://github.com/Night-Traders-Dev/SageOS.git
+```
+
+### Developing for a Specific Architecture
+The architecture ports are located in the `arch/` directory. Each submodule points to its respective repository's `main` branch, which is designed to build against the agnostic core in the parent directory.
 
 ## License
-
-This project is licensed under the MIT License - see the individual repositories for details.
-
----
-*Maintained by the Night-Traders-Dev team.*
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
