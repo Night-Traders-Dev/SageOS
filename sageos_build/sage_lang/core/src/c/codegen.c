@@ -1521,12 +1521,32 @@ int compile_source_to_native(const char* source, const char* input_path,
             execlp("cc", "cc", asm_path, "-o", output_path, "-lm", (char*)NULL);
         } else {
             if (spec.target == CODEGEN_TARGET_X86_64) {
-                execlp("cc", "cc",
+                execlp("x86_64-linux-gnu-gcc", "x86_64-linux-gnu-gcc",
                        "-c",
                        "-ffreestanding",
                        "-fno-stack-protector",
                        "-fPIC",
                        "-mno-red-zone",
+                       asm_path,
+                       "-o",
+                       output_path,
+                       (char*)NULL);
+            } else if (spec.target == CODEGEN_TARGET_AARCH64) {
+                execlp("aarch64-linux-gnu-gcc", "aarch64-linux-gnu-gcc",
+                       "-c",
+                       "-ffreestanding",
+                       "-fno-stack-protector",
+                       "-fPIC",
+                       asm_path,
+                       "-o",
+                       output_path,
+                       (char*)NULL);
+            } else if (spec.target == CODEGEN_TARGET_RV64) {
+                execlp("riscv64-linux-gnu-gcc", "riscv64-linux-gnu-gcc",
+                       "-c",
+                       "-ffreestanding",
+                       "-fno-stack-protector",
+                       "-fPIC",
                        asm_path,
                        "-o",
                        output_path,

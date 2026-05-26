@@ -37,17 +37,16 @@ comptime:
 # ============================================================================
 
 comptime:
-    let AS_X86 = "as"
+    let AS_X86 = "x86_64-linux-gnu-as"
     let AS_AARCH64 = "aarch64-linux-gnu-as"
     let AS_RISCV64 = "riscv64-linux-gnu-as"
-    let LD_X86 = "ld"
+    let LD_X86 = "x86_64-linux-gnu-ld"
     let LD_AARCH64 = "aarch64-linux-gnu-ld"
     let LD_RISCV64 = "riscv64-linux-gnu-ld"
-    let CC_X86 = "gcc"
+    let CC_X86 = "x86_64-linux-gnu-gcc"
     let CC_AARCH64 = "aarch64-linux-gnu-gcc"
     let CC_RISCV64 = "riscv64-linux-gnu-gcc"
-    let OBJCOPY_X86 = "objcopy"
-    let OBJCOPY_AARCH64 = "aarch64-linux-gnu-objcopy"
+    let OBJCOPY_X86 = "x86_64-linux-gnu-objcopy"
     let OBJCOPY_RISCV64 = "riscv64-linux-gnu-objcopy"
 
 # ============================================================================
