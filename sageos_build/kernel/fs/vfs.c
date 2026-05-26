@@ -1,9 +1,66 @@
 #include "vfs.h"
+#include "ramfs.h"
 #include "console.h"
 #include <stddef.h>
 #include <string.h>
 #include "metal_vm.h"
 #include "vfs_bridge_bytecode.h"
+#include "commands_embed.h"
+
+static const char test_sage_source[] =
+    "# SageLang test for SageOS REPL\n"
+    "let x = 42\n"
+    "let y = x * 2\n"
+    "print(y)\n"
+    "let name = \"SageOS\"\n"
+    "print(\"Hello, \" + name + \"!\")\n"
+    "print(x + y)\n";
+
+static const char test_error_sage_source[] =
+    "print(\"Testing division by zero...\")\n"
+    "try let a = 10 / 0 catch (e) print(e)\n"
+    "print(\"Testing undefined var...\")\n"
+    "try print(undefined_var) catch (err) print(err)\n"
+    "print(\"Done.\")\n";
+
+typedef struct {
+    const char *path;
+    const unsigned char *data;
+    unsigned int size;
+} EmbeddedFile;
+
+static const EmbeddedFile g_embedded_files[] = {
+    {"/etc/commands/curl.sage", embedded_file_etc_commands_curl_sage, sizeof(embedded_file_etc_commands_curl_sage) - 1},
+    {"/etc/commands/sched.sage", embedded_file_etc_commands_sched_sage, sizeof(embedded_file_etc_commands_sched_sage) - 1},
+    {"/etc/commands/swap.sage", embedded_file_etc_commands_swap_sage, sizeof(embedded_file_etc_commands_swap_sage) - 1},
+    {"/etc/commands/dmesg.sage", embedded_file_etc_commands_dmesg_sage, sizeof(embedded_file_etc_commands_dmesg_sage) - 1},
+    {"/etc/commands/hello.json", embedded_file_etc_commands_hello_json, sizeof(embedded_file_etc_commands_hello_json) - 1},
+    {"/etc/import_test.sage", embedded_file_etc_import_test_sage, sizeof(embedded_file_etc_import_test_sage) - 1},
+    {"/etc/init.sage", embedded_file_etc_init_sage, sizeof(embedded_file_etc_init_sage) - 1},
+    {"/etc/commands/install.sage", embedded_file_etc_commands_install_sage, sizeof(embedded_file_etc_commands_install_sage) - 1},
+    {"/bin/io.sage", embedded_file_bin_io_sage, sizeof(embedded_file_bin_io_sage) - 1},
+    {"/bin/json.sage", embedded_file_bin_json_sage, sizeof(embedded_file_bin_json_sage) - 1},
+    {"/etc/packages.json", embedded_file_etc_packages_json, sizeof(embedded_file_etc_packages_json) - 1},
+    {"/bin/sage_shell_combined.sage", embedded_file_bin_sage_shell_combined_sage, sizeof(embedded_file_bin_sage_shell_combined_sage) - 1},
+    {"/bin/sagepkg.sage", embedded_file_bin_sagepkg_sage, sizeof(embedded_file_bin_sagepkg_sage) - 1},
+    {"/bin/sagepkg_mini.sage", embedded_file_bin_sagepkg_mini_sage, sizeof(embedded_file_bin_sagepkg_mini_sage) - 1},
+    {"/bin/string.sage", embedded_file_bin_string_sage, sizeof(embedded_file_bin_string_sage) - 1},
+    {"/bin/strings.sage", embedded_file_bin_strings_sage, sizeof(embedded_file_bin_strings_sage) - 1},
+    {"/bin/sys.sage", embedded_file_bin_sys_sage, sizeof(embedded_file_bin_sys_sage) - 1},
+    {"/etc/test.sage", embedded_file_etc_test_sage, sizeof(embedded_file_etc_test_sage) - 1},
+    {"/etc/test_suite.sage", embedded_file_etc_test_suite_sage, sizeof(embedded_file_etc_test_suite_sage) - 1},
+    {"/etc/commands/test.sage", embedded_file_etc_commands_test_sage, sizeof(embedded_file_etc_commands_test_sage) - 1},
+    {"/etc/test_substr.sage", embedded_file_etc_test_substr_sage, sizeof(embedded_file_etc_test_substr_sage) - 1},
+    {"/etc/commands/uname.sage", embedded_file_etc_commands_uname_sage, sizeof(embedded_file_etc_commands_uname_sage) - 1},
+    {"/etc/commands/version.sage", embedded_file_etc_commands_version_sage, sizeof(embedded_file_etc_commands_version_sage) - 1},
+    {"/etc/test_err.sage", (const unsigned char*)test_error_sage_source, sizeof(test_error_sage_source) - 1},
+    {"/etc/motd", (const unsigned char*)"Welcome to SageOS v0.2.0.\nType help for commands.\n", 52},
+    {"/etc/version", (const unsigned char*)"SageOS 0.2.0 modular kernel\n", 28},
+    {"/bin/sh", (const unsigned char*)"Kernel-resident shell\n", 22},
+    {"/dev/fb0", (const unsigned char*)"UEFI GOP framebuffer\n", 21},
+    {"/proc/input", (const unsigned char*)"native-i8042-ps2\n", 17},
+};
+#define EMBEDDED_FILES_COUNT (sizeof(g_embedded_files)/sizeof(g_embedded_files[0]))
 
 /* -----------------------------------------------------------------------
  * Mount table — static array, no dynamic allocation
@@ -143,6 +200,37 @@ static MetalValue n_os_backend_write(MetalVM* vm, MetalValue* args, int argc) {
     return mv_num(n >= 0 ? (uint64_t)n : 0);
 }
 
+static MetalValue n_os_get_embedded_count(MetalVM* vm, MetalValue* args, int argc) {
+    (void)vm; (void)args; (void)argc;
+    return vfs_mv_dbl((double)EMBEDDED_FILES_COUNT);
+}
+
+static MetalValue n_os_get_embedded_file(MetalVM* vm, MetalValue* args, int argc) {
+    if (argc < 1 || args[0].type != MV_NUM) return mv_nil();
+    union { double d; uint64_t u; } v; v.u = args[0].as.num_bits;
+    int idx = (int)v.d;
+    if (idx < 0 || idx >= (int)EMBEDDED_FILES_COUNT) return mv_nil();
+    
+    int d = metal_dict_new(vm);
+    const EmbeddedFile* f = &g_embedded_files[idx];
+    metal_dict_set(vm, d, metal_string_intern(vm, "path", 4), mv_str(vm, f->path, strlen(f->path)));
+    metal_dict_set(vm, d, metal_string_intern(vm, "data", 4), mv_str(vm, (const char*)f->data, (int)f->size));
+    
+    MetalValue res; res.type = MV_DICT; res.as.dict_idx = d;
+    return res;
+}
+
+const char* vfs_get_embedded_data(const char* path, uint64_t* out_size) {
+    for (int i = 0; i < (int)EMBEDDED_FILES_COUNT; i++) {
+        if (strcmp(g_embedded_files[i].path, path) == 0) {
+            if (out_size) *out_size = (uint64_t)g_embedded_files[i].size;
+            return (const char*)g_embedded_files[i].data;
+        }
+    }
+    if (out_size) *out_size = 0;
+    return NULL;
+}
+
 void vfs_bridge_init(void) {
     if (g_vfs_vm_inited) return;
     metal_vm_init(&g_vfs_vm);
@@ -162,6 +250,8 @@ void vfs_bridge_init(void) {
     metal_vm_register_native(&g_vfs_vm, "os_backend_write", n_os_backend_write);
     metal_vm_register_native(&g_vfs_vm, "os_substr", n_os_substr);
     metal_vm_register_native(&g_vfs_vm, "os_char_at", n_os_char_at);
+    metal_vm_register_native(&g_vfs_vm, "os_get_embedded_count", n_os_get_embedded_count);
+    metal_vm_register_native(&g_vfs_vm, "os_get_embedded_file", n_os_get_embedded_file);
 
     if (!metal_vm_load_binary(&g_vfs_vm, vfs_bridge_bytecode, vfs_bridge_bytecode_len)) {
         console_write("\n[VFS] Bridge load FAILED");
@@ -526,6 +616,14 @@ int vfs_write(const char *path, uint64_t offset, const void *data, size_t size) 
 }
 
 int vfs_mkdir(const char *path) {
+    if (g_vfs_vm_inited) {
+        MetalValue arg = mv_str(&g_vfs_vm, path, strlen(path));
+        MetalValue res = metal_vm_call(&g_vfs_vm, "vfs_mkdir", &arg, 1);
+        if (res.type == MV_NUM) {
+            union { double d; uint64_t u; } v; v.u = res.as.num_bits;
+            return (int)v.d;
+        }
+    }
     char norm[VFS_MAX_PATH];
     vfs_normalize_path(path, norm, VFS_MAX_PATH);
 
@@ -538,6 +636,14 @@ int vfs_mkdir(const char *path) {
 }
 
 int vfs_create(const char *path) {
+    if (g_vfs_vm_inited) {
+        MetalValue arg = mv_str(&g_vfs_vm, path, strlen(path));
+        MetalValue res = metal_vm_call(&g_vfs_vm, "vfs_create", &arg, 1);
+        if (res.type == MV_NUM) {
+            union { double d; uint64_t u; } v; v.u = res.as.num_bits;
+            return (int)v.d;
+        }
+    }
     char norm[VFS_MAX_PATH];
     vfs_normalize_path(path, norm, VFS_MAX_PATH);
 
@@ -550,6 +656,14 @@ int vfs_create(const char *path) {
 }
 
 int vfs_unlink(const char *path) {
+    if (g_vfs_vm_inited) {
+        MetalValue arg = mv_str(&g_vfs_vm, path, strlen(path));
+        MetalValue res = metal_vm_call(&g_vfs_vm, "vfs_unlink", &arg, 1);
+        if (res.type == MV_NUM) {
+            union { double d; uint64_t u; } v; v.u = res.as.num_bits;
+            return (int)v.d;
+        }
+    }
     char norm[VFS_MAX_PATH];
     vfs_normalize_path(path, norm, VFS_MAX_PATH);
 

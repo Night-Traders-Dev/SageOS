@@ -82,7 +82,7 @@ static void serial_bar(uint32_t val, uint32_t max, uint32_t width) {
 #include "btrfs.h"
 
 void cmd_swap(void) {
-    swap_info();
+    console_write("\n[DEPRECATED] Please use the pure-Sage 'swap' command instead.");
 }
 
 /* ------------------------------------------------------------------ */
@@ -1066,8 +1066,7 @@ void cmd_source(const char *path) {
 #include "dmesg.h"
 
 void cmd_dmesg(void) {
-    console_write("\n");
-    dmesg_dump();
+    console_write("\n[DEPRECATED] Please use the pure-Sage 'dmesg' command instead.");
 }
 
 #include "net.h"

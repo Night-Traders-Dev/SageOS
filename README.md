@@ -4,6 +4,13 @@ SageOS is a modern, modular, and multi-architecture operating system project. It
 
 This repository is the central hub. It contains the **architecture-agnostic core** (`sageos_build/`) and links to architecture-specific hardware ports via Git submodules (`arch/`).
 
+## Modernized Sage-Native Core
+As of v0.2.1, SageOS has successfully migrated critical core subsystems to pure **SageLang**:
+- **Sage-Native RamFS**: Storage, path resolution, and file access are now handled by memory-safe SageLang classes.
+- **Unified Telemetry**: Diagnostics (`sched`, `swap`, `dmesg`) are decoupled from the C kernel and rendered dynamically via Sage shell scripts.
+- **Pure-Sage JSON**: Standardized on a high-level JSON implementation for all configuration tasks.
+- **Regression Suite**: A unified test suite (`test_suite.sage`) ensures core stability across all architectures.
+
 ## Comprehensive Documentation
 For a deep dive into the architecture, subsystems, and current status, please read **[The SageOS Book](SageOS_Book.md)**.
 

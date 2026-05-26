@@ -21,11 +21,16 @@ MetalVM is a custom-built, freestanding bytecode interpreter. Unlike standard VM
 
 #### Virtual Filesystem (VFS)
 The VFS in SageOS is a hybrid implementation:
-*   **C Backend**: Provides the raw interface for filesystem drivers (FAT32, BTRFS) and handles block device I/O.
-*   **SageLang Bridge**: High-level path normalization, routing, and mount management are handled in `vfs_bridge.sage`. This allows for highly flexible and scriptable filesystem organization.
+*   **C Backend**: Provides the raw interface for hardware-linked filesystem drivers (FAT32, BTRFS).
+*   **Sage-Native Core**: The default system filesystem (**RamFS**) is implemented entirely in SageLang (`vfs_bridge.sage`). This ensures that the majority of filesystem logic (path resolution, directory management, and file access) is memory-safe and easily extensible.
+*   **Unified Router**: A SageLang-based router handles mount points and dispatches requests between Sage-native and C-native backends seamlessly.
 
-#### SageShell
-The SageShell is the primary diagnostic and interactive environment. It uses a C-based dispatcher for performance and a SageLang-based UI for feature richness. Commands can be implemented in either language, allowing for rapid development of system tools.
+#### SageShell & Telemetry
+The SageShell is the primary diagnostic and interactive environment. Following the **Sage-First Principle**, all major telemetry and diagnostic tools are implemented as pure Sage scripts:
+*   `sched`: Interactive process schedule table.
+*   `swap`: Visual memory utilization metrics.
+*   `dmesg`: Kernel log ring-buffer viewer.
+These tools consume lightweight OS natives to fetch raw data, while all formatting and styling logic resides in SageLang.
 
 ### 1.2 Architecture Ports (`arch/`)
 SageOS supports multiple architectures, each maintained in its own repository and linked as a submodule in the `arch/` directory.

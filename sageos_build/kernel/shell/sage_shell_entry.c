@@ -9,10 +9,10 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 #include "metal_vm.h"
 #include "console.h"
 #include "keyboard.h"
-#include "ramfs.h"
 #include "fat32.h"
 #include "power.h"
 #include "swap.h"
@@ -588,9 +588,12 @@ static MetalValue n_write(MetalVM *vm, MetalValue *a, int c) {
     return mv_nil();
 }
 
+extern const char* vfs_get_embedded_data(const char* path, uint64_t* out_size);
+
 static MetalValue n_execelf(MetalVM *vm, MetalValue *a, int c) {
     const char *path = arg_str(vm, a, c, 0);
-    const char *fd; uint64_t sz = ramfs_find_size(path, &fd);
+    uint64_t sz = 0;
+    const char *fd = vfs_get_embedded_data(path, &sz);
     if (!fd) { console_write("\nexecelf: no such file: "); console_write(path); return mv_nil(); }
     elf_exec(fd, sz); return mv_nil();
 }
@@ -752,6 +755,86 @@ static MetalValue n_sched_migrations(MetalVM *vm, MetalValue *a, int c) {
     return mv_dbl((double)sched_get_stats()->migrations);
 }
 
+/* --- Telemetry --- */
+static MetalValue n_os_get_tasks(MetalVM *vm, MetalValue *a, int c) {
+    (void)a;(void)c;
+    int arr = metal_array_new(vm);
+    for (uint32_t i = 0; i < SCHED_MAX_THREADS; i++) {
+        char name[32];
+        thread_state_t state;
+        uint32_t cpu_id;
+        if (sched_get_thread_info(i, name, &state, &cpu_id)) {
+            int d = metal_dict_new(vm);
+            metal_dict_set(vm, d, metal_string_intern(vm, "id", 2), mv_num((uint64_t)i));
+            metal_dict_set(vm, d, metal_string_intern(vm, "name", 4), mv_str(vm, name, (int)strlen(name)));
+            metal_dict_set(vm, d, metal_string_intern(vm, "state", 5), mv_num((uint64_t)state));
+            metal_dict_set(vm, d, metal_string_intern(vm, "cpu", 3), mv_num((uint64_t)cpu_id));
+            MetalValue item; item.type = MV_DICT; item.as.dict_idx = d;
+            metal_array_push(vm, arr, item);
+        }
+    }
+    MetalValue res; res.type = MV_ARR; res.as.arr_idx = arr;
+    return res;
+}
+
+static MetalValue n_os_get_mem_stats(MetalVM *vm, MetalValue *a, int c) {
+    (void)a;(void)c;
+    int d = metal_dict_new(vm);
+    metal_dict_set(vm, d, metal_string_intern(vm, "used", 4), mv_num(ram_used_bytes()));
+    metal_dict_set(vm, d, metal_string_intern(vm, "total", 5), mv_num(ram_total_bytes()));
+    MetalValue res; res.type = MV_DICT; res.as.dict_idx = d;
+    return res;
+}
+
+static MetalValue n_os_get_dmesg(MetalVM *vm, MetalValue *a, int c) {
+    (void)a;(void)c;
+    uint32_t total = dmesg_get_total();
+    uint32_t size = dmesg_get_size();
+    if (total > size) total = size;
+    
+    char *buf = (char*)&vm->heap[vm->heap_used];
+    if (vm->heap_used + total + 1 > METAL_HEAP_SIZE) return mv_nil();
+    
+    for (uint32_t i = 0; i < total; i++) {
+        buf[i] = dmesg_get_char(i);
+    }
+    return mv_str(vm, buf, (int)total);
+}
+
+static MetalValue n_os_vfs_stat(MetalVM *vm, MetalValue *a, int c) {
+    const char *path = arg_str(vm, a, c, 0);
+    VfsStat st;
+    if (vfs_stat(path, &st) == VFS_OK) {
+        int d = metal_dict_new(vm);
+        metal_dict_set(vm, d, metal_string_intern(vm, "name", 4), mv_str(vm, st.name, (int)strlen(st.name)));
+        metal_dict_set(vm, d, metal_string_intern(vm, "type", 4), mv_num((uint64_t)st.type));
+        metal_dict_set(vm, d, metal_string_intern(vm, "size", 4), mv_num(st.size));
+        MetalValue res; res.type = MV_DICT; res.as.dict_idx = d;
+        return res;
+    }
+    return mv_nil();
+}
+
+static MetalValue n_os_vfs_readdir(MetalVM *vm, MetalValue *a, int c) {
+    const char *path = arg_str(vm, a, c, 0);
+    VfsDirEntry entries[VFS_DIRENT_MAX];
+    int count = vfs_readdir(path, entries, VFS_DIRENT_MAX);
+    if (count >= 0) {
+        int arr = metal_array_new(vm);
+        for (int i = 0; i < count; i++) {
+            int d = metal_dict_new(vm);
+            metal_dict_set(vm, d, metal_string_intern(vm, "name", 4), mv_str(vm, entries[i].name, (int)strlen(entries[i].name)));
+            metal_dict_set(vm, d, metal_string_intern(vm, "type", 4), mv_num((uint64_t)entries[i].type));
+            metal_dict_set(vm, d, metal_string_intern(vm, "size", 4), mv_num(entries[i].size));
+            MetalValue item; item.type = MV_DICT; item.as.dict_idx = d;
+            metal_array_push(vm, arr, item);
+        }
+        MetalValue res; res.type = MV_ARR; res.as.arr_idx = arr;
+        return res;
+    }
+    return mv_nil();
+}
+
 /* -----------------------------------------------------------------------
  * Register all natives
  * --------------------------------------------------------------------- */
@@ -861,6 +944,12 @@ static void register_natives(MetalVM *vm) {
     REG("os_qemu_exit",     n_qemu_exit);
     REG("os_sage_exec",     n_sage_exec);
     REG("os_get_c0",        n_os_get_c0);
+    /* New Telemetry */
+    REG("os_get_tasks",     n_os_get_tasks);
+    REG("os_get_mem_stats", n_os_get_mem_stats);
+    REG("os_get_dmesg",     n_os_get_dmesg);
+    REG("os_vfs_stat",      n_os_vfs_stat);
+    REG("os_vfs_readdir",   n_os_vfs_readdir);
 #undef REG
 }
 

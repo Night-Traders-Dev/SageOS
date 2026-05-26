@@ -2,7 +2,6 @@
 #include <stddef.h>
 #include "console.h"
 #include "keyboard.h"
-#include "ramfs.h"
 #include "fat32.h"
 #include "vfs.h"
 #include "power.h"

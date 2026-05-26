@@ -56,7 +56,6 @@ proc generate_virt_build(arch):
         "sageos_build/kernel/core/virt_keyboard.c",
         "sageos_build/kernel/core/sagelang/sage_libc_shim.c",
         "sageos_build/kernel/fs/vfs.c",
-        "sageos_build/kernel/fs/ramfs.c",
         "sageos_build/kernel/core/kernel_stubs.c",
         "sageos_build/kernel/shell/shell.c",
         "sageos_build/kernel/shell/shell_helper.c",

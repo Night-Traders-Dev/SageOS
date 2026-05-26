@@ -7,7 +7,6 @@
 #include "version.h"
 
 #include "vfs.h"
-#include "ramfs.h"
 
 void power_reboot(void) {
     console_write("Rebooting...\n");
@@ -47,7 +46,6 @@ void kmain(SageOSBootInfo *info) {
     
     keyboard_init();
     vfs_init();
-    ramfs_init();
     
     // Launch interactive C shell
     shell_run();
