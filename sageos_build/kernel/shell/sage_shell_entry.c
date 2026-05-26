@@ -340,6 +340,42 @@ static MetalValue n_len(MetalVM *vm, MetalValue *a, int c) {
 static MetalValue n_version_string(MetalVM *vm, MetalValue *a, int c) {
     (void)a;(void)c; return mv_str_lit(vm, SAGEOS_VERSION);
 }
+static MetalValue n_arch(MetalVM *vm, MetalValue *a, int c) {
+    (void)a;(void)c;
+#if defined(__x86_64__)
+    return mv_str_lit(vm, "x86_64");
+#elif defined(__aarch64__)
+    return mv_str_lit(vm, "aarch64");
+#elif defined(__riscv)
+    return mv_str_lit(vm, "riscv64");
+#else
+    return mv_str_lit(vm, "unknown");
+#endif
+}
+static MetalValue n_host(MetalVM *vm, MetalValue *a, int c) {
+    (void)a;(void)c;
+#if defined(__x86_64__)
+    return mv_str_lit(vm, "QEMU Standard PC (Q35)");
+#elif defined(__aarch64__)
+    return mv_str_lit(vm, "QEMU Virtual Machine (virt)");
+#elif defined(__riscv)
+    return mv_str_lit(vm, "QEMU RISC-V Virt Machine");
+#else
+    return mv_str_lit(vm, "Virtual Machine");
+#endif
+}
+static MetalValue n_cpu_name(MetalVM *vm, MetalValue *a, int c) {
+    (void)a;(void)c;
+#if defined(__x86_64__)
+    return mv_str_lit(vm, "x86_64 Virtual CPU");
+#elif defined(__aarch64__)
+    return mv_str_lit(vm, "Cortex-A57 Virtual CPU");
+#elif defined(__riscv)
+    return mv_str_lit(vm, "rv64gc Virtual CPU");
+#else
+    return mv_str_lit(vm, "Virtual CPU");
+#endif
+}
 static MetalValue n_input_backend(MetalVM *vm, MetalValue *a, int c) {
     (void)a;(void)c; return mv_str_lit(vm, keyboard_backend());
 }
@@ -750,6 +786,9 @@ static void register_natives(MetalVM *vm) {
     REG("os_array_push",    n_array_push);
     /* System info */
     REG("os_version_string",n_version_string);
+    REG("os_arch",          n_arch);
+    REG("os_host",          n_host);
+    REG("os_cpu_name",      n_cpu_name);
     REG("os_input_backend", n_input_backend);
     REG("os_fb_available",  n_fb_available);
     REG("os_fb_base_str",   n_fb_base_str);

@@ -64,10 +64,11 @@ proc cmd_neofetch():
             neofetch_label("OS:       ")
             os_write_str("SageOS ")
             os_write_str(os_version_string())
-            os_write_str(" x86_64")
+            os_write_str(" ")
+            os_write_str(os_arch())
         elif i == 3:
             neofetch_label("Host:     ")
-            os_write_str("Lenovo 300e target")
+            os_write_str(os_host())
         elif i == 4:
             neofetch_label("Kernel:   ")
             os_write_str("SageOS modular kernel")
@@ -88,7 +89,8 @@ proc cmd_neofetch():
                 os_write_str("serial")
         elif i == 9:
             neofetch_label("CPU:      ")
-            os_write_str("x86_64, ")
+            os_write_str(os_cpu_name())
+            os_write_str(", ")
             os_write_str(os_num_to_str(os_smp_cpu_count()))
             os_write_str(" logical CPU(s)")
         elif i == 10:
