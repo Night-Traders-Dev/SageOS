@@ -4,6 +4,9 @@
 
 set -e
 
+# Export SAGE_PATH to use the repository's custom Sage standard library
+export SAGE_PATH="$(pwd)/sageos_build/sage_lang/core/lib"
+
 # Configuration
 SAGE_BIN="./sageos_build/sage_lang/core/sage"
 EXAMPLES_DIR="./examples/boot"
