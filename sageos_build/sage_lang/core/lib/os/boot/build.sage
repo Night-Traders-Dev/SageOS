@@ -481,38 +481,27 @@ comptime:
     let BARE_METAL_C = "src/c/bare_metal.c"
 
 proc build_commands(arch, boot_asm_path, kernel_c_path, linker_script_path, output_elf):
-    let as_cmd = get_assembler(arch)
-    let cc = get_cc(arch)
-    let ld = get_linker(arch)
     let cmds = []
 
     let boot_obj = "boot.o"
     let kernel_obj = "kernel.o"
 
     # Step 1: Assemble boot stub
-    if arch == "x86_64":
-        push(cmds, as_cmd + " --64 -o " + boot_obj + " " + boot_asm_path)
-    end
-    if arch == "aarch64" or arch == "rpi4":
-        push(cmds, as_cmd + " -o " + boot_obj + " " + boot_asm_path)
-    end
-    if arch == "riscv64" or arch == "orangepi_rv2":
-        push(cmds, as_cmd + " -march=rv64gc -mabi=lp64d -o " + boot_obj + " " + boot_asm_path)
-    end
+    push(cmds, "$AS $ASFLAGS -o " + boot_obj + " " + boot_asm_path)
 
     # Step 2: Compile kernel C code
     if arch == "x86_64":
-        push(cmds, cc + " -ffreestanding -nostdlib -mno-red-zone -c -o " + kernel_obj + " " + kernel_c_path)
+        push(cmds, "$CC -ffreestanding -nostdlib -mno-red-zone -c -o " + kernel_obj + " " + kernel_c_path)
     end
     if arch == "aarch64" or arch == "rpi4":
-        push(cmds, cc + " -ffreestanding -nostdlib -mgeneral-regs-only -c -o " + kernel_obj + " " + kernel_c_path)
+        push(cmds, "$CC -ffreestanding -nostdlib -mgeneral-regs-only -c -o " + kernel_obj + " " + kernel_c_path)
     end
     if arch == "riscv64" or arch == "orangepi_rv2":
-        push(cmds, cc + " -ffreestanding -nostdlib -march=rv64gc -mabi=lp64d -c -o " + kernel_obj + " " + kernel_c_path)
+        push(cmds, "$CC -ffreestanding -nostdlib -march=rv64gc -mabi=lp64d -mcmodel=medany -c -o " + kernel_obj + " " + kernel_c_path)
     end
 
     # Step 3: Link into ELF
-    push(cmds, ld + " -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj)
+    push(cmds, "$LD -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj)
 
     return cmds
 end
@@ -520,9 +509,6 @@ end
 # Build commands with bare_metal.c runtime linked in (provides memset, memcpy,
 # inb/outb, cli/sti/hlt, rdmsr/wrmsr, invlpg, read_cr3/write_cr3)
 proc build_commands_with_runtime(arch, boot_asm_path, kernel_c_path, linker_script_path, output_elf, sage_root):
-    let as_cmd = get_assembler(arch)
-    let cc = get_cc(arch)
-    let ld = get_linker(arch)
     let cmds = []
 
     let boot_obj = "boot.o"
@@ -531,15 +517,7 @@ proc build_commands_with_runtime(arch, boot_asm_path, kernel_c_path, linker_scri
     let runtime_src = sage_root + "/" + BARE_METAL_C
 
     # Step 1: Assemble boot stub
-    if arch == "x86_64":
-        push(cmds, as_cmd + " --64 -o " + boot_obj + " " + boot_asm_path)
-    end
-    if arch == "aarch64":
-        push(cmds, as_cmd + " -o " + boot_obj + " " + boot_asm_path)
-    end
-    if arch == "riscv64":
-        push(cmds, as_cmd + " -march=rv64gc -mabi=lp64d -o " + boot_obj + " " + boot_asm_path)
-    end
+    push(cmds, "$AS $ASFLAGS -o " + boot_obj + " " + boot_asm_path)
 
     # Step 2: Compile kernel C code
     let cflags = " -ffreestanding -nostdlib -DSAGE_BARE_METAL"
@@ -547,15 +525,15 @@ proc build_commands_with_runtime(arch, boot_asm_path, kernel_c_path, linker_scri
         cflags = cflags + " -mno-red-zone"
     end
     if arch == "riscv64":
-        cflags = cflags + " -march=rv64gc -mabi=lp64d"
+        cflags = cflags + " -march=rv64gc -mabi=lp64d -mcmodel=medany"
     end
-    push(cmds, cc + cflags + " -c -o " + kernel_obj + " " + kernel_c_path)
+    push(cmds, "$CC" + cflags + " -c -o " + kernel_obj + " " + kernel_c_path)
 
     # Step 3: Compile bare_metal.c runtime
-    push(cmds, cc + cflags + " -c -o " + runtime_obj + " " + runtime_src)
+    push(cmds, "$CC" + cflags + " -c -o " + runtime_obj + " " + runtime_src)
 
     # Step 4: Link all objects
-    push(cmds, ld + " -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj + " " + runtime_obj)
+    push(cmds, "$LD -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj + " " + runtime_obj)
 
     return cmds
 end
@@ -660,6 +638,47 @@ proc generate_build_script(arch, output_dir, message):
     let files = write_build_files(arch, output_dir, message)
     let script = "#!/bin/sh" + NL
     script = script + "set -e" + NL
+    
+    if arch == "x86_64":
+        script = script + "if command -v x86_64-linux-gnu-as >/dev/null 2>&1; then" + NL
+        script = script + "    AS=\"x86_64-linux-gnu-as\"" + NL
+        script = script + "    ASFLAGS=\"--64\"" + NL
+        script = script + "    CC=\"x86_64-linux-gnu-gcc\"" + NL
+        script = script + "    LD=\"x86_64-linux-gnu-ld\"" + NL
+        script = script + "else" + NL
+        script = script + "    AS=\"clang -target x86_64-unknown-elf -c\"" + NL
+        script = script + "    ASFLAGS=\"\"" + NL
+        script = script + "    CC=\"clang -target x86_64-unknown-elf\"" + NL
+        script = script + "    LD=\"ld.lld\"" + NL
+        script = script + "fi" + NL
+    end
+    if arch == "aarch64" or arch == "rpi4":
+        script = script + "if command -v aarch64-linux-gnu-as >/dev/null 2>&1; then" + NL
+        script = script + "    AS=\"aarch64-linux-gnu-as\"" + NL
+        script = script + "    ASFLAGS=\"\"" + NL
+        script = script + "    CC=\"aarch64-linux-gnu-gcc\"" + NL
+        script = script + "    LD=\"aarch64-linux-gnu-ld\"" + NL
+        script = script + "else" + NL
+        script = script + "    AS=\"clang -target aarch64-unknown-elf -c\"" + NL
+        script = script + "    ASFLAGS=\"\"" + NL
+        script = script + "    CC=\"clang -target aarch64-unknown-elf\"" + NL
+        script = script + "    LD=\"ld.lld\"" + NL
+        script = script + "fi" + NL
+    end
+    if arch == "riscv64" or arch == "orangepi_rv2":
+        script = script + "if command -v riscv64-linux-gnu-as >/dev/null 2>&1; then" + NL
+        script = script + "    AS=\"riscv64-linux-gnu-as\"" + NL
+        script = script + "    ASFLAGS=\"-march=rv64gc -mabi=lp64d\"" + NL
+        script = script + "    CC=\"riscv64-linux-gnu-gcc\"" + NL
+        script = script + "    LD=\"riscv64-linux-gnu-ld\"" + NL
+        script = script + "else" + NL
+        script = script + "    AS=\"clang -target riscv64-unknown-elf -c\"" + NL
+        script = script + "    ASFLAGS=\"-march=rv64gc -mabi=lp64d\"" + NL
+        script = script + "    CC=\"clang -target riscv64-unknown-elf\"" + NL
+        script = script + "    LD=\"ld.lld\"" + NL
+        script = script + "fi" + NL
+    end
+    
     script = script + "echo 'Building " + arch + " kernel...'" + NL
     for cmd in files["build_commands"]:
         script = script + "echo '  " + cmd + "'" + NL
