@@ -501,7 +501,7 @@ proc build_commands(arch, boot_asm_path, kernel_c_path, linker_script_path, outp
     end
 
     # Step 3: Link into ELF
-    push(cmds, "$LD -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj)
+    push(cmds, "$LD -z max-page-size=4096 -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj)
 
     return cmds
 end
@@ -533,7 +533,7 @@ proc build_commands_with_runtime(arch, boot_asm_path, kernel_c_path, linker_scri
     push(cmds, "$CC" + cflags + " -c -o " + runtime_obj + " " + runtime_src)
 
     # Step 4: Link all objects
-    push(cmds, "$LD -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj + " " + runtime_obj)
+    push(cmds, "$LD -z max-page-size=4096 -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj + " " + runtime_obj)
 
     return cmds
 end
