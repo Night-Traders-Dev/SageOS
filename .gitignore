@@ -1,2 +1,64 @@
-.gh_token
+# SageOS Build & Output Artifacts
 build/
+obj/
+bin/
+out/
+target/
+*.img
+*.iso
+*.elf
+*.bin
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.dll
+*.dylib
+*.bc
+
+# AI Agent / LLM Workspace Artifacts
+.claude/
+.gemini/
+.antigravity/
+walkthrough.md
+task.md
+implementation_plan.md
+analysis_results.md
+research_notes.md
+experiment_results.md
+
+# Development / IDE Configurations
+.vscode/
+.idea/
+*.swp
+*.swo
+*.suo
+*.sln
+*.user
+*.userossc
+
+# Package / Dependency Managers
+node_modules/
+venv/
+.venv/
+__pycache__/
+.gradle/
+.project
+.settings/
+.classpath
+
+# Credentials & Environment
+.env
+.env.*
+.gh_token
+personal.env
+
+# Logs and Diagnostics
+*.log
+*.tmp
+*.temp
+
+# OS Specific
+.DS_Store
+Thumbs.db

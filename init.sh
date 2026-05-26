@@ -119,7 +119,24 @@ $INSTALL_CMD "${ALL_DEPS[@]}"
 
 # 6. Final Setup
 log_step "Initializing submodules..."
-git submodule update --init --recursive
+# Initialize top-level submodules first
+git submodule update --init
+
+# Initialize submodules of arch submodules safely to avoid gitlink bugs
+for arch_dir in arch/arm64 arch/rv64 arch/x64; do
+    if [ -d "$arch_dir" ]; then
+        log_info "Initializing submodules for $arch_dir..."
+        git -C "$arch_dir" submodule update --init core || true
+    fi
+done
+
+# Initialize submodules of the core submodules if they are checked out
+for arch_dir in arch/arm64 arch/rv64 arch/x64; do
+    if [ -d "$arch_dir/core" ]; then
+        log_info "Initializing third-party dependencies for $arch_dir/core..."
+        git -C "$arch_dir/core" submodule update --init sageos_build/kernel/third_party/lwip sageos_build/kernel/third_party/mbedtls || true
+    fi
+done
 
 log_info "Building master SageLang compiler..."
 (cd sageos_build/sage_lang/core && make)
