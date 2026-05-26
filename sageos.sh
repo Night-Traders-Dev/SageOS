@@ -29,7 +29,7 @@ show_help() {
     echo ""
     echo "Devices:"
     echo "  arm64: rpi4, virt"
-    echo "  x64:   q35, pc"
+    echo "  x64:   q35, pc, lenovo_300e"
     echo "  rv64:  virt, orangepi_rv2"
     echo ""
     echo "Actions:"
@@ -108,15 +108,15 @@ case "$ARCH" in
         ;;
     x64)
         case "$DEVICE" in
-            q35|pc)
+            q35|pc|lenovo_300e)
                 if [[ "$ACTION" == "build" ]]; then
-                    log_info "Building x64 kernel (Stub)..."
-                    # For now, we'll use a placeholder or generic sage compile if applicable
-                    $SAGE_BIN --compile-bare "$EXAMPLES_DIR/hello_kernel.sage" -o "$BUILD_DIR/x64_kernel.elf" --target x86_64
+                    log_info "Building x64 kernel for $DEVICE..."
+                    # x64 build typically uses UEFI profile for 300e/modern PC
+                    $SAGE_BIN --compile-bare "$EXAMPLES_DIR/hello_kernel.sage" -o "$BUILD_DIR/x64_${DEVICE}_kernel.elf" --target x86_64
                 fi
                 if [[ "$ACTION" == "run" ]]; then
-                    log_info "Running x64 in QEMU..."
-                    qemu-system-x86_64 -machine q35 -m 128M -nographic -kernel "$BUILD_DIR/x64_kernel.elf"
+                    log_info "Running x64 $DEVICE in QEMU..."
+                    qemu-system-x86_64 -machine q35 -m 128M -nographic -kernel "$BUILD_DIR/x64_${DEVICE}_kernel.elf"
                 fi
                 ;;
             *)

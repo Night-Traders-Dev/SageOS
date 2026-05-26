@@ -10,6 +10,7 @@ Welcome to the comprehensive SageOS documentation.
 ## Device Guides
 - [Raspberry Pi 4](devices/rpi4.md)
 - [Orange Pi RV 2](devices/orangepi_rv2.md)
+- [Lenovo 300e Chromebook](devices/lenovo_300e.md)
 - [QEMU Virt (ARM64)](devices/virt_arm64.md)
 
 ## Development Guides
