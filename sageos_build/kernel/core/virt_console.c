@@ -3,7 +3,13 @@
 #include "console.h"
 #include "serial.h"
 
+#define UART_BASE 0x10000000
+
 static int serial_echo = 1;
+
+void __attribute__((weak)) serial_init(void) {
+    // UART already initialized by boot.S
+}
 
 void console_init(SageOSBootInfo *info) {
     (void)info;
@@ -11,13 +17,18 @@ void console_init(SageOSBootInfo *info) {
 }
 
 void console_clear(void) {
-    // Send ANSI clear screen sequence
     console_write("\033[2J\033[H");
 }
 
 void console_putc(char c) {
     if (c == '\n') serial_putc('\r');
     serial_putc(c);
+}
+
+void serial_putc(char c) {
+    volatile uint8_t *uart = (volatile uint8_t *)UART_BASE;
+    while (!(uart[5] & 0x20));
+    uart[0] = (uint8_t)c;
 }
 
 void console_write(const char *s) {
@@ -62,9 +73,8 @@ int      console_get_serial_echo(void) { return serial_echo; }
 void     console_draw_status_bar(const char *right_text) { (void)right_text; }
 void     console_serial_redraw_line(const char *line, uint32_t pos) {
     serial_putc('\r');
-    serial_putc('>'); serial_putc(' '); // Simple prompt prefix
+    serial_putc('>'); serial_putc(' ');
     console_write(line);
-    // Position cursor is harder on raw serial without full ANSI state tracking
 }
 void     console_periodic_flip(void) {}
 int      console_has_fb(void) { return 0; }

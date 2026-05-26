@@ -18,12 +18,6 @@ void *sage_memcpy(void *dest, const void *src, size_t n);
 static uint8_t sage_heap[SAGE_ARENA_SIZE] __attribute__((aligned(16)));
 static size_t sage_bump = 0;
 
-/* Memory allocation helpers — freestanding/bump implementation */
-void* kernel_malloc(size_t size) { return sage_malloc(size); }
-void* kernel_realloc(void* ptr, size_t size) { return sage_realloc(ptr, size); }
-void* kernel_calloc(size_t n, size_t size) { return sage_calloc(n, size); }
-void  kernel_free(void* ptr) { sage_free(ptr); }
-
 void *sage_malloc(size_t size) {
     size_t raw_size = size;
     size = (size + 15) & ~(size_t)15;
@@ -88,6 +82,18 @@ char *sage_strdup(const char *s) {
     for (size_t i = 0; i <= len; i++) d[i] = s[i];
     return d;
 }
+
+void* kernel_malloc(size_t size) { return sage_malloc(size); }
+void* kernel_realloc(void* ptr, size_t size) { return sage_realloc(ptr, size); }
+void* kernel_calloc(size_t n, size_t size) { return sage_calloc(n, size); }
+void  kernel_free(void* ptr) { sage_free(ptr); }
+char* kernel_strdup(const char* str) { return sage_strdup(str); }
+
+void *calloc(size_t n, size_t size) __attribute__((alias("sage_calloc")));
+void *realloc(void *ptr, size_t size) __attribute__((alias("sage_realloc")));
+char *strdup(const char *s) __attribute__((alias("sage_strdup")));
+void free(void *ptr) __attribute__((alias("sage_free")));
+void *malloc(size_t size) __attribute__((alias("sage_malloc")));
 
 void sage_arena_reset(void) { sage_bump = 0; }
 size_t sage_arena_used(void) { return sage_bump; }
@@ -343,9 +349,6 @@ uint64_t sage_strtod(const char *s, char **end) {
     }
     if (end) *end = (char *)s;
     
-    // We still need to do the division and convert to double bits.
-    // If I use double here, will it fail?
-    // Let's try using a pointer.
     double d_res = (double)res / (double)fact;
     if (neg) d_res = -d_res;
     
@@ -416,4 +419,3 @@ void *memset(void *s, int c, size_t n) __attribute__((alias("sage_memset")));
 void *memcpy(void *dest, const void *src, size_t n) __attribute__((alias("sage_memcpy")));
 size_t strlen(const char *s) __attribute__((alias("sage_strlen")));
 int strcmp(const char *a, const char *b) __attribute__((alias("sage_strcmp")));
-

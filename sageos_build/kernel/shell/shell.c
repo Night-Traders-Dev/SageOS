@@ -799,6 +799,7 @@ void shell_exec_command(const char *cmd) {
 }
 
 void shell_run(void) {
+    console_write("\n[DEBUG] Entering shell_run()\n");
     char   line[SHELL_LINE_MAX];
     size_t len = 0;
     size_t pos = 0;

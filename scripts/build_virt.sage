@@ -52,11 +52,8 @@ proc generate_virt_build(arch):
         "sageos_build/kernel/core/sagelang/sage_libc_shim.c",
         "sageos_build/kernel/fs/vfs.c",
         "sageos_build/kernel/fs/ramfs.c",
-        "sageos_build/kernel/fs/fat32.c",
-        "sageos_build/kernel/fs/elf.c",
-        "sageos_build/kernel/fs/json.c",
-        "sageos_build/kernel/shell/shell.c",
-        "sageos_build/kernel/shell/shell_helper.c"
+        "sageos_build/kernel/core/kernel_stubs.c",
+        "sageos_build/kernel/core/runtime_stub.c"
     ]
 
     # 5. Construct build script
@@ -72,9 +69,9 @@ proc generate_virt_build(arch):
         script = script + "AS=\"riscv64-linux-gnu-as\"; ASFLAGS=\"-march=rv64gc -mabi=lp64d\"; CC=\"riscv64-linux-gnu-gcc\"; LD=\"riscv64-linux-gnu-ld\"" + NL
     end
 
-    script = script + "CFLAGS=\"-ffreestanding -nostdlib -fno-stack-protector -fno-pie -mno-red-zone -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -DSAGE_BARE_METAL -O2\"" + NL
-    if arch == "aarch64": script = script + "CFLAGS=\"-ffreestanding -nostdlib -fno-stack-protector -fno-pie -mgeneral-regs-only -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -DSAGE_BARE_METAL -O2\"" + NL end
-    if arch == "riscv64": script = script + "CFLAGS=\"-ffreestanding -nostdlib -fno-stack-protector -fno-pie -mcmodel=medany -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -DSAGE_BARE_METAL -O2\"" + NL end
+    script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mno-red-zone -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -DSAGE_BARE_METAL -O2\"" + NL
+    if arch == "aarch64": script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -DSAGE_BARE_METAL -O2\"" + NL end
+    if arch == "riscv64": script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mcmodel=medany -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -DSAGE_BARE_METAL -O2\"" + NL end
 
     script = script + "echo 'Building SageOS Virt (" + arch + ")...'" + NL
     script = script + "$AS $ASFLAGS -o " + output_dir + "/boot.o " + boot_path + NL
