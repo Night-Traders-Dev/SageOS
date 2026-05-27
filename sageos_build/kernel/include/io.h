@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#if defined(__x86_64__)
 static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
@@ -52,5 +53,16 @@ static inline void cpu_pause(void) {
 static inline void cpu_hlt(void) {
     __asm__ volatile ("hlt");
 }
+#else
+// Portability stubs
+static inline void outb(uint16_t port, uint8_t val) { (void)port; (void)val; }
+static inline uint8_t inb(uint16_t port) { (void)port; return 0; }
+static inline void outw(uint16_t port, uint16_t val) { (void)port; (void)val; }
+static inline uint16_t inw(uint16_t port) { (void)port; return 0; }
+static inline void outl(uint16_t port, uint32_t val) { (void)port; (void)val; }
+static inline uint32_t inl(uint16_t port) { (void)port; return 0; }
+static inline void cpu_pause(void) {}
+static inline void cpu_hlt(void) {}
+#endif
 
 #endif

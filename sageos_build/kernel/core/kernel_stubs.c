@@ -17,10 +17,17 @@ char *strcat(char *dest, const char *src) {
 }
 
 // ATA & Boot
+#if !defined(__x86_64__)
 void ata_init(void) {}
-int ata_read_sector(uint32_t lba, uint16_t *buffer) { return 0; }
-int ata_write_sector(uint32_t lba, uint16_t *buffer) { return 0; }
+int ata_read_sector(uint32_t lba, uint16_t *buffer) { (void)lba; (void)buffer; return 0; }
+int ata_write_sector(uint32_t lba, uint16_t *buffer) { (void)lba; (void)buffer; return 0; }
 int ata_is_available(void) { return 0; }
+int ata_read_sector_async(uint32_t lba, uint16_t *buffer) { (void)lba; (void)buffer; return 0; }
+int ata_write_sector_async(uint32_t lba, const uint16_t *buffer) { (void)lba; (void)buffer; return 0; }
+int ata_wait_completion(void) { return 1; }
+void ata_timer_tick(void) {}
+#endif
+
 void* kernel_get_boot_info(void) { return NULL; }
 
 // Runtime stubs to satisfy linker
@@ -141,12 +148,4 @@ void sage_import_module(void* vm, const char* name) {
 void sage_repl_init(void) { console_write("\nsage: REPL not supported on this platform."); }
 void sage_execute(const char* mod) { (void)mod; console_write("\nsage: execution not supported on this platform."); }
 
-// VFS / sagelang bridge stubs
-MetalValue n_len(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
-MetalValue n_os_strlen(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
-MetalValue n_os_starts_with(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
-MetalValue n_os_array_len(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
-MetalValue n_os_array_push(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
-MetalValue n_os_write_str(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
-MetalValue n_os_num_to_str(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
-MetalValue n_os_stat(MetalVM* vm, MetalValue* args, int argc) { (void)vm; (void)args; (void)argc; return mv_nil(); }
+// VFS / sagelang bridge stubs (implemented in vfs.c)

@@ -78,25 +78,81 @@ static int g_mount_count = 0;
 static MetalVM g_vfs_vm;
 static int g_vfs_vm_inited = 0;
 
-/* External natives from runtime.c (or we can re-register them) */
-extern int metal_vm_register_native(MetalVM* vm, const char* name, MetalNativeFn fn);
-extern MetalValue n_len(MetalVM* vm, MetalValue* args, int argc);
-extern MetalValue n_os_strlen(MetalVM* vm, MetalValue* args, int argc);
-extern MetalValue n_os_starts_with(MetalVM* vm, MetalValue* args, int argc);
-extern MetalValue n_os_array_len(MetalVM* vm, MetalValue* args, int argc);
-extern MetalValue n_os_array_push(MetalVM* vm, MetalValue* args, int argc);
-extern MetalValue n_os_write_str(MetalVM* vm, MetalValue* args, int argc);
-extern MetalValue n_os_num_to_str(MetalVM* vm, MetalValue* args, int argc);
-extern MetalValue n_os_stat(MetalVM* vm, MetalValue* args, int argc);
-
-static void vfs_bridge_write_char(char c) { console_putc(c); }
-
 static MetalValue vfs_mv_dbl(double d) {
     union { double d; uint64_t u; } v;
     v.d = d;
     MetalValue mv; mv.type = MV_NUM; mv.as.num_bits = v.u;
     return mv;
 }
+
+MetalValue n_len(MetalVM* vm, MetalValue* args, int argc) {
+    if (argc < 1) return mv_nil();
+    if (args[0].type == MV_STR) {
+        const char *s = metal_string_get(vm, args[0].as.str_idx);
+        return vfs_mv_dbl((double)strlen(s));
+    }
+    if (args[0].type == MV_ARR) {
+        return vfs_mv_dbl((double)metal_array_len(vm, args[0].as.arr_idx));
+    }
+    return mv_nil();
+}
+
+MetalValue n_os_strlen(MetalVM* vm, MetalValue* args, int argc) {
+    return n_len(vm, args, argc);
+}
+
+MetalValue n_os_starts_with(MetalVM* vm, MetalValue* args, int argc) {
+    if (argc < 2 || args[0].type != MV_STR || args[1].type != MV_STR) return vfs_mv_dbl(0.0);
+    const char *s = metal_string_get(vm, args[0].as.str_idx);
+    const char *pre = metal_string_get(vm, args[1].as.str_idx);
+    while (*pre) {
+        if (*s++ != *pre++) return vfs_mv_dbl(0.0);
+    }
+    return vfs_mv_dbl(1.0);
+}
+
+MetalValue n_os_array_len(MetalVM* vm, MetalValue* args, int argc) {
+    if (argc < 1 || args[0].type != MV_ARR) return vfs_mv_dbl(0.0);
+    return vfs_mv_dbl((double)metal_array_len(vm, args[0].as.arr_idx));
+}
+
+MetalValue n_os_array_push(MetalVM* vm, MetalValue* args, int argc) {
+    if (argc < 2 || args[0].type != MV_ARR) return mv_nil();
+    metal_array_push(vm, args[0].as.arr_idx, args[1]);
+    return mv_nil();
+}
+
+MetalValue n_os_write_str(MetalVM* vm, MetalValue* args, int argc) {
+    if (argc < 1 || args[0].type != MV_STR) return mv_nil();
+    console_write(metal_string_get(vm, args[0].as.str_idx));
+    return mv_nil();
+}
+
+MetalValue n_os_num_to_str(MetalVM* vm, MetalValue* args, int argc) {
+    if (argc < 1 || args[0].type != MV_NUM) return mv_nil();
+    char buf[32];
+    union { double d; uint64_t u; } v; v.u = args[0].as.num_bits;
+    extern int sage_snprintf(char *buf, size_t n, const char *fmt, ...);
+    int n = sage_snprintf(buf, sizeof(buf), "%g", v.d);
+    return mv_str(vm, buf, n);
+}
+
+MetalValue n_os_stat(MetalVM* vm, MetalValue* args, int argc) {
+    if (argc < 1 || args[0].type != MV_STR) return mv_nil();
+    const char *path = metal_string_get(vm, args[0].as.str_idx);
+    VfsStat st;
+    if (vfs_stat(path, &st) != VFS_OK) return mv_nil();
+    
+    int d = metal_dict_new(vm);
+    metal_dict_set(vm, d, metal_string_intern(vm, "name", 4), mv_str(vm, st.name, strlen(st.name)));
+    metal_dict_set(vm, d, metal_string_intern(vm, "type", 4), vfs_mv_dbl((double)st.type));
+    metal_dict_set(vm, d, metal_string_intern(vm, "size", 4), vfs_mv_dbl((double)st.size));
+    
+    MetalValue res; res.type = MV_DICT; res.as.dict_idx = d;
+    return res;
+}
+
+static void vfs_bridge_write_char(char c) { console_putc(c); }
 
 static MetalValue n_os_backend_stat(MetalVM* vm, MetalValue* args, int argc) {
     if (argc < 2 || args[0].type != MV_PTR || args[1].type != MV_STR) return mv_nil();
