@@ -830,6 +830,7 @@ void shell_exec_command(const char *cmd) {
     if (starts_with(cmd, "cp"))      { cmd_cp(arg_after(cmd, "cp")); return; }
     if (starts_with(cmd, "hexdump")) { cmd_hexdump(arg_after(cmd, "hexdump")); return; }
     if (starts_word(cmd, "bmesg"))   { extern void cmd_bmesg(void); cmd_bmesg(); return; }
+    if (starts_word(cmd, "diskdump")) { extern void cmd_diskdump(const char *arg); cmd_diskdump(arg_after(cmd, "diskdump")); return; }
     if (starts_word(cmd, "dmesg"))   { extern void cmd_dmesg(void); cmd_dmesg(); return; }
     if (starts_word(cmd, "dmesgsync")) {
         extern void dmesg_save_persistent(void);

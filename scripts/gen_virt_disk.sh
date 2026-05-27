@@ -25,22 +25,37 @@ else
 fi
 
 dd if=/dev/zero of=btrfs.part bs=1M count=$BTRFS_SIZE_MB status=none
-# mkfs.btrfs often requires root or special flags for small images, skipping for now
-echo "  [INFO] Created BTRFS placeholder partition."
+if command -v mkfs.btrfs >/dev/null; then
+    mkfs.btrfs -f -M btrfs.part >/dev/null
+    echo "  [OK] Formatted BTRFS partition."
+else
+    echo "  [WARN] mkfs.btrfs not found, BTRFS partition will be empty."
+fi
 
 dd if=/dev/zero of=swap.part bs=1M count=$SWAP_SIZE_MB status=none
 echo "  [INFO] Created SWAP placeholder partition."
 
 # 2. Assemble the disk image
-# Start with 1MB of zeros (LBA 0-2047)
-dd if=/dev/zero of=$DISK_IMG bs=1M count=1 status=none
+# Create base image of 318MB (total)
+dd if=/dev/zero of=$DISK_IMG bs=1M count=318 status=none
 
-# Append partitions
-dd if=fat.part >> $DISK_IMG status=none
-dd if=btrfs.part >> $DISK_IMG status=none
-dd if=swap.part >> $DISK_IMG status=none
+# Write partitions at exact offsets
+# LBA 2048 = 1048576 bytes (1MB)
+dd if=fat.part of=$DISK_IMG bs=1M seek=1 conv=notrunc status=none
+# LBA 133120 = 68157440 bytes (65MB)
+dd if=btrfs.part of=$DISK_IMG bs=1M seek=65 conv=notrunc status=none
+# LBA 395264 = 202375168 bytes (193MB)
+dd if=swap.part of=$DISK_IMG bs=1M seek=193 conv=notrunc status=none
 
 # Cleanup
-rm fat.part btrfs.part swap.part
+rm -f fat.part btrfs.part swap.part
+
+# 3. Verification
+SIG=$(dd if=$DISK_IMG bs=1 skip=1049086 count=2 2>/dev/null | xxd -p)
+if [ "$SIG" = "55aa" ]; then
+    echo "  [OK] Verified FAT32 boot signature at LBA 2048."
+else
+    echo "  [FAIL] Failed to verify FAT32 boot signature (got $SIG, expected 55aa)."
+fi
 
 echo "Successfully created $DISK_IMG ($(du -h $DISK_IMG | cut -f1))"

@@ -304,9 +304,23 @@ int fat32_init(void) {
         fat32_available = 0;
         return 0;
     }
+
     FAT32_BPB *bpb = (FAT32_BPB *)buffer;
 
+    /* Check boot signature at end of sector */
+    uint16_t sig = *(uint16_t *)&buffer[510];
+    if (sig != 0xAA55) {
+        console_write("\nFAT32: Invalid boot signature: ");
+        console_u32(sig);
+        fat32_available = 0;
+        return 0;
+    }
+
     if (bpb->bytes_per_sector != 512 || bpb->fat_count == 0 || bpb->fat_size_32 == 0) {
+        console_write("\nFAT32: BPB validation failed:");
+        console_write("\n  bytes per sector: "); console_u32(bpb->bytes_per_sector);
+        console_write("\n  fat count: "); console_u32(bpb->fat_count);
+        console_write("\n  fat size 32: "); console_u32(bpb->fat_size_32);
         fat32_available = 0;
         return 0;
     }

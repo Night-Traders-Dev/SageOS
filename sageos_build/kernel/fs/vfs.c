@@ -310,11 +310,18 @@ void vfs_bridge_init(void) {
 
     if (!metal_vm_load_binary(&g_vfs_vm, vfs_bridge_bytecode, vfs_bridge_bytecode_len)) {
         console_write("\n[VFS] Bridge load FAILED");
-    } else if (metal_vm_run(&g_vfs_vm) != 0) {
-        console_write("\n[VFS] Bridge init FAILED: ");
-        console_write(g_vfs_vm.error_msg ? g_vfs_vm.error_msg : "unknown error");
+    } else {
+        int res = metal_vm_run(&g_vfs_vm);
+        if (res != 0) {
+            console_write("\n[VFS] Bridge init FAILED (");
+            console_u32((uint32_t)-res);
+            console_write("): ");
+            console_write(g_vfs_vm.error_msg ? g_vfs_vm.error_msg : "unknown error");
+        } else {
+            g_vfs_vm_inited = 1;
+            console_write("\n[VFS] Bridge initialized successfully.");
+        }
     }
-    g_vfs_vm_inited = 1;
 }
 
 /* -----------------------------------------------------------------------
@@ -599,11 +606,59 @@ int vfs_readdir(const char *path, VfsDirEntry *entries, int max_entries) {
                 }
             }
             return count;
+        } else {
+            /* If VM readdir fails or returns nil, fall back to C mounts */
         }
     }
 
     char norm[VFS_MAX_PATH];
     vfs_normalize_path(path, norm, VFS_MAX_PATH);
+
+    /* 
+     * Special case: Root directory listing 
+     * Always show virtual directories and active mounts.
+     */
+    if (strcmp(norm, "/") == 0) {
+        int count = 0;
+        
+        /* 1. Add essential virtual directories */
+        if (count < max_entries) { strcpy(entries[count].name, "dev"); entries[count].type = VFS_DIRECTORY; entries[count].size = 0; count++; }
+        if (count < max_entries) { strcpy(entries[count].name, "tmp"); entries[count].type = VFS_DIRECTORY; entries[count].size = 0; count++; }
+        if (count < max_entries) { strcpy(entries[count].name, "etc"); entries[count].type = VFS_DIRECTORY; entries[count].size = 0; count++; }
+        if (count < max_entries) { strcpy(entries[count].name, "bin"); entries[count].type = VFS_DIRECTORY; entries[count].size = 0; count++; }
+
+        /* 2. Add mount points */
+        for (int i = 0; i < g_mount_count && count < max_entries; i++) {
+            if (g_mounts[i].active) {
+                const char *p = g_mounts[i].path;
+                if (p[0] == '/') p++; /* skip leading slash */
+                if (p[0] == 0) continue; /* skip root mount itself */
+                
+                /* Just show top-level component of mount path */
+                const char *slash = p;
+                while (*slash && *slash != '/') slash++;
+                int len = slash - p;
+                if (len <= 0) continue;
+                
+                /* Check if already added */
+                int found = 0;
+                for (int j = 0; j < count; j++) {
+                    if (vfs_strncmp(entries[j].name, p, len) == 0 && entries[j].name[len] == 0) {
+                        found = 1; break;
+                    }
+                }
+                
+                if (!found) {
+                    strncpy(entries[count].name, p, len);
+                    entries[count].name[len] = 0;
+                    entries[count].type = VFS_DIRECTORY;
+                    entries[count].size = 0;
+                    count++;
+                }
+            }
+        }
+        return count;
+    }
 
     const char *rel;
     VfsMount *m = resolve_mount(norm, &rel);

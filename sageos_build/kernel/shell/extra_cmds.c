@@ -1071,6 +1071,42 @@ void cmd_dmesg(void) {
 
 #include "net.h"
 
+void cmd_diskdump(const char *arg) {
+    if (!arg || !*arg) {
+        console_write("\nUsage: diskdump <lba>");
+        return;
+    }
+
+    uint32_t lba = 0;
+    while (*arg >= '0' && *arg <= '9') {
+        lba = lba * 10 + (*arg - '0');
+        arg++;
+    }
+
+    uint16_t buffer[256];
+    extern int ata_read_sector(uint32_t lba, uint16_t *buffer);
+    if (!ata_read_sector(lba, buffer)) {
+        console_write("\nError: Failed to read sector ");
+        console_u32(lba);
+        return;
+    }
+
+    console_write("\nLBA: ");
+    console_u32(lba);
+    uint8_t *ptr = (uint8_t *)buffer;
+    for (int i = 0; i < 512; i++) {
+        if (i % 16 == 0) {
+            console_write("\n  ");
+            console_hex64(i);
+            console_write(": ");
+        }
+        static const char hex[] = "0123456789ABCDEF";
+        console_putc(hex[(ptr[i] >> 4) & 0xF]);
+        console_putc(hex[ptr[i] & 0xF]);
+        console_putc(' ');
+    }
+}
+
 void cmd_ipconfig(void) {
     int count = net_device_count();
     console_write("\nSageOS IP Configuration\n");

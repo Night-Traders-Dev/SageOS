@@ -130,8 +130,8 @@ case "$ARCH" in
                 
                 if [[ "$ACTION" == "run" ]]; then
                     log_info "Running x86_64 virt in QEMU..."
-                    qemu-system-x86_64 -machine q35 -m 4G -display none -serial mon:stdio -no-reboot \
-                        -drive file=virt.img,format=raw,if=ide \
+                    qemu-system-x86_64 -machine pc -m 4G -display none -serial mon:stdio -no-reboot \
+                        -drive file=virt.img,format=raw,index=0,media=disk,file.locking=off \
                         -kernel "$BUILD_DIR/x64_virt/kernel.elf"
                 fi
                 ;;

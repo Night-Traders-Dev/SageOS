@@ -55,6 +55,8 @@ void ata_init(void) {
     uint8_t status = inb(ATA_PRIMARY_STATUS);
     if (status == 0xFF) {
         ata_present = 0;
+        console_write("\nata: No Primary Master detected (floating bus)");
+        dmesg_log("ata: No Primary Master detected (floating bus)");
         return;
     }
     
@@ -69,10 +71,13 @@ void ata_init(void) {
     status = inb(ATA_PRIMARY_STATUS);
     if (status == 0 || !(status & ATA_STATUS_DRDY)) {
         ata_present = 0;
+        console_write("\nata: Primary Master not ready");
+        dmesg_log("ata: Primary Master not ready");
         return;
     }
 
     ata_present = 1;
+    console_write("\nata: Primary Master detected (PIO)");
     dmesg_log("ata: Primary Master detected (PIO)");
 }
 
