@@ -56,10 +56,14 @@ for arch in "${ARCHS[@]}"; do
             git -C "$arch" submodule update --init --jobs "$JOBS" core
             
             # Disable redundant nested submodules within the arch core
-            # This ensures we don't have multiple copies of lwip/mbedtls on disk
+            # This prevents recursive initialization of the same architecture cores
+            # and ensures repeated lwip/mbedtls copies are not cloned again.
             if [ -d "$arch/core" ]; then
                 git -C "$arch/core" config submodule.sageos_build/kernel/third_party/lwip.update none
                 git -C "$arch/core" config submodule.sageos_build/kernel/third_party/mbedtls.update none
+                git -C "$arch/core" config submodule.arch/x64.update none
+                git -C "$arch/core" config submodule.arch/arm64.update none
+                git -C "$arch/core" config submodule.arch/rv64.update none
             fi
         ) &
     fi
