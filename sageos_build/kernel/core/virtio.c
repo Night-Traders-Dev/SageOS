@@ -77,6 +77,16 @@ struct virtio_blk_req {
 #define VIRTIO_BLK_T_IN  0
 #define VIRTIO_BLK_T_OUT 1
 
+static inline void mb(void) {
+#if defined(__riscv)
+    __asm__ volatile ("fence rw, rw" ::: "memory");
+#elif defined(__aarch64__)
+    __asm__ volatile ("dmb sy" ::: "memory");
+#else
+    __asm__ volatile ("" ::: "memory");
+#endif
+}
+
 static uint64_t mmio_base = 0;
 static int virtio_present = 0;
 
@@ -99,10 +109,14 @@ void ata_init(void) {
 
     /* Probe for block device */
     for (int i = 0; i < 8; i++) {
-        mmio_base = VIRTIO_MMIO_BASE + (i * VIRTIO_MMIO_STEP);
-        if (mmio_read(REG_MAGIC) == VIRTIO_MAGIC && mmio_read(REG_DEVICE_ID) == DEVICE_TYPE_BLOCK) {
-            virtio_present = 1;
-            break;
+        uint64_t base = VIRTIO_MMIO_BASE + (i * VIRTIO_MMIO_STEP);
+        uint32_t magic = *(volatile uint32_t *)(base + REG_MAGIC);
+        if (magic == VIRTIO_MAGIC) {
+            uint32_t devid = *(volatile uint32_t *)(base + REG_DEVICE_ID);
+            if (devid == DEVICE_TYPE_BLOCK && !virtio_present) {
+                mmio_base = base;
+                virtio_present = 1;
+            }
         }
     }
 
@@ -113,11 +127,14 @@ void ata_init(void) {
 
     /* Reset and initialize */
     mmio_write(REG_STATUS, 0); // Reset
-    mmio_write(REG_STATUS, mmio_read(REG_STATUS) | 1); // ACK
-    mmio_write(REG_STATUS, mmio_read(REG_STATUS) | 2); // DRIVER
+    mmio_write(REG_STATUS, 1); // ACK
+    mmio_write(REG_STATUS, 3); // ACK | DRIVER
 
-    /* Negotiate features (skip for now, assume basic support) */
-    mmio_write(REG_STATUS, mmio_read(REG_STATUS) | 8); // FEATURES_OK
+    /* Negotiate features */
+    uint32_t host_features = mmio_read(0x10);
+    mmio_write(0x14, 1);
+    mmio_write(0x14, 0);
+    mmio_write(REG_GUEST_FEAT, host_features);
 
     /* Initialize queue 0 */
     mmio_write(REG_QUEUE_SEL, 0);
@@ -127,24 +144,35 @@ void ata_init(void) {
         virtio_present = 0;
         return;
     }
-    mmio_write(REG_QUEUE_NUM, 16);
 
     desc = (struct virtq_desc *)vq_space;
     avail = (struct virtq_avail *)(vq_space + 16 * sizeof(struct virtq_desc));
     used = (struct virtq_used *)(vq_space + 4096);
 
-    mmio_write(REG_DESC_LOW, (uint32_t)(uintptr_t)desc);
-    mmio_write(REG_DESC_HIGH, (uint32_t)((uint64_t)(uintptr_t)desc >> 32));
-    mmio_write(REG_AVAIL_LOW, (uint32_t)(uintptr_t)avail);
-    mmio_write(REG_AVAIL_HIGH, (uint32_t)((uint64_t)(uintptr_t)avail >> 32));
-    mmio_write(REG_USED_LOW, (uint32_t)(uintptr_t)used);
-    mmio_write(REG_USED_HIGH, (uint32_t)((uint64_t)(uintptr_t)used >> 32));
+    uint32_t version = mmio_read(REG_VERSION);
+    if (version == 1) {
+        /* Legacy VirtIO MMIO */
+        uint32_t pfn = (uint32_t)((uintptr_t)vq_space >> 12);
+        mmio_write(REG_QUEUE_NUM, 16);
+        mmio_write(0x3c, 4096); /* QueueAlign */
+        mmio_write(0x40, pfn); /* QueuePFN */
+    } else {
+        /* Modern VirtIO MMIO */
+        mmio_write(REG_QUEUE_NUM, 16);
+        mmio_write(REG_DESC_LOW, (uint32_t)(uintptr_t)desc);
+        mmio_write(REG_DESC_HIGH, (uint32_t)((uint64_t)(uintptr_t)desc >> 32));
+        mmio_write(REG_AVAIL_LOW, (uint32_t)(uintptr_t)avail);
+        mmio_write(REG_AVAIL_HIGH, (uint32_t)((uint64_t)(uintptr_t)avail >> 32));
+        mmio_write(REG_USED_LOW, (uint32_t)(uintptr_t)used);
+        mmio_write(REG_USED_HIGH, (uint32_t)((uint64_t)(uintptr_t)used >> 32));
+        mmio_write(REG_QUEUE_READY, 1);
+    }
 
-    mmio_write(REG_QUEUE_READY, 1);
-    mmio_write(REG_STATUS, mmio_read(REG_STATUS) | 4); // DRIVER_OK
+    mmio_write(REG_STATUS, 7); // ACK | DRIVER | DRIVER_OK
 
     console_write("\nvirtio-blk: Initialized on transport ");
     console_hex64(mmio_base);
+    console_write("\n");
     dmesg_log("virtio-blk: Initialized successfully");
 }
 
@@ -152,8 +180,8 @@ int ata_is_available(void) {
     return virtio_present;
 }
 
-static struct virtio_blk_req req;
-static uint8_t blk_status;
+static struct virtio_blk_req req __attribute__((aligned(16)));
+static uint8_t blk_status __attribute__((aligned(16)));
 static uint16_t last_used_idx = 0;
 
 int ata_read_sector(uint32_t lba, uint16_t *buffer) {
@@ -161,6 +189,7 @@ int ata_read_sector(uint32_t lba, uint16_t *buffer) {
 
     req.type = VIRTIO_BLK_T_IN;
     req.sector = lba;
+    blk_status = 0xFF;
 
     /* Fill descriptors */
     desc[0].addr = (uintptr_t)&req;
@@ -178,17 +207,25 @@ int ata_read_sector(uint32_t lba, uint16_t *buffer) {
     desc[2].flags = VRING_DESC_F_WRITE;
     desc[2].next = 0;
 
+    mb();
     avail->ring[avail->idx % 16] = 0;
+    mb();
     avail->idx++;
+    mb();
 
-    __asm__ volatile ("" ::: "memory");
     mmio_write(REG_QUEUE_NOTIFY, 0);
 
     /* Poll for completion */
+    int timeout = 0;
     while (used->idx == last_used_idx) {
+        mb();
         cpu_pause();
+        if (++timeout > 10000000) {
+            return 0;
+        }
     }
     last_used_idx = used->idx;
+    mb();
 
     return blk_status == 0;
 }
@@ -198,6 +235,7 @@ int ata_write_sector(uint32_t lba, const uint16_t *buffer) {
 
     req.type = VIRTIO_BLK_T_OUT;
     req.sector = lba;
+    blk_status = 0xFF;
 
     desc[0].addr = (uintptr_t)&req;
     desc[0].len = sizeof(req);
@@ -214,16 +252,20 @@ int ata_write_sector(uint32_t lba, const uint16_t *buffer) {
     desc[2].flags = VRING_DESC_F_WRITE;
     desc[2].next = 0;
 
+    mb();
     avail->ring[avail->idx % 16] = 0;
+    mb();
     avail->idx++;
+    mb();
 
-    __asm__ volatile ("" ::: "memory");
     mmio_write(REG_QUEUE_NOTIFY, 0);
 
     while (used->idx == last_used_idx) {
+        mb();
         cpu_pause();
     }
     last_used_idx = used->idx;
+    mb();
 
     return blk_status == 0;
 }

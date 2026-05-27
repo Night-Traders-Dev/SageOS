@@ -707,10 +707,16 @@ int fat32_write(const char *path, uint64_t offset, const void *buffer, size_t si
 
 #include "bootinfo.h"
 
+#if defined(__x86_64__)
+#define EFIAPI __attribute__((ms_abi))
+#else
+#define EFIAPI
+#endif
+
 // Forward declaration of EFI protocols
 struct EfiFileProtocol;
 
-typedef uint64_t (__attribute__((ms_abi)) *EfiFileOpen)(
+typedef uint64_t (EFIAPI *EfiFileOpen)(
     struct EfiFileProtocol *This,
     struct EfiFileProtocol **NewHandle,
     const uint16_t *FileName,
@@ -718,28 +724,28 @@ typedef uint64_t (__attribute__((ms_abi)) *EfiFileOpen)(
     uint64_t Attributes
 );
 
-typedef uint64_t (__attribute__((ms_abi)) *EfiFileClose)(
+typedef uint64_t (EFIAPI *EfiFileClose)(
     struct EfiFileProtocol *This
 );
 
-typedef uint64_t (__attribute__((ms_abi)) *EfiFileRead)(
+typedef uint64_t (EFIAPI *EfiFileRead)(
     struct EfiFileProtocol *This,
     uint64_t *BufferSize,
     void *Buffer
 );
 
-typedef uint64_t (__attribute__((ms_abi)) *EfiFileWrite)(
+typedef uint64_t (EFIAPI *EfiFileWrite)(
     struct EfiFileProtocol *This,
     uint64_t *BufferSize,
     const void *Buffer
 );
 
-typedef uint64_t (__attribute__((ms_abi)) *EfiFileSetPosition)(
+typedef uint64_t (EFIAPI *EfiFileSetPosition)(
     struct EfiFileProtocol *This,
     uint64_t Position
 );
 
-typedef uint64_t (__attribute__((ms_abi)) *EfiFileGetPosition)(
+typedef uint64_t (EFIAPI *EfiFileGetPosition)(
     struct EfiFileProtocol *This,
     uint64_t *Position
 );
@@ -982,7 +988,7 @@ int fat32_uefi_write(const char *rel_path, const void *buffer, size_t size) {
 
     /* Flush to ensure FAT32 directory entries are committed */
     if (file->Flush) {
-        typedef uint64_t (__attribute__((ms_abi)) *EfiFlushFn)(EfiFileProtocol *);
+        typedef uint64_t (EFIAPI *EfiFlushFn)(EfiFileProtocol *);
         ((EfiFlushFn)file->Flush)(file);
     }
 
