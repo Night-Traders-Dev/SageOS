@@ -121,7 +121,7 @@ SageOS is currently at **v0.2.0 (Alpha)**.
 
 ### Achievements:
 *   Functional MetalVM integrated into the kernel core.
-*   Hybrid VFS supporting multiple mounts.
+*   Hybrid VFS supporting multiple mounts and Sage-native filesystems.
 *   Multi-arch boot support (x64, ARM64, RV64).
 *   Integrated networking via lwIP and mbedtls.
 *   Unified multi-architecture **SageShell** port, running interactively across x86_64, aarch64, and riscv64 virtual targets.
