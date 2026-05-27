@@ -67,6 +67,16 @@ Build and run the OS with the management script.
 ./sageos.sh rv64 virt run
 ```
 
+### Benchmarking virt builds
+Run the benchmark script in a local Python virtual environment to save build results and generate a history chart:
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install rich matplotlib
+.venv/bin/python benchmark_build.py --clean
+```
+
+The script writes benchmark history to `benchmark_history.json` and saves `benchmark_chart.png` when `matplotlib` is available.
+
 ### Hardware targets
 ```bash
 ./sageos.sh x64 lenovo_300e build
