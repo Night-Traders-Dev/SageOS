@@ -6,6 +6,18 @@
 
 #include <sys/stat.h>
 
+#include "timer.h"
+
+struct timeval {
+    long tv_sec;
+    long tv_usec;
+};
+
+struct timespec {
+    long tv_sec;
+    long tv_nsec;
+};
+
 /* Forward declarations of syscall implementations */
 long sys_write(int fd, const void *buf, size_t count);
 long sys_read(int fd, void *buf, size_t count);
@@ -15,6 +27,8 @@ long sys_lseek(int fd, off_t offset, int whence);
 long sys_fstat(int fd, struct stat *st);
 long sys_brk(uintptr_t addr);
 long sys_execve(const char *path, char *const argv[], char *const envp[]);
+long sys_gettimeofday(struct timeval *tv, void *tz);
+long sys_nanosleep(const struct timespec *req, struct timespec *rem);
 void sys_exit(int code);
 
 long syscall_dispatch(long num, long a1, long a2, long a3,
@@ -37,6 +51,10 @@ long syscall_dispatch(long num, long a1, long a2, long a3,
         return sys_brk((uintptr_t)a1);
     case SYS_execve:
         return sys_execve((const char *)a1, (char *const *)a2, (char *const *)a3);
+    case SYS_gettimeofday:
+        return sys_gettimeofday((struct timeval *)a1, (void *)a2);
+    case SYS_nanosleep:
+        return sys_nanosleep((const struct timespec *)a1, (struct timespec *)a2);
     case SYS_exit:
         sys_exit((int)a1);
         return 0; /* Unreachable */
@@ -174,6 +192,24 @@ long sys_fstat(int fd, struct stat *st) {
         st->st_mode = S_IFREG | 0644;
     }
     
+    return 0;
+}
+
+long sys_gettimeofday(struct timeval *tv, void *tz) {
+    (void)tz;
+    if (tv) {
+        tv->tv_sec = (long)timer_seconds();
+        tv->tv_usec = (long)((timer_ticks() % 100) * 10000); /* Assuming 100 ticks per second */
+    }
+    return 0;
+}
+
+long sys_nanosleep(const struct timespec *req, struct timespec *rem) {
+    (void)rem;
+    if (req) {
+        uint32_t ms = (uint32_t)(req->tv_sec * 1000 + req->tv_nsec / 1000000);
+        timer_delay_ms(ms);
+    }
     return 0;
 }
 
