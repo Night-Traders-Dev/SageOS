@@ -16,6 +16,7 @@
 #define SYS_exit       60
 #define SYS_execve     59
 #define SYS_getpid     39
+#define SYS_waitpid    61
 #define SYS_gettimeofday 96
 #define SYS_nanosleep  35
 #define SYS_isatty    100   /* SageOS custom */

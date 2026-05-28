@@ -8,6 +8,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <string.h>
 #include "console.h"
 #include "elf.h"
 #include "sage_alloc.h"
@@ -107,28 +108,57 @@ int elf_exec(const void *data, uint64_t size, char *const argv[], char *const en
     if (!stack_top) return -1;
     uint8_t *sp = stack_top + 65536;
 
-    /* Push argv/envp onto stack (simplified for now) */
-    /* Real layout: [argc][argv pointers...][NULL][envp pointers...][NULL][strings...] */
-    
+    /* Count arguments and environment variables */
     int argc = 0;
-    if (argv) {
-        while (argv[argc]) argc++;
+    if (argv) while (argv[argc]) argc++;
+    int envc = 0;
+    if (envp) while (envp[envc]) envc++;
+
+    /* We need to store pointers to the strings on the stack */
+    /* Layout on stack (from high to low):
+     * [String data]
+     * [envp pointers...][NULL]
+     * [argv pointers...][NULL]
+     * [argc] <- RSP
+     */
+
+    /* 1. Copy strings to stack and record their addresses */
+    uintptr_t *envp_ptrs = (uintptr_t *)sage_malloc((envc + 1) * sizeof(uintptr_t));
+    uintptr_t *argv_ptrs = (uintptr_t *)sage_malloc((argc + 1) * sizeof(uintptr_t));
+
+    for (int i = envc - 1; i >= 0; i--) {
+        size_t len = strlen(envp[i]) + 1;
+        sp -= len;
+        for (size_t j = 0; j < len; j++) sp[j] = envp[i][j];
+        envp_ptrs[i] = (uintptr_t)sp;
     }
+    envp_ptrs[envc] = 0;
 
-    /* We'll just push argc and argv for now to satisfy crt0.S 
-       Actually, our crt0 expects argc at (%rsp) and argv pointers following.
-    */
-    
-    /* Align SP to 16 bytes */
-    sp = (uint8_t *)((uintptr_t)(sp - 16) & ~15);
+    for (int i = argc - 1; i >= 0; i--) {
+        size_t len = strlen(argv[i]) + 1;
+        sp -= len;
+        for (size_t j = 0; j < len; j++) sp[j] = argv[i][j];
+        argv_ptrs[i] = (uintptr_t)sp;
+    }
+    argv_ptrs[argc] = 0;
 
-    /* Push arguments onto stack (this is a bit complex in C, 
-       usually done by pushing strings first, then pointers) */
+    /* Align SP to 16 bytes after string data */
+    sp = (uint8_t *)((uintptr_t)sp & ~15);
+
+    /* 2. Copy pointers to stack */
+    sp -= (envc + 1) * 8;
+    for (int i = 0; i <= envc; i++) ((uint64_t *)sp)[i] = (uint64_t)envp_ptrs[i];
     
-    /* For now, let's just push a dummy argc/argv to avoid crashes */
-    sp -= 8; *(uint64_t *)sp = 0; /* NULL envp */
-    sp -= 8; *(uint64_t *)sp = 0; /* NULL argv[0] */
-    sp -= 8; *(uint64_t *)sp = (uint64_t)argc;
+    sp -= (argc + 1) * 8;
+    uintptr_t argv_base = (uintptr_t)sp;
+    for (int i = 0; i <= argc; i++) ((uint64_t *)sp)[i] = (uint64_t)argv_ptrs[i];
+
+    /* 3. Push argc */
+    sp -= 8;
+    *(uint64_t *)sp = (uint64_t)argc;
+
+    sage_free(envp_ptrs);
+    sage_free(argv_ptrs);
 
     /* Architecture specific jump to entry point with new SP */
     int ret = 0;

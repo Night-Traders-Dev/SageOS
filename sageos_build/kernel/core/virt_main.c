@@ -83,8 +83,9 @@ void kmain(SageOSBootInfo *info) {
     syscall_dispatch(SYS_write, 1, (long)"[SYSCALL TEST] Hello via syscall_dispatch\n", 42, 0, 0);
 
     /* Milestone 2: Execute userspace Hello World */
-    dmesg_log("Milestone 2: Attempting to exec /fat32/hello...");
-    syscall_dispatch(SYS_execve, (long)"/fat32/hello", 0, 0, 0, 0);
+    dmesg_log("Milestone 2: Attempting to exec /fat32/hello with args...");
+    char *argv[] = {"/fat32/hello", "arg1", "arg2", NULL};
+    syscall_dispatch(SYS_execve, (long)"/fat32/hello", (long)argv, 0, 0, 0);
 
     console_write("\n[DEBUG] Before shell_run, swap is: ");
     console_u32(swap_is_available());

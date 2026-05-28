@@ -27,6 +27,7 @@ long sys_lseek(int fd, off_t offset, int whence);
 long sys_fstat(int fd, struct stat *st);
 long sys_brk(uintptr_t addr);
 long sys_execve(const char *path, char *const argv[], char *const envp[]);
+long sys_waitpid(int pid, int *status, int options);
 long sys_gettimeofday(struct timeval *tv, void *tz);
 long sys_nanosleep(const struct timespec *req, struct timespec *rem);
 void sys_exit(int code);
@@ -51,6 +52,8 @@ long syscall_dispatch(long num, long a1, long a2, long a3,
         return sys_brk((uintptr_t)a1);
     case SYS_execve:
         return sys_execve((const char *)a1, (char *const *)a2, (char *const *)a3);
+    case SYS_waitpid:
+        return sys_waitpid((int)a1, (int *)a2, (int)a3);
     case SYS_gettimeofday:
         return sys_gettimeofday((struct timeval *)a1, (void *)a2);
     case SYS_nanosleep:
@@ -60,6 +63,8 @@ long syscall_dispatch(long num, long a1, long a2, long a3,
         return 0; /* Unreachable */
     case SYS_getpid:
         return (t) ? (long)t->id : 1;
+    case SYS_kill:
+        return -VFS_EINVAL; /* Not implemented */
     case SYS_isatty:
         return (a1 >= 0 && a1 <= 2) ? 1 : 0;
     default:
@@ -210,6 +215,12 @@ long sys_nanosleep(const struct timespec *req, struct timespec *rem) {
         uint32_t ms = (uint32_t)(req->tv_sec * 1000 + req->tv_nsec / 1000000);
         timer_delay_ms(ms);
     }
+    return 0;
+}
+
+long sys_waitpid(int pid, int *status, int options) {
+    (void)pid; (void)status; (void)options;
+    /* Basic stub for now */
     return 0;
 }
 
