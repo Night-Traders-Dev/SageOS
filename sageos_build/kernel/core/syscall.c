@@ -19,6 +19,7 @@ void sys_exit(int code);
 
 long syscall_dispatch(long num, long a1, long a2, long a3,
                       long a4, long a5) {
+    task_t *t = current_task();
     switch (num) {
     case SYS_read:
         return sys_read((int)a1, (void *)a2, (size_t)a3);
@@ -40,7 +41,7 @@ long syscall_dispatch(long num, long a1, long a2, long a3,
         sys_exit((int)a1);
         return 0; /* Unreachable */
     case SYS_getpid:
-        return 1; /* Single process for now */
+        return (t) ? (long)t->id : 1;
     case SYS_isatty:
         return (a1 >= 0 && a1 <= 2) ? 1 : 0;
     default:
