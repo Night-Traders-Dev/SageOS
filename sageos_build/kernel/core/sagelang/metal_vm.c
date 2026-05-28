@@ -302,10 +302,8 @@ MetalValue metal_vm_peek(MetalVM* vm, int distance) {
 // ============================================================================
 
 int metal_string_intern(MetalVM* vm, const char* s, int len) {
-    if (vm->string_used + len + 1 >= METAL_STRING_POOL) {
-        console_write("Metal VM: STRING POOL OVERFLOW\n");
-        return 0;
-    }
+    if (len < 0) return -1;
+    
     // Check if already interned
     int search = 0;
     while (search < vm->string_used) {
@@ -322,8 +320,10 @@ int metal_string_intern(MetalVM* vm, const char* s, int len) {
     }
 
     // Allocate new
-    if (len > 0x7FFFFFFF - 1) return -1; 
-    if (vm->string_used + len + 1 > METAL_STRING_POOL) return -1;
+    if (vm->string_used + len + 1 > METAL_STRING_POOL) {
+        console_write("Metal VM: STRING POOL OVERFLOW\n");
+        return -1;
+    }
     
     int idx = vm->string_used;
     memcpy(&vm->strings[idx], s, (unsigned long)len);
@@ -851,9 +851,7 @@ int metal_vm_step(MetalVM* vm) {
                     vs.u = start.as.num_bits; ve.u = end.as.num_bits;
                     int s = (int)vs.d, e = (int)ve.d, len = (int)strlen(s_ptr);
                     if (s < 0) s = 0; if (e > len) e = len; if (e < s) e = s;
-                    char buf[256]; int n = e - s; if (n > 255) n = 255;
-                    memcpy(buf, s_ptr + s, (size_t)n); buf[n] = '\0';
-                    metal_vm_push(vm, metal_vm_string_new(vm, buf));
+                    metal_vm_push(vm, mv_str(vm, s_ptr + s, e - s));
                 } else metal_vm_push(vm, mv_nil());
             } else metal_vm_push(vm, mv_nil());
             break;
@@ -918,11 +916,13 @@ int metal_vm_step(MetalVM* vm) {
                     }
                 }
                 if (method_name && strcmp(method_name, "strip") == 0) {
-                    console_write("[VM] string.strip\n");
-                    char buf[256]; strcpy(buf, s ? s : "");
-                    char* st = buf; while (*st && isspace(*st)) st++;
-                    char* en = st + strlen(st) - 1; while (en > st && isspace(*en)) *en-- = '\0';
-                    vm->sp -= (argc + 1); metal_vm_push(vm, metal_vm_string_new(vm, st)); break;
+                    const char* st = s ? s : "";
+                    while (*st && isspace((unsigned char)*st)) st++;
+                    const char* en = st + strlen(st);
+                    if (en > st) en--;
+                    while (en > st && isspace((unsigned char)*en)) en--;
+                    int res_len = (en >= st && !isspace((unsigned char)*st)) ? (int)(en - st + 1) : 0;
+                    vm->sp -= (argc + 1); metal_vm_push(vm, mv_str(vm, st, res_len)); break;
                 }
                 if (method_name && (strcmp(method_name, "startswith") == 0 || strcmp(method_name, "endswith") == 0)) {
                     console_write("[VM] string."); console_write(method_name); console_write("\n");

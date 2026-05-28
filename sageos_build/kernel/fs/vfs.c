@@ -53,8 +53,8 @@ static const EmbeddedFile g_embedded_files[] = {
     {"/etc/commands/uname.sage", embedded_file_etc_commands_uname_sage, sizeof(embedded_file_etc_commands_uname_sage) - 1},
     {"/etc/commands/version.sage", embedded_file_etc_commands_version_sage, sizeof(embedded_file_etc_commands_version_sage) - 1},
     {"/etc/test_err.sage", (const unsigned char*)test_error_sage_source, sizeof(test_error_sage_source) - 1},
-    {"/etc/motd", (const unsigned char*)"Welcome to SageOS v0.3.0.\nType help for commands.\n", 52},
-    {"/etc/version", (const unsigned char*)"SageOS 0.3.0 modular kernel\n", 28},
+    {"/etc/motd", (const unsigned char*)"Welcome to SageOS v0.3.1.\nType help for commands.\n", 52},
+    {"/etc/version", (const unsigned char*)"SageOS 0.3.1 modular kernel\n", 28},
     {"/bin/sh", (const unsigned char*)"Kernel-resident shell\n", 22},
     {"/dev/fb0", (const unsigned char*)"UEFI GOP framebuffer\n", 21},
     {"/proc/input", (const unsigned char*)"native-i8042-ps2\n", 17},
@@ -799,14 +799,21 @@ int vfs_rm_rf(const char *path) {
             if (vfs_strcmp(entries[i].name, ".") == 0 || vfs_strcmp(entries[i].name, "..") == 0) continue;
 
             char child_path[VFS_MAX_PATH];
-            strcpy(child_path, path);
-            int len = vfs_strlen(child_path);
-            if (len > 0 && child_path[len-1] != '/') {
-                child_path[len] = '/';
-                child_path[len+1] = 0;
-                len++;
+            int len = vfs_strlen(path);
+            int name_len = vfs_strlen(entries[i].name);
+
+            /* Safe path concatenation: path + "/" + name */
+            if (len + 1 + name_len >= VFS_MAX_PATH) {
+                /* Path too long, skip or return error? RM -RF should probably try to continue 
+                 * but here we must prevent overflow. */
+                continue;
             }
-            strcat(child_path, entries[i].name);
+
+            if (len > 0 && path[len-1] == '/') {
+                snprintf(child_path, VFS_MAX_PATH, "%s%s", path, entries[i].name);
+            } else {
+                snprintf(child_path, VFS_MAX_PATH, "%s/%s", path, entries[i].name);
+            }
 
             res = vfs_rm_rf(child_path);
             if (res != VFS_OK) return res;

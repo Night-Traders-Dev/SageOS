@@ -501,11 +501,13 @@ static void cmd_cp(const char *args) {
     const char *s = args;
     while (*s && *s != ' ') s++;
     if (!*s) { console_write("\nusage: cp <src> <dst>"); return; }
-    char src[256];
+    
+    char src[VFS_MAX_PATH];
     int slen = (int)(s - args);
-    if (slen >= 256) slen = 255;
-    for (int i = 0; i < slen; i++) src[i] = args[i];
+    if (slen >= VFS_MAX_PATH) slen = VFS_MAX_PATH - 1;
+    memcpy(src, args, slen);
     src[slen] = 0;
+    
     const char *dst = skip_spaces(s);
     if (!*dst) { console_write("\nusage: cp <src> <dst>"); return; }
 
@@ -723,13 +725,16 @@ void shell_exec_command(const char *cmd) {
         /* Split path and content */
         const char *p = rest;
         while (*p && *p != ' ') p++;
-        char wpath[256];
+        
+        char wpath[VFS_MAX_PATH];
         int plen = (int)(p - rest);
-        if (plen >= 256) plen = 255;
-        for (int i = 0; i < plen; i++) wpath[i] = rest[i];
+        if (plen >= VFS_MAX_PATH) plen = VFS_MAX_PATH - 1;
+        memcpy(wpath, rest, (size_t)plen);
         wpath[plen] = 0;
+        
         const char *content = (*p == ' ') ? p + 1 : "";
-        int clen = 0; const char *c = content; while (*c) { clen++; c++; }
+        int clen = (int)vfs_strlen(content);
+        
         /* Create if needed, then write */
         vfs_create(wpath); /* ignore EEXIST */
         int r = vfs_write(wpath, 0, content, (size_t)clen);

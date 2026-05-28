@@ -11,8 +11,16 @@ static inline void outb(uint16_t port, uint8_t data) {
 
 static int serial_echo = 1;
 
+/**
+ * serial_init - Initialize serial port.
+ *
+ * This is a weak symbol that can be overridden by architecture-specific
+ * code if additional initialization beyond what boot.S provides is needed.
+ * By default, it assumes the bootloader or early assembly has already
+ * configured the UART (e.g., 115200 8N1).
+ */
 void __attribute__((weak)) serial_init(void) {
-    // UART already initialized by boot.S
+    // UART already initialized by boot.S or firmware
 }
 
 void console_init(SageOSBootInfo *info) {
@@ -31,12 +39,12 @@ void console_putc(char c) {
 
 void serial_putc(char c) {
 #if defined(__x86_64__)
-    outb(0x3F8, (uint8_t)c);
+    outb(UART_BASE_X64, (uint8_t)c);
 #elif defined(__aarch64__)
-    volatile uint8_t *uart = (volatile uint8_t *)0x09000000;
+    volatile uint8_t *uart = (volatile uint8_t *)UART_BASE_ARM64;
     uart[0] = (uint8_t)c;
 #else // __riscv
-    volatile uint8_t *uart = (volatile uint8_t *)0x10000000;
+    volatile uint8_t *uart = (volatile uint8_t *)UART_BASE_RV64;
     uart[0] = (uint8_t)c;
 #endif
 }

@@ -107,7 +107,7 @@ shell_c = shell_c + "    serial_puts(\"  halt       Shut down the virtual machin
 shell_c = shell_c + "    serial_puts(\"  echo <msg> Echo the message\\n\"); }" + NL
 
 shell_c = shell_c + "static void cmd_about(void) {" + NL
-shell_c = shell_c + "    serial_puts(\"SageOS v0.3.0 — Premium SageLang Bare-Metal Operating System\\n\");" + NL
+shell_c = shell_c + "    serial_puts(\"SageOS v0.3.1 — Premium SageLang Bare-Metal Operating System\\n\");" + NL
 shell_c = shell_c + "    serial_puts(\"Built using SageLang cross-compilation pipeline on freestanding C.\\n\"); }" + NL
 
 shell_c = shell_c + "static void cmd_uptime(void) {" + NL
@@ -133,7 +133,7 @@ shell_c = shell_c + "    serial_puts(\"\\033[1;36m ___/ / /_/ / /_/ / /_/ /_/ /_
 shell_c = shell_c + "    serial_puts(\"\\033[1;36m/____/\\\\__,_/\\\\__, /\\\\__/\\\\____//____/  \\n\\033[0m\");" + NL
 shell_c = shell_c + "    serial_puts(\"\\033[1;36m           /____/                   \\n\\033[0m\");" + NL
 shell_c = shell_c + "    serial_puts(\"\\n\");" + NL
-shell_c = shell_c + "    serial_puts(\"\\033[1;33mOS\\033[0m:        SageOS v0.3.0 (Bare-Metal)\\n\");" + NL
+shell_c = shell_c + "    serial_puts(\"\\033[1;33mOS\\033[0m:        SageOS v0.3.1 (Bare-Metal)\\n\");" + NL
 shell_c = shell_c + "    serial_puts(\"\\033[1;33mKernel\\033[0m:    AOT-Compiled Freestanding SageLang\\n\");" + NL
 shell_c = shell_c + "    serial_puts(\"\\033[1;33mArch\\033[0m:      \" ARCH_STRING \"\\n\");" + NL
 shell_c = shell_c + "    serial_puts(\"\\033[1;33mCPU\\033[0m:       QEMU Virt System\\n\");" + NL
@@ -177,7 +177,7 @@ else:
 end
 
 shell_c = shell_c + "    serial_init();" + NL
-shell_c = shell_c + "    serial_puts(\"\\033[1;36mSageOS Premium Shell v0.3.0 \" ARCH_STRING \"\\033[0m\\n\");" + NL
+shell_c = shell_c + "    serial_puts(\"\\033[1;36mSageOS Premium Shell v0.3.1 \" ARCH_STRING \"\\033[0m\\n\");" + NL
 shell_c = shell_c + "    serial_puts(\"Type \\033[1;33mhelp\\033[0m for commands. Autocomplete with \\033[1;33mTab\\033[0m or \\033[1;33mRight Arrow\\033[0m.\\n\\n\");" + NL
 shell_c = shell_c + "    char cmd[CMD_MAX];" + NL
 shell_c = shell_c + "    int len = 0;" + NL

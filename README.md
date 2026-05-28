@@ -1,4 +1,4 @@
-# SageOS v0.3.0 - The Modular Hybrid Operating System
+# SageOS v0.3.1 - The Modular Hybrid Operating System
 
 SageOS is a hybrid operating system that combines a low-level C kernel with a high-level, SageLang-driven runtime. It is designed to be modular, portable, and extensible across multiple architectures.
 
@@ -8,7 +8,7 @@ SageOS is a hybrid operating system that combines a low-level C kernel with a hi
 - **Custom SageLang runtime**: A bespoke MetalVM interpreter enables safe SageLang execution inside the OS.
 - **Forked third-party networking stacks**: `lwip` and `mbedtls` are integrated as custom submodule forks to support networking and security.
 
-## Core Features (v0.3.0)
+## Core Features (v0.3.1)
 - **Filesystem Support**: FAT32, BTRFS (Read-only), and SWAP support across all virtual targets.
 - **Disk Drivers**: Legacy ATA PIO (x64) and VirtIO-MMIO (ARM/RISCV) block drivers.
 - **Persistent Logging**: Ring-buffered `dmesg` and persistent `/fat32/BOOTLOG.TXT`.
