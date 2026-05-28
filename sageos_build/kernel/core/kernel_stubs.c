@@ -136,10 +136,6 @@ void net_cmd_info(void) { console_write("\nNetwork: Not supported on this platfo
 void net_cmd_selftest(void) { console_write("\nNetwork: Not supported on this platform."); }
 
 // Sage & VM stubs
-void elf_exec(const char *path, uint64_t sz) {
-    (void)path; (void)sz;
-    console_write("\nexecelf: ELF execution not supported on this platform.");
-}
 void sage_import_module(void* vm, const char* name) {
     (void)vm; (void)name;
 }

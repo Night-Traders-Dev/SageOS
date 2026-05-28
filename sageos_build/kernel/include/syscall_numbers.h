@@ -14,6 +14,7 @@
 #define SYS_lseek       8
 #define SYS_brk        12
 #define SYS_exit       60
+#define SYS_execve     59
 #define SYS_getpid     39
 #define SYS_isatty    100   /* SageOS custom */
 #define SYS_kill        62

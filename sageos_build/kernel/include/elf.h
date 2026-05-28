@@ -36,6 +36,8 @@
 
 /* e_machine */
 #define EM_X86_64     62
+#define EM_AARCH64    183
+#define EM_RISCV      243
 
 /* Program header p_type */
 #define PT_NULL       0

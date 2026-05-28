@@ -45,10 +45,20 @@ int elf_validate(const void *data, uint64_t size) {
         return 0;
     }
 
-    /* Must target x86_64 */
+    /* Must target current architecture */
+#if defined(__x86_64__)
     if (ehdr->e_machine != EM_X86_64) {
         return 0;
     }
+#elif defined(__aarch64__)
+    if (ehdr->e_machine != EM_AARCH64) {
+        return 0;
+    }
+#elif defined(__riscv)
+    if (ehdr->e_machine != EM_RISCV) {
+        return 0;
+    }
+#endif
 
     /* Program header table must fit within the file */
     if (ehdr->e_phoff == 0 || ehdr->e_phnum == 0) {
@@ -160,4 +170,37 @@ int elf_exec(const void *data, uint64_t size) {
     }
 
     return ret;
+}
+
+#include "vfs.h"
+#include "sage_alloc.h"
+
+long sys_execve(const char *path, char *const argv[], char *const envp[]) {
+    (void)argv; (void)envp;
+
+    VfsStat st;
+    if (vfs_stat(path, &st) < 0) {
+        return -VFS_ENOENT;
+    }
+
+    /* Allocate buffer for the entire ELF file */
+    /* Using sage_malloc for now as a simple kernel-side allocator */
+    void *buffer = sage_malloc(st.size);
+    if (!buffer) {
+        return -VFS_ENOSPC;
+    }
+
+    if (vfs_read(path, 0, buffer, st.size) != (int)st.size) {
+        sage_free(buffer);
+        return -VFS_EIO;
+    }
+
+    /* Execute the ELF */
+    int ret = elf_exec(buffer, st.size);
+
+    /* We don't free the buffer if it's still running, 
+       but here elf_exec calls it and waits for return. */
+    sage_free(buffer);
+
+    return (long)ret;
 }

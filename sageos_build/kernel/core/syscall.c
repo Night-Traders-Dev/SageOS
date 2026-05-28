@@ -11,6 +11,7 @@ long sys_open(const char *path, int flags, int mode);
 long sys_close(int fd);
 long sys_lseek(int fd, off_t offset, int whence);
 long sys_brk(uintptr_t addr);
+long sys_execve(const char *path, char *const argv[], char *const envp[]);
 void sys_exit(int code);
 
 long syscall_dispatch(long num, long a1, long a2, long a3,
@@ -28,6 +29,8 @@ long syscall_dispatch(long num, long a1, long a2, long a3,
         return sys_lseek((int)a1, (off_t)a2, (int)a3);
     case SYS_brk:
         return sys_brk((uintptr_t)a1);
+    case SYS_execve:
+        return sys_execve((const char *)a1, (char *const *)a2, (char *const *)a3);
     case SYS_exit:
         sys_exit((int)a1);
         return 0; /* Unreachable */
