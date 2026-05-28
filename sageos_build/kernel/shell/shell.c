@@ -733,7 +733,7 @@ void shell_exec_command(const char *cmd) {
         wpath[plen] = 0;
         
         const char *content = (*p == ' ') ? p + 1 : "";
-        int clen = (int)vfs_strlen(content);
+        int clen = (int)strlen(content);
         
         /* Create if needed, then write */
         vfs_create(wpath); /* ignore EEXIST */
