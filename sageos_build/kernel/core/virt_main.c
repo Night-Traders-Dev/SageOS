@@ -42,6 +42,9 @@ void power_shutdown(void) {
 
 extern void serial_init(void);
 
+#include "syscall_numbers.h"
+long syscall_dispatch(long num, long a1, long a2, long a3, long a4, long a5);
+
 void kmain(SageOSBootInfo *info) {
     serial_init();
     
@@ -75,6 +78,15 @@ void kmain(SageOSBootInfo *info) {
     bootlog_init(info);
     dmesg_log("SageOS Virt Kernel initialization complete.");
     
+    /* GCC Port Phase 0: Syscall Smoke Test */
+    /* We need a task to be current for syscalls to work, 
+       but for this test, sys_write to fd 1/2 works without t->fd_table if we are careful,
+       or we can just check the dispatcher logic.
+       Actually, current_task() might return NULL if scheduler is not inited.
+    */
+    dmesg_log("Syscall Smoke Test: Calling SYS_write to stdout...");
+    syscall_dispatch(SYS_write, 1, (long)"[SYSCALL TEST] Hello via syscall_dispatch\n", 42, 0, 0);
+
     console_write("\n[DEBUG] Before shell_run, swap is: ");
     console_u32(swap_is_available());
     

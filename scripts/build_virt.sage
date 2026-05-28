@@ -68,7 +68,9 @@ proc generate_virt_build(arch):
         "sageos_build/kernel/shell/shell_helper.c",
         "sageos_build/kernel/shell/extra_cmds.c",
         "sageos_build/kernel/shell/sage_shell_entry.c",
-        "sageos_build/kernel/core/sagelang/metal_vm.c"
+        "sageos_build/kernel/core/sagelang/metal_vm.c",
+        "sageos_build/kernel/core/syscall.c",
+        "sageos_build/kernel/core/mm.c"
     ]
 
     # 5. Construct build script

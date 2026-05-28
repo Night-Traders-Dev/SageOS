@@ -27,6 +27,19 @@ typedef enum {
     THREAD_PRIORITY_MAX
 } thread_priority_t;
 
+#define MAX_FD 32
+
+typedef int64_t off_t;
+typedef int     vfs_fd_t;
+
+typedef struct {
+    int      valid;
+    vfs_fd_t vfs_handle;
+    char     path[256]; /* VFS_MAX_PATH from vfs.h */
+    int      flags;
+    off_t    offset;
+} fd_entry_t;
+
 typedef struct thread {
     uint32_t id;
     thread_state_t state;
@@ -55,6 +68,12 @@ typedef struct thread {
     void *arg;
 
     char name[32];
+
+    /* GCC Port: Syscall & Process support */
+    fd_entry_t fd_table[MAX_FD];
+    uintptr_t  heap_end;
+    uintptr_t  heap_base;
+    uintptr_t  heap_limit;
 } thread_t;
 
 typedef struct {

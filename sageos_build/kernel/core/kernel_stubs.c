@@ -107,6 +107,11 @@ void status_print(void) { console_write("\n[System Status: Normal]"); }
 static sched_stats_t dummy_stats = {100, 5, 2, 1000, 50, 1, 1};
 const sched_stats_t *sched_get_stats(void) { return &dummy_stats; }
 void sched_cmd_info(void) { console_write("\nScheduler: Single-tasking bare metal."); }
+
+thread_t *sched_current_thread(void) {
+    return NULL;
+}
+
 int sched_get_thread_info(uint32_t index, char *name, thread_state_t *state, uint32_t *cpu) {
     if (index == 0) {
         char *src = "idle";
