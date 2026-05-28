@@ -415,7 +415,9 @@ uint64_t sage_sqrt(uint64_t x) { (void)x; return 0; }
 #undef memcpy
 #undef strlen
 #undef strcmp
+#undef memcmp
 void *memset(void *s, int c, size_t n) __attribute__((alias("sage_memset")));
 void *memcpy(void *dest, const void *src, size_t n) __attribute__((alias("sage_memcpy")));
 size_t strlen(const char *s) __attribute__((alias("sage_strlen")));
 int strcmp(const char *a, const char *b) __attribute__((alias("sage_strcmp")));
+int memcmp(const void *s1, const void *s2, size_t n) __attribute__((alias("sage_memcmp")));
