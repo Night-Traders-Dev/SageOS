@@ -49,7 +49,7 @@ proc generate_virt_build(arch):
     io.writefile(boot_path, boot_asm)
     io.writefile(linker_path, linker_script)
 
-    # 4. List C sources
+    # 4. List sources
     let c_sources = [
         "sageos_build/kernel/core/virt_main.c",
         "sageos_build/kernel/core/virt_console.c",
@@ -73,6 +73,16 @@ proc generate_virt_build(arch):
         "sageos_build/kernel/core/mm.c",
         "sageos_build/kernel/fs/elf.c"
     ]
+    
+    if arch == "x86_64":
+        let _u = push(c_sources, "arch/x64/kernel/syscall_entry.S")
+    end
+    if arch == "aarch64":
+        let _u = push(c_sources, "arch/arm64/kernel/syscall_entry.S")
+    end
+    if arch == "riscv64":
+        let _u = push(c_sources, "arch/rv64/kernel/syscall_entry.S")
+    end
 
     # 5. Construct build script
     let script = "#!/bin/sh" + NL + "set -e" + NL

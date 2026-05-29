@@ -45,6 +45,13 @@ extern void serial_init(void);
 #include "syscall_numbers.h"
 long syscall_dispatch(long num, long a1, long a2, long a3, long a4, long a5);
 
+#if defined(__aarch64__)
+extern void* exception_vectors;
+static void setup_vectors(void) {
+    __asm__ volatile ("msr vbar_el1, %0" : : "r"(&exception_vectors));
+}
+#endif
+
 void kmain(SageOSBootInfo *info) {
     serial_init();
     
@@ -52,6 +59,10 @@ void kmain(SageOSBootInfo *info) {
     console_init(info);
     console_clear();
     console_write("SageOS Virt Kernel Booting...\n");
+
+#if defined(__aarch64__)
+    setup_vectors();
+#endif
     
     keyboard_init();
     vfs_init();
@@ -83,9 +94,12 @@ void kmain(SageOSBootInfo *info) {
     syscall_dispatch(SYS_write, 1, (long)"[SYSCALL TEST] Hello via syscall_dispatch\n", 42, 0, 0);
 
     /* Milestone 2: Execute userspace Hello World */
-    dmesg_log("Milestone 2: Attempting to exec /fat32/hello with args...");
+    console_write("Milestone 2: Attempting to exec /fat32/hello with args...\n");
     char *argv[] = {"/fat32/hello", "arg1", "arg2", NULL};
-    syscall_dispatch(SYS_execve, (long)"/fat32/hello", (long)argv, 0, 0, 0);
+    long res = syscall_dispatch(SYS_execve, (long)"/fat32/hello", (long)argv, 0, 0, 0);
+    console_write("Execve returned: ");
+    console_u32((uint32_t)res);
+    console_write("\n");
 
     console_write("\n[DEBUG] Before shell_run, swap is: ");
     console_u32(swap_is_available());

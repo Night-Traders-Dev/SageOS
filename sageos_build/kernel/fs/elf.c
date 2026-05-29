@@ -1,9 +1,5 @@
 /*
  * elf.c — ELF64 loader for SageOS
- *
- * Validates ELF64 x86_64 executables, maps PT_LOAD segments into memory,
- * zeroes BSS, and jumps to the entry point.  If the ELF entry returns,
- * control flows back to the shell.
  */
 
 #include <stdint.h>
@@ -18,61 +14,23 @@
  * ----------------------------------------------------------------------- */
 
 int elf_validate(const void *data, uint64_t size) {
-    if (!data || size < sizeof(SageElf64_Ehdr)) {
-        return 0;
-    }
-
+    if (!data || size < sizeof(SageElf64_Ehdr)) return 0;
     const SageElf64_Ehdr *ehdr = (const SageElf64_Ehdr *)data;
+    if (ehdr->e_ident[EI_MAG0] != ELFMAG0 || ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
+        ehdr->e_ident[EI_MAG2] != ELFMAG2 || ehdr->e_ident[EI_MAG3] != ELFMAG3) return 0;
+    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) return 0;
+    if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB) return 0;
+    if (ehdr->e_type != ET_EXEC) return 0;
 
-    /* Magic number */
-    if (ehdr->e_ident[EI_MAG0] != ELFMAG0 ||
-        ehdr->e_ident[EI_MAG1] != ELFMAG1 ||
-        ehdr->e_ident[EI_MAG2] != ELFMAG2 ||
-        ehdr->e_ident[EI_MAG3] != ELFMAG3) {
-        return 0;
-    }
-
-    /* Must be 64-bit */
-    if (ehdr->e_ident[EI_CLASS] != ELFCLASS64) {
-        return 0;
-    }
-
-    /* Must be little-endian */
-    if (ehdr->e_ident[EI_DATA] != ELFDATA2LSB) {
-        return 0;
-    }
-
-    /* Must be executable */
-    if (ehdr->e_type != ET_EXEC) {
-        return 0;
-    }
-
-    /* Must target current architecture */
 #if defined(__x86_64__)
-    if (ehdr->e_machine != EM_X86_64) {
-        return 0;
-    }
+    if (ehdr->e_machine != EM_X86_64) return 0;
 #elif defined(__aarch64__)
-    if (ehdr->e_machine != EM_AARCH64) {
-        return 0;
-    }
+    if (ehdr->e_machine != EM_AARCH64) return 0;
 #elif defined(__riscv)
-    if (ehdr->e_machine != EM_RISCV) {
-        return 0;
-    }
+    if (ehdr->e_machine != EM_RISCV) return 0;
 #endif
 
-    /* Program header table must fit within the file */
-    if (ehdr->e_phoff == 0 || ehdr->e_phnum == 0) {
-        return 0;
-    }
-
-    uint64_t ph_end = ehdr->e_phoff +
-                      (uint64_t)ehdr->e_phentsize * ehdr->e_phnum;
-    if (ph_end > size) {
-        return 0;
-    }
-
+    if (ehdr->e_phoff == 0 || ehdr->e_phnum == 0) return 0;
     return 1;
 }
 
@@ -81,51 +39,34 @@ int elf_validate(const void *data, uint64_t size) {
  * ----------------------------------------------------------------------- */
 
 int elf_exec(const void *data, uint64_t size, char *const argv[], char *const envp[]) {
-    if (!elf_validate(data, size)) {
-        console_write("\nelf: not a valid ELF64 executable.");
-        return -1;
-    }
+    if (!elf_validate(data, size)) return -1;
 
     const SageElf64_Ehdr *ehdr = (const SageElf64_Ehdr *)data;
-    const SageElf64_Phdr *phdr =
-        (const SageElf64_Phdr *)((const uint8_t *)data + ehdr->e_phoff);
+    const SageElf64_Phdr *phdr = (const SageElf64_Phdr *)((const uint8_t *)data + ehdr->e_phoff);
 
-    console_write("\nelf: loading segments...");
-    
+    /* 1. Map segments */
     for (int i = 0; i < ehdr->e_phnum; i++) {
         if (phdr[i].p_type != PT_LOAD) continue;
-
-        /* Copy file data and zero BSS */
+        if (phdr[i].p_vaddr < ELF_VADDR_MIN || phdr[i].p_vaddr + phdr[i].p_memsz > ELF_VADDR_MAX) return -1;
         uint8_t *dest = (uint8_t *)phdr[i].p_vaddr;
         const uint8_t *src = (const uint8_t *)data + phdr[i].p_offset;
         for (uint64_t j = 0; j < phdr[i].p_filesz; j++) dest[j] = src[j];
         for (uint64_t j = phdr[i].p_filesz; j < phdr[i].p_memsz; j++) dest[j] = 0;
     }
 
-    /* Stack Setup */
-    /* We allocate a simple 64KB stack for the process */
-    uint8_t *stack_top = (uint8_t *)sage_malloc(65536);
-    if (!stack_top) return -1;
-    uint8_t *sp = stack_top + 65536;
+    /* 2. Prepare arguments (transient kernel memory) */
+    int argc = 0; if (argv) while (argv[argc]) argc++;
+    int envc = 0; if (envp) while (envp[envc]) envc++;
 
-    /* Count arguments and environment variables */
-    int argc = 0;
-    if (argv) while (argv[argc]) argc++;
-    int envc = 0;
-    if (envp) while (envp[envc]) envc++;
-
-    /* We need to store pointers to the strings on the stack */
-    /* Layout on stack (from high to low):
-     * [String data]
-     * [envp pointers...][NULL]
-     * [argv pointers...][NULL]
-     * [argc] <- RSP
-     */
-
-    /* 1. Copy strings to stack and record their addresses */
-    uintptr_t *envp_ptrs = (uintptr_t *)sage_malloc((envc + 1) * sizeof(uintptr_t));
     uintptr_t *argv_ptrs = (uintptr_t *)sage_malloc((argc + 1) * sizeof(uintptr_t));
+    uintptr_t *envp_ptrs = (uintptr_t *)sage_malloc((envc + 1) * sizeof(uintptr_t));
 
+    /* 3. Allocate process stack (AFTER transient buffers to avoid collision) */
+    uint8_t *stack_mem = (uint8_t *)sage_malloc(65536);
+    if (!stack_mem) return -1;
+    uint8_t *sp = stack_mem + 65536;
+
+    /* 4. Copy strings and pointers to process stack */
     for (int i = envc - 1; i >= 0; i--) {
         size_t len = strlen(envp[i]) + 1;
         sp -= len;
@@ -142,90 +83,43 @@ int elf_exec(const void *data, uint64_t size, char *const argv[], char *const en
     }
     argv_ptrs[argc] = 0;
 
-    /* Align SP to 16 bytes after string data */
-    sp = (uint8_t *)((uintptr_t)sp & ~15);
+    sp = (uint8_t *)((uintptr_t)sp & ~15); /* Align */
 
-    /* 2. Copy pointers to stack */
     sp -= (envc + 1) * 8;
     for (int i = 0; i <= envc; i++) ((uint64_t *)sp)[i] = (uint64_t)envp_ptrs[i];
     
     sp -= (argc + 1) * 8;
-    uintptr_t argv_base = (uintptr_t)sp;
     for (int i = 0; i <= argc; i++) ((uint64_t *)sp)[i] = (uint64_t)argv_ptrs[i];
 
-    /* 3. Push argc */
     sp -= 8;
     *(uint64_t *)sp = (uint64_t)argc;
 
     sage_free(envp_ptrs);
     sage_free(argv_ptrs);
 
-    /* Architecture specific jump to entry point with new SP */
-    int ret = 0;
+    /* 5. Jump to entry */
     uintptr_t entry = ehdr->e_entry;
+    int ret = 0;
 
 #if defined(__x86_64__)
-    __asm__ volatile (
-        "mov %1, %%rsp\n"
-        "call *%2\n"
-        "mov %%eax, %0"
-        : "=r"(ret)
-        : "r"(sp), "r"(entry)
-        : "rax", "memory"
-    );
+    __asm__ volatile ("mov %1, %%rsp\ncall *%2\nmov %%eax, %0" : "=r"(ret) : "r"(sp), "r"(entry) : "rax", "memory");
 #elif defined(__aarch64__)
-    __asm__ volatile (
-        "mov sp, %1\n"
-        "blr %2\n"
-        "mov %0, x0"
-        : "=r"(ret)
-        : "r"(sp), "r"(entry)
-        : "x0", "memory"
-    );
+    __asm__ volatile ("mov sp, %1\nblr %2\nmov %0, x0" : "=r"(ret) : "r"(sp), "r"(entry) : "x0", "memory");
 #elif defined(__riscv)
-    __asm__ volatile (
-        "mv sp, %1\n"
-        "jalr %2\n"
-        "mv %0, a0"
-        : "=r"(ret)
-        : "r"(sp), "r"(entry)
-        : "a0", "memory"
-    );
+    __asm__ volatile ("mv sp, %1\njalr %2\nmv %0, a0" : "=r"(ret) : "r"(sp), "r"(entry) : "a0", "memory");
 #endif
 
-    sage_free(stack_top);
     return ret;
 }
 
 #include "vfs.h"
-#include "sage_alloc.h"
-
 long sys_execve(const char *path, char *const argv[], char *const envp[]) {
-    (void)argv; (void)envp;
-
     VfsStat st;
-    if (vfs_stat(path, &st) < 0) {
-        return -VFS_ENOENT;
-    }
-
-    /* Allocate buffer for the entire ELF file */
-    /* Using sage_malloc for now as a simple kernel-side allocator */
+    if (vfs_stat(path, &st) < 0) return -VFS_ENOENT;
     void *buffer = sage_malloc(st.size);
-    if (!buffer) {
-        return -VFS_ENOSPC;
-    }
-
-    if (vfs_read(path, 0, buffer, st.size) != (int)st.size) {
-        sage_free(buffer);
-        return -VFS_EIO;
-    }
-
-    /* Execute the ELF */
+    if (!buffer) return -VFS_ENOSPC;
+    if (vfs_read(path, 0, buffer, st.size) != (int)st.size) { sage_free(buffer); return -VFS_EIO; }
     int ret = elf_exec(buffer, st.size, argv, envp);
-
-    /* We don't free the buffer if it's still running, 
-       but here elf_exec calls it and waits for return. */
     sage_free(buffer);
-
     return (long)ret;
 }
