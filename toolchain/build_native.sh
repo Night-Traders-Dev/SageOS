@@ -8,13 +8,23 @@ TARGET="${ARCH}-unknown-sageos"
 HOST="$TARGET"
 PREFIX="/opt/sageos-native"
 SYSROOT="/opt/sageos-toolchain/sysroot"
+
+# Check if PREFIX is writable, else fallback to user directory
+if [ ! -w "$(dirname "$PREFIX")" ] && [ ! -d "$PREFIX" ]; then
+    PREFIX="/home/kraken/sageos-native"
+    SYSROOT="/home/kraken/sageos-toolchain/sysroot"
+fi
 JOBS=$(nproc)
 
 BINUTILS_VER="2.42"
 GCC_VER="14.1.0"
 
 # Add cross-compiler to PATH
-export PATH="/opt/sageos-toolchain/bin:$PATH"
+if [ -d "/opt/sageos-toolchain/bin" ]; then
+    export PATH="/opt/sageos-toolchain/bin:$PATH"
+else
+    export PATH="/home/kraken/sageos-toolchain/bin:$PATH"
+fi
 
 mkdir -p "$PREFIX"
 BUILD_DIR="$(pwd)/toolchain_build"
@@ -29,8 +39,8 @@ mkdir -p build-native-binutils && cd build-native-binutils
     --with-sysroot="/" \
     --disable-nls \
     --disable-werror
-make -j"$JOBS"
-make install
+make MAKEINFO=true -j"$JOBS"
+make MAKEINFO=true install
 cd ..
 
 echo "Building native GCC..."
@@ -48,8 +58,8 @@ mkdir -p build-native-gcc && cd build-native-gcc
     --disable-libgomp \
     --disable-libatomic \
     --disable-libquadmath
-make -j"$JOBS"
-make install
+make MAKEINFO=true -j"$JOBS"
+make MAKEINFO=true install
 cd ..
 
 echo "Native toolchain build complete!"

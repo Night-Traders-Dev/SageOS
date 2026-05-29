@@ -62,3 +62,5 @@ personal.env
 # OS Specific
 .DS_Store
 Thumbs.db
+/toolchain_build/
+test_hello

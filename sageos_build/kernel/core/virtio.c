@@ -267,11 +267,10 @@ int ata_read_sector(uint32_t lba, uint16_t *buffer) {
 
     /* Poll for completion */
     int timeout = 0;
-    while ((uint16_t)(used->idx - last_used_idx) == 0) {
+    while (used->idx == last_used_idx) {
         mb();
         cpu_pause();
         if (++timeout > 10000000) {
-            dmesg_log("virtio: read timeout");
             return 0;
         }
     }
@@ -311,14 +310,9 @@ int ata_write_sector(uint32_t lba, const uint16_t *buffer) {
 
     mmio_write(REG_QUEUE_NOTIFY, 0);
 
-    int timeout = 0;
-    while ((uint16_t)(used->idx - last_used_idx) == 0) {
+    while (used->idx == last_used_idx) {
         mb();
         cpu_pause();
-        if (++timeout > 10000000) {
-            dmesg_log("virtio: write timeout");
-            return 0;
-        }
     }
     last_used_idx = used->idx;
     mb();

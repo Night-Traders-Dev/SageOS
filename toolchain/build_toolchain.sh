@@ -25,13 +25,17 @@ NC='\033[0m'
 log() { echo -e "${GREEN}[SageOS]${NC} $1"; }
 step() { echo -e "${BLUE}>>${NC} $1"; }
 
-if [ "$EUID" -ne 0 ]; then
-  log "Please run as root (needed to install to $PREFIX)"
-  exit 1
+# Check if PREFIX can be created/written by our current user
+if [ ! -w "$(dirname "$PREFIX")" ] && [ ! -d "$PREFIX" ] && [ "$EUID" -ne 0 ]; then
+  log "Directory $(dirname "$PREFIX") is not writable and we are not root."
+  log "Setting PREFIX to user-writable path: /home/kraken/sageos-toolchain"
+  PREFIX="/home/kraken/sageos-toolchain"
+  SYSROOT="${PREFIX}/sysroot"
 fi
 
 mkdir -p "$PREFIX"
 mkdir -p "$SYSROOT"
+export PATH="${PREFIX}/bin:${PATH}"
 
 ROOT_DIR=$(pwd)
 TOOLCHAIN_DIR="${ROOT_DIR}/toolchain"
@@ -50,6 +54,13 @@ step "Extracting sources..."
 [ ! -d "gcc-${GCC_VER}" ] && tar -xf "gcc-${GCC_VER}.tar.gz"
 [ ! -d "newlib-${NEWLIB_VER}" ] && tar -xf "newlib-${NEWLIB_VER}.tar.gz"
 
+if [ -d "gcc-${GCC_VER}" ] && [ ! -f "gcc-${GCC_VER}/gmp/configure" ]; then
+    step "Downloading GCC prerequisites (GMP, MPFR, MPC)..."
+    cd "gcc-${GCC_VER}"
+    ./contrib/download_prerequisites
+    cd ..
+fi
+
 # 2. Patch Sources
 step "Patching config.sub for all packages..."
 for dir in binutils-${BINUTILS_VER} gcc-${GCC_VER} newlib-${NEWLIB_VER}; do
@@ -63,10 +74,40 @@ done
 step "Patching Binutils BFD..."
 cp "binutils-${BINUTILS_VER}/bfd/config.bfd" "binutils-${BINUTILS_VER}/bfd/config.bfd.bak"
 if ! grep -q "sageos" "binutils-${BINUTILS_VER}/bfd/config.bfd"; then
-    sed -i '/case "${targ}" in/a \
-  x86_64-*-sageos*) targ_defvec=x86_64_elf64_vec; targ_selvecs="i386_elf32_vec iamcu_vec x86_64_elf32_vec"; want64=true ;; \
-  aarch64-*-sageos*) targ_defvec=aarch64_elf64_le_vec; targ_selvecs="aarch64_elf64_be_vec aarch64_elf32_le_vec aarch64_elf32_be_vec"; want64=true ;; \
-  riscv64-*-sageos*) targ_defvec=riscv_elf64_vec; targ_selvecs="riscv_elf32_vec"; want64=true ;;' "binutils-${BINUTILS_VER}/bfd/config.bfd"
+    python3 -c '
+import sys
+filename = f"binutils-{sys.argv[1]}/bfd/config.bfd"
+with open(filename, "r") as f:
+    content = f.read()
+
+target_str = "#ifdef BFD64"
+
+sageos_str = """#ifdef BFD64
+  x86_64-*-sageos*)
+    targ_defvec=x86_64_elf64_vec
+    targ_selvecs="i386_elf32_vec iamcu_elf32_vec x86_64_elf32_vec"
+    want64=true
+    ;;
+  aarch64-*-sageos*)
+    targ_defvec=aarch64_elf64_le_vec
+    targ_selvecs="aarch64_elf64_be_vec aarch64_elf32_le_vec aarch64_elf32_be_vec"
+    want64=true
+    ;;
+  riscv64-*-sageos*)
+    targ_defvec=riscv_elf64_vec
+    targ_selvecs="riscv_elf32_vec"
+    want64=true
+    ;;"""
+
+if target_str in content:
+    content = content.replace(target_str, sageos_str, 1)
+    with open(filename, "w") as f:
+        f.write(content)
+    print("[SageOS] successfully patched config.bfd")
+else:
+    print("[SageOS] ERROR: target pattern not found in config.bfd", file=sys.stderr)
+    sys.exit(1)
+' "$BINUTILS_VER"
 fi
 
 step "Patching Binutils LD..."
@@ -81,7 +122,7 @@ fi
 step "Patching Binutils GAS..."
 cp "binutils-${BINUTILS_VER}/gas/configure.tgt" "binutils-${BINUTILS_VER}/gas/configure.tgt.bak"
 if ! grep -q "sageos" "binutils-${BINUTILS_VER}/gas/configure.tgt"; then
-    sed -i '/case ${targ} in/a \
+    sed -i '/case ${generic_target} in/a \
   aarch64-*-sageos*) fmt=elf ;; \
   i386-*-sageos*) fmt=elf ;; \
   riscv-*-sageos*) fmt=elf ;;' "binutils-${BINUTILS_VER}/gas/configure.tgt"
@@ -96,20 +137,75 @@ cp "${TOOLCHAIN_DIR}/gcc/config/i386/sageos.h" "gcc-${GCC_VER}/gcc/config/i386/"
 cp "${TOOLCHAIN_DIR}/gcc/config/aarch64/sageos.h" "gcc-${GCC_VER}/gcc/config/aarch64/"
 cp "${TOOLCHAIN_DIR}/gcc/config/riscv/sageos.h" "gcc-${GCC_VER}/gcc/config/riscv/"
 
-# Wire into config.gcc (simplified append)
+# Wire into config.gcc (safely inject before fallback *) case)
 if ! grep -q "sageos" "gcc-${GCC_VER}/gcc/config.gcc"; then
-    cat >> "gcc-${GCC_VER}/gcc/config.gcc" <<EOF
-x86_64-*-sageos*)
-    tm_file="\${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h i386/i386elf.h i386/x86-64.h sageos.h i386/sageos.h"
-    tmake_file="\${tmake_file} i386/t-i386elf t-svr4"
+    python3 -c '
+import sys
+filename = f"gcc-{sys.argv[1]}/gcc/config.gcc"
+with open(filename, "r") as f:
+    content = f.read()
+
+target_str = """*)
+\techo "*** Configuration ${target} not supported" 1>&2"""
+
+sageos_str = """x86_64-*-sageos*)
+    tm_file="${tm_file} i386/unix.h i386/att.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h sageos.h i386/sageos.h"
+    tmake_file="${tmake_file} i386/t-i386elf t-svr4"
     ;;
 aarch64-*-sageos*)
-    tm_file="\${tm_file} dbxelf.h elfos.h aarch64/aarch64-elf.h aarch64/aarch64-freebsd.h sageos.h aarch64/sageos.h"
+    tm_file="${tm_file} elfos.h newlib-stdint.h aarch64/aarch64-elf.h aarch64/aarch64-freebsd.h sageos.h aarch64/sageos.h"
     ;;
 riscv64-*-sageos*)
-    tm_file="\${tm_file} dbxelf.h elfos.h riscv/riscv.h sageos.h riscv/sageos.h"
+    tm_file="${tm_file} elfos.h newlib-stdint.h riscv/riscv.h sageos.h riscv/sageos.h"
     ;;
-EOF
+"""
+
+if target_str in content:
+    content = content.replace(target_str, sageos_str + target_str)
+    with open(filename, "w") as f:
+        f.write(content)
+    print("[SageOS] successfully patched config.gcc")
+else:
+    print("[SageOS] ERROR: target pattern not found in config.gcc", file=sys.stderr)
+    sys.exit(1)
+' "$GCC_VER"
+fi
+
+# Wire into libgcc/config.host (safely inject before fallback/aarch64 target case)
+if ! grep -q "sageos" "gcc-${GCC_VER}/libgcc/config.host"; then
+    python3 -c '
+import sys
+filename = f"gcc-{sys.argv[1]}/libgcc/config.host"
+with open(filename, "r") as f:
+    content = f.read()
+
+target_str = "aarch64*-*-elf | aarch64*-*-rtems*)"
+
+sageos_str = """x86_64-*-sageos*)
+	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
+	extra_parts="$extra_parts crtbegin.o crtend.o"
+	;;
+aarch64*-*-sageos*)
+	extra_parts="$extra_parts crtbegin.o crtend.o crti.o crtn.o"
+	tmake_file="${tmake_file} ${cpu_type}/t-aarch64"
+	tmake_file="${tmake_file} ${cpu_type}/t-lse t-slibgcc-libgcc"
+	tmake_file="${tmake_file} ${cpu_type}/t-softfp t-softfp"
+	;;
+riscv*-*-sageos*)
+	extra_parts="$extra_parts crtbegin.o crtend.o crti.o crtn.o"
+	tmake_file="${tmake_file} riscv/t-softfp${host_address} t-softfp riscv/t-elf riscv/t-elf${host_address}"
+	;;
+"""
+
+if target_str in content:
+    content = content.replace(target_str, sageos_str + target_str)
+    with open(filename, "w") as f:
+        f.write(content)
+    print("[SageOS] successfully patched libgcc/config.host")
+else:
+    print("[SageOS] ERROR: target pattern not found in libgcc/config.host", file=sys.stderr)
+    sys.exit(1)
+' "$GCC_VER"
 fi
 
 step "Patching Newlib..."
@@ -126,13 +222,15 @@ mkdir -p build-binutils && cd build-binutils
     --prefix="$PREFIX" \
     --with-sysroot="$SYSROOT" \
     --disable-nls \
-    --disable-werror
-make -j"$JOBS"
-make install
+    --disable-werror \
+    MAKEINFO=true
+make -j"$JOBS" MAKEINFO=true
+make install MAKEINFO=true
 cd ..
 
 # 4. Build GCC Stage 1
 step "Building GCC Stage 1..."
+mkdir -p "${PREFIX}/sysroot/usr/include"
 mkdir -p build-gcc && cd build-gcc
 ../gcc-${GCC_VER}/configure \
     --target="$TARGET" \
@@ -140,6 +238,7 @@ mkdir -p build-gcc && cd build-gcc
     --with-sysroot="$SYSROOT" \
     --enable-languages=c \
     --without-headers \
+    --with-newlib \
     --disable-shared \
     --disable-threads \
     --disable-libssp \
@@ -147,9 +246,10 @@ mkdir -p build-gcc && cd build-gcc
     --disable-libatomic \
     --disable-libquadmath \
     --disable-nls \
-    --disable-werror
-make all-gcc all-target-libgcc -j"$JOBS"
-make install-gcc install-target-libgcc
+    --disable-werror \
+    MAKEINFO=true
+make all-gcc all-target-libgcc -j"$JOBS" MAKEINFO=true
+make install-gcc install-target-libgcc MAKEINFO=true
 cd ..
 
 # 5. Build Newlib
@@ -159,14 +259,14 @@ mkdir -p build-newlib && cd build-newlib
 ../newlib-${NEWLIB_VER}/configure \
     --target="$TARGET" \
     --prefix="$PREFIX" \
-    --disable-newlib-supplied-syscalls \
     --enable-newlib-reent-small \
     --disable-newlib-fvwrite-in-streamio \
     --disable-newlib-wide-orient \
     --enable-newlib-nano-malloc \
-    --disable-nls
-make -j"$JOBS"
-make install
+    --disable-nls \
+    MAKEINFO=true
+make -j"$JOBS" MAKEINFO=true
+make install MAKEINFO=true
 cd ..
 
 # 6. Build GCC Stage 2 (Final)
@@ -180,9 +280,10 @@ cd build-gcc
     --disable-shared \
     --disable-threads \
     --disable-nls \
-    --with-newlib
-make -j"$JOBS"
-make install
+    --with-newlib \
+    MAKEINFO=true
+make -j"$JOBS" MAKEINFO=true
+make install MAKEINFO=true
 cd ..
 
 log "Toolchain build complete! Installed to $PREFIX"
