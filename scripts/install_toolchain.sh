@@ -73,29 +73,33 @@ mmd -i "$DISK_IMG@@1M" ::/usr/include 2>/dev/null || true
 mmd -i "$DISK_IMG@@1M" ::/usr/libexec 2>/dev/null || true
 mmd -i "$DISK_IMG@@1M" ::/usr/share 2>/dev/null || true
 
-# Copy bin, lib, include from the distribution
-echo "Copying toolchain files from $NATIVE_DIST..."
-# We use -D o to overwrite existing files
-# Handle both native-build structure (usr/bin) and cross-tarball structure (bin/)
+# Stage files to a single directory to minimize mcopy calls
+echo "Staging files for transfer..."
+STAGE_DIR="/tmp/sageos-toolchain-stage"
+rm -rf "$STAGE_DIR"
+mkdir -p "$STAGE_DIR/usr"
+
 if [ -d "$NATIVE_DIST/usr/bin" ]; then
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/bin" ::/
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/lib" ::/
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/include" ::/
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/libexec" ::/
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/share" ::/
+    cp -r "$NATIVE_DIST/usr/bin" "$STAGE_DIR/usr/"
+    cp -r "$NATIVE_DIST/usr/lib" "$STAGE_DIR/usr/"
+    cp -r "$NATIVE_DIST/usr/include" "$STAGE_DIR/usr/"
+    cp -r "$NATIVE_DIST/usr/libexec" "$STAGE_DIR/usr/"
+    cp -r "$NATIVE_DIST/usr/share" "$STAGE_DIR/usr/"
 else
-    # For cross-tarballs, files are at the root of the prefix
-    # We install them to /usr inside SageOS
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/bin" ::/usr/
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/lib" ::/usr/
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/include" ::/usr/
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/libexec" ::/usr/
-    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/share" ::/usr/
-    # Also copy the target-specific directory which contains important headers/libs
+    cp -r "$NATIVE_DIST/bin" "$STAGE_DIR/usr/"
+    cp -r "$NATIVE_DIST/lib" "$STAGE_DIR/usr/"
+    cp -r "$NATIVE_DIST/include" "$STAGE_DIR/usr/"
+    cp -r "$NATIVE_DIST/libexec" "$STAGE_DIR/usr/"
+    cp -r "$NATIVE_DIST/share" "$STAGE_DIR/usr/"
     TARGET="${TAR_ARCH}-unknown-sageos"
     if [ -d "$NATIVE_DIST/$TARGET" ]; then
-         mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/$TARGET" ::/usr/
+         cp -r "$NATIVE_DIST/$TARGET" "$STAGE_DIR/usr/"
     fi
 fi
 
+echo "Copying files to disk image (this is the slow part)..."
+# Using -m to preserve modification times, might be faster or more reliable
+mcopy -v -i "$DISK_IMG@@1M" -s -D o "$STAGE_DIR/usr" ::/
+
 echo "Installation complete!"
+rm -rf "$STAGE_DIR"
