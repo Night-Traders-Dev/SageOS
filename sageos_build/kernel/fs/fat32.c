@@ -556,12 +556,16 @@ int fat32_cat(const char *path) {
 static void fat32_entry_to_name(const FAT32_DirEntry *entry, char *out, size_t out_size) {
     size_t len = 0;
     for (size_t i = 0; i < 8 && entry->name[i] != ' ' && len < out_size - 1; i++) {
-        out[len++] = entry->name[i];
+        char c = entry->name[i];
+        if (c >= 'A' && c <= 'Z') c += 32;
+        out[len++] = c;
     }
     if (entry->ext[0] != ' ') {
         if (len < out_size - 1) out[len++] = '.';
         for (size_t i = 0; i < 3 && entry->ext[i] != ' ' && len < out_size - 1; i++) {
-            out[len++] = entry->ext[i];
+            char c = entry->ext[i];
+            if (c >= 'A' && c <= 'Z') c += 32;
+            out[len++] = c;
         }
     }
     out[len] = 0;

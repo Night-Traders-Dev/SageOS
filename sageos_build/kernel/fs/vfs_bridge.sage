@@ -81,19 +81,12 @@ proc ramfs_readdir(path):
         return nil
     let arr = []
     let children = node["children"]
-    if children == nil:
-        os_write_str("[SAGE DEBUG] children is nil\n")
-    else:
-        os_write_str("[SAGE DEBUG] children is NOT nil\n")
     let keys = dict_keys(children)
-    if keys == nil:
-        os_write_str("[SAGE DEBUG] keys is nil\n")
-    else:
-        os_write_str("[SAGE DEBUG] keys len = ")
-        os_write_str(os_num_to_str(len(keys)))
-        os_write_str("\n")
+    if keys == nil: return arr end
+    
     let i = 0
-    while i < len(keys):
+    let k_len = os_array_len(keys)
+    while i < k_len:
         let name = keys[i]
         let child = children[name]
         if child != nil:
@@ -218,7 +211,7 @@ g_ramfs_backend["create"] = ramfs_create
 g_ramfs_backend["unlink"] = ramfs_unlink
 
 # -----------------------------------------------------------------------------
-# Unified VFS Router
+# Unified VFS Router (with Union Support)
 # -----------------------------------------------------------------------------
 let g_vfs_mounts = []
 
@@ -238,13 +231,12 @@ proc vfs_mount_sage(path, sage_backend):
     os_array_push(g_vfs_mounts, m)
     return 0
 
-proc vfs_resolve(path):
+proc vfs_resolve_best(path):
     if os_strlen(path) == 0:
-        return nil
+        return []
 
-    let best_m = nil
+    let matches = []
     let best_len = -1
-
     let i = 0
     let m_count = os_array_len(g_vfs_mounts)
 
@@ -257,68 +249,96 @@ proc vfs_resolve(path):
         if os_starts_with(path, m_path):
             let is_match = 0
             if m_len == 1:
-                let c = os_char_at(m_path, 0)
-                if c == 47: # '/'
-                    is_match = 1
+                if os_char_at(m_path, 0) == 47: is_match = 1 end
             elif os_strlen(path) == m_len:
                 is_match = 1
-            elif os_char_at(path, m_len) == 47: # '/'
+            elif os_char_at(path, m_len) == 47:
                 is_match = 1
+            end
 
             if is_match == 1:
-                if m_len >= best_len:
+                if m_len > best_len:
                     best_len = m_len
-                    best_m = m
+                    matches = []
+                end
+                
+                if m_len == best_len:
+                    let res = {}
+                    res["mount"] = m
+                    let rel = "/"
+                    if m_len > 1:
+                        rel = os_substr(path, m_len, os_strlen(path))
+                        if os_strlen(rel) == 0: rel = "/"
+                        elif os_char_at(rel, 0) != 47: rel = "/" + rel
+                        end
+                    else:
+                        rel = path
+                    end
+                    res["rel"] = rel
+                    os_array_push(matches, res)
                 end
             end
+        end
         i = i + 1
-
-    if best_m == nil:
-        return nil
-
-    # Calculate relative path
-    let rel = "/"
-    if best_len > 1:
-        rel = os_substr(path, best_len, os_strlen(path))
-        if os_strlen(rel) == 0:
-            rel = "/"
-        elif os_char_at(rel, 0) != 47: # '/'
-            rel = "/" + rel
-    else:
-        rel = path
-
-    let res = {}
-    res["mount"] = best_m
-    res["rel"] = rel
-    return res
+    end
+    return matches
 
 proc vfs_stat(path):
-    let res = vfs_resolve(path)
-    if res == nil: return nil
-    let mount = res["mount"]
-    if mount["is_sage"] == 1:
-        return mount["backend"]["stat"](res["rel"])
-    else:
-        return os_backend_stat(mount["backend"], res["rel"])
+    let matches = vfs_resolve_best(path)
+    let i = 0
+    let m_count = os_array_len(matches)
+    while i < m_count:
+        let res = matches[i]
+        let mount = res["mount"]
+        let st = nil
+        if mount["is_sage"] == 1:
+            st = mount["backend"]["stat"](res["rel"])
+        else:
+            st = os_backend_stat(mount["backend"], res["rel"])
+        end
+        if st != nil: return st end
+        i = i + 1
+    end
+    return nil
 
 proc vfs_readdir(path):
-    let res = vfs_resolve(path)
-    if res == nil: return nil
-    let mount = res["mount"]
-    
+    let matches = vfs_resolve_best(path)
     let entries = []
-    if mount["is_sage"] == 1:
-        let e = mount["backend"]["readdir"](res["rel"])
-        if e != nil: entries = e end
-    else:
-        let e = os_backend_readdir(mount["backend"], res["rel"])
-        if e != nil: entries = e end
+    
+    # Union results from all best-matching mounts
+    let i = 0
+    let m_count = os_array_len(matches)
+    while i < m_count:
+        let res = matches[i]
+        let mount = res["mount"]
+        let e = nil
+        if mount["is_sage"] == 1:
+            e = mount["backend"]["readdir"](res["rel"])
+        else:
+            e = os_backend_readdir(mount["backend"], res["rel"])
+        end
+        
+        if e != nil:
+            let j = 0
+            let e_count = os_array_len(e)
+            while j < e_count:
+                let entry = e[j]
+                # Avoid duplicates in union
+                let found = 0
+                let k = 0
+                let ent_count = os_array_len(entries)
+                while k < ent_count:
+                    if entries[k]["name"] == entry["name"]: found = 1 break end
+                    k = k + 1
+                end
+                if found == 0: os_array_push(entries, entry) end
+                j = j + 1
+            end
+        end
+        i = i + 1
     end
 
     # Also add mount points that are children of this path
-    let i = 0
-    let m_count = os_array_len(g_vfs_mounts)
-    
     # Ensure path ends with slash for prefix matching children
     let p_norm = path
     if os_strlen(p_norm) > 0:
@@ -330,40 +350,30 @@ proc vfs_readdir(path):
     end
     let p_len = os_strlen(p_norm)
 
-    while i < m_count:
+    i = 0
+    let v_count = os_array_len(g_vfs_mounts)
+    while i < v_count:
         let m = g_vfs_mounts[i]
         let m_path = m["path"]
-        
-        # If mount point is a child of the requested path
         if os_starts_with(m_path, p_norm) and m_path != "/" and m_path != path:
-            # Extract the component name after the current path
             let sub = os_substr(m_path, p_len, os_strlen(m_path))
-            
-            # Find the first component
             let j = 0
             let comp_name = ""
             while j < os_strlen(sub):
                 let c = os_char_at(sub, j)
-                if c == 47: # Slash
-                    break
-                end
+                if c == 47: break end
                 comp_name = comp_name + os_chr(c)
                 j = j + 1
             end
 
             if os_strlen(comp_name) > 0:
-                # Check if already in entries
                 let found = 0
                 let k = 0
                 let ent_count = os_array_len(entries)
                 while k < ent_count:
-                    if entries[k]["name"] == comp_name:
-                        found = 1
-                        break
-                    end
+                    if entries[k]["name"] == comp_name: found = 1 break end
                     k = k + 1
                 end
-                
                 if found == 0:
                     let entry = {}
                     entry["name"] = comp_name
@@ -379,59 +389,71 @@ proc vfs_readdir(path):
     return entries
 
 proc vfs_read(path, offset, size):
-    let res = vfs_resolve(path)
-    if res == nil: return nil
-    let mount = res["mount"]
-    if mount["is_sage"] == 1:
-        let data = mount["backend"]["read"](res["rel"], offset, size)
-        if data == nil: return nil
-        return [data, os_strlen(data)]
-    else:
-        let read_res = os_backend_read(mount["backend"], res["rel"], offset, size)
-        if read_res == nil: return nil
-        return read_res
+    let matches = vfs_resolve_best(path)
+    let i = 0
+    let m_count = os_array_len(matches)
+    while i < m_count:
+        let res = matches[i]
+        let mount = res["mount"]
+        if mount["is_sage"] == 1:
+            let data = mount["backend"]["read"](res["rel"], offset, size)
+            if data != nil: return [data, os_strlen(data)] end
+        else:
+            let read_res = os_backend_read(mount["backend"], res["rel"], offset, size)
+            if read_res != nil: return read_res end
+        end
+        i = i + 1
+    end
+    return nil
 
 proc vfs_write(path, offset, data, size):
-    let res = vfs_resolve(path)
-    if res == nil: return 0
-    let mount = res["mount"]
-    if mount["is_sage"] == 1:
-        return mount["backend"]["write"](res["rel"], offset, data, size)
-    else:
-        return os_backend_write(mount["backend"], res["rel"], offset, data, size)
+    let matches = vfs_resolve_best(path)
+    if os_array_len(matches) == 0: return 0 end
+    # Write to the first successful match (usually the overlay)
+    let i = 0
+    while i < os_array_len(matches):
+        let res = matches[i]
+        let mount = res["mount"]
+        let n = 0
+        if mount["is_sage"] == 1:
+            n = mount["backend"]["write"](res["rel"], offset, data, size)
+        else:
+            n = os_backend_write(mount["backend"], res["rel"], offset, data, size)
+        end
+        if n > 0: return n end
+        i = i + 1
+    end
+    return 0
 
 proc vfs_mkdir(path):
-    let res = vfs_resolve(path)
-    if res == nil: return -2
+    let matches = vfs_resolve_best(path)
+    if os_array_len(matches) == 0: return -2 end
+    let res = matches[0]
     let mount = res["mount"]
-    if mount["is_sage"] == 1:
-        return mount["backend"]["mkdir"](res["rel"])
-    else:
-        return -1
+    if mount["is_sage"] == 1: return mount["backend"]["mkdir"](res["rel"])
+    else: return -1 end
 
 proc vfs_create(path):
-    let res = vfs_resolve(path)
-    if res == nil: return -2
+    let matches = vfs_resolve_best(path)
+    if os_array_len(matches) == 0: return -2 end
+    let res = matches[0]
     let mount = res["mount"]
-    if mount["is_sage"] == 1:
-        return mount["backend"]["create"](res["rel"])
-    else:
-        return -1
+    if mount["is_sage"] == 1: return mount["backend"]["create"](res["rel"])
+    else: return -1 end
 
 proc vfs_unlink(path):
-    let res = vfs_resolve(path)
-    if res == nil: return -2
+    let matches = vfs_resolve_best(path)
+    if os_array_len(matches) == 0: return -2 end
+    let res = matches[0]
     let mount = res["mount"]
-    if mount["is_sage"] == 1:
-        return mount["backend"]["unlink"](res["rel"])
-    else:
-        return -1
+    if mount["is_sage"] == 1: return mount["backend"]["unlink"](res["rel"])
+    else: return -1 end
 
 # -----------------------------------------------------------------------------
 # Filesystem Initializer / Populator
 # -----------------------------------------------------------------------------
 proc vfs_init_fs():
-    # Pre-create standard layout
+    # Pre-create standard layout in RamFS
     ramfs_mkdir("/bin")
     ramfs_mkdir("/dev")
     ramfs_mkdir("/etc")
@@ -465,9 +487,19 @@ proc vfs_init_fs():
     while i < count:
         let file_info = os_get_embedded_file(i)
         if file_info != nil:
-            ramfs_create(file_info["path"])
+            let path = file_info["path"]
             let data = file_info["data"]
-            ramfs_write(file_info["path"], 0, data, os_strlen(data))
+            ramfs_create(path)
+            ramfs_write(path, 0, data, os_strlen(data))
+            
+            # If it's a command, also populate into /bin/
+            if os_starts_with(path, "/etc/commands/"):
+                let name = os_substr(path, 14, os_strlen(path))
+                let bin_path = "/bin/" + name
+                ramfs_create(bin_path)
+                ramfs_write(bin_path, 0, data, os_strlen(data))
+            end
+        end
         i = i + 1
 
     # Mount our clean Sage-native RamFS on "/"
