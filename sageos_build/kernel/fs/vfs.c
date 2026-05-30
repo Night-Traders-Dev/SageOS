@@ -630,12 +630,7 @@ int vfs_stat(const char *path, VfsStat *out) {
                     out->size = (uint64_t)v.d;
                 }
                 ret_val = VFS_OK;
-                dmesg_printf("vfs_stat SGVM success: %s (type=%d, size=%d)", out->name, (int)out->type, (int)out->size);
-            } else {
-                dmesg_printf("vfs_stat SGVM failed: no name in dict");
             }
-        } else {
-            dmesg_printf("vfs_stat SGVM failed: not a dict (type=%d)", res.type);
         } g_vfs_vm.string_used = saved_string;
         g_vfs_vm.heap_used = saved_heap;
         g_vfs_vm.array_count = saved_arrays;
