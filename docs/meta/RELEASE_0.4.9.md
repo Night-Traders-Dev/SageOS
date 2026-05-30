@@ -1,0 +1,3 @@
+- **Resolved Kernel Hang on RISC-V 64**: Fixed a subtle type mismatch issue in the `ramfs_read` VFS bridge where the `size` parameter was incorrectly bound to `out_buf`. This prevents a silent SGVM crash during early `/etc/init.sage` execution on the `virt` target.
+- **Improved VFS Robustness**: Updated `install_toolchain.sh` to prevent FAT32 disk overflow errors by correctly identifying architecture-specific GCC target binaries during native toolchain embedding.
+- **Updated Benchmark Utilities**: Ensured that the `benchmark_build.py` script succeeds for all three architectures (x64, arm64, rv64) without filling the virtual disk.

@@ -55,7 +55,7 @@ if [ ! -f "$DISK_IMG" ]; then
 fi
 
 # Check if already installed to avoid costly re-copy
-if mdir -i "$DISK_IMG@@1M" ::/bin/gcc >/dev/null 2>&1 || mdir -i "$DISK_IMG@@1M" ::/bin/as >/dev/null 2>&1; then
+if mdir -i "$DISK_IMG@@1M" "::/bin/${TAR_ARCH}-unknown-sageos-gcc" >/dev/null 2>&1 || mdir -i "$DISK_IMG@@1M" "::/bin/${TAR_ARCH}-unknown-sageos-as" >/dev/null 2>&1; then
     echo "Toolchain already detected in $DISK_IMG. Skipping installation."
     exit 0
 fi
