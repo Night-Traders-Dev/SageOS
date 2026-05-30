@@ -167,19 +167,25 @@ void kmain(SageOSBootInfo *info) {
     }
 
     swap_init();
+    console_write("\n[TRACE] After swap_init");
     bootlog_init(info);
+    console_write("\n[TRACE] After bootlog_init");
     
     // --- STAGE 2: Runtime Bring-up ---
     sageos_set_boot_stage(STAGE_2_RUNTIME_BRINGUP);
+    console_write("\n[TRACE] After stage 2 set");
     sage_runtime_init();
+    console_write("\n[TRACE] After sage_runtime_init");
 
     dmesg_log("SageOS Virt Kernel initialization complete.");
     
     // --- STAGE 3: System Service Activation ---
     sageos_set_boot_stage(STAGE_3_SERVICE_ACTIVATION);
+    console_write("\n[TRACE] After stage 3 set");
     // Future: launch VFS service, device manager, etc.
     extern void sage_execute_init(void);
     sage_execute_init();
+    console_write("\n[TRACE] After sage_execute_init");
 
     // --- Userspace Session ---
     sageos_set_boot_stage(STAGE_USERSPACE_SESSION);

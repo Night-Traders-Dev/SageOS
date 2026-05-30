@@ -104,7 +104,7 @@ void sage_import_module(void* vm, const char* name) {
 }
 
 static Stmt* sage_parse_string(const char* source) {
-    init_lexer(source, "input");
+    init_lexer(source, "/system/init.sage");
     parser_init();
     return parse();
 }
@@ -135,7 +135,7 @@ void sage_execute(const char* mod) {
             if (pos == 0) continue;
             
             Stmt* program = sage_parse_string(line);
-            if (program) {
+            dmesg_printf("sage_execute: program loaded, interpreting..."); if (program) {
                 interpret(program, g_sage_env);
             } else {
                 console_write("\nsage: syntax error\n");
@@ -154,7 +154,7 @@ void sage_execute(const char* mod) {
             vfs_read(mod, 0, source, (size_t)st.size);
             source[st.size] = 0;
             Stmt* program = sage_parse_string(source);
-            if (program) {
+            dmesg_printf("sage_execute: program loaded, interpreting..."); if (program) {
                 interpret(program, g_sage_env);
                 dmesg_printf("sage_execute: file %s executed.", mod);
             } else {
@@ -170,7 +170,7 @@ void sage_execute(const char* mod) {
     // Otherwise treat as direct code
     dmesg_printf("sage_execute: treating %s as direct code", mod);
     Stmt* program = sage_parse_string(mod);
-    if (program) {
+    dmesg_printf("sage_execute: program loaded, interpreting..."); if (program) {
         interpret(program, g_sage_env);
     } else {
         dmesg_printf("sage_execute: failed to parse direct code.");

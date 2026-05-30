@@ -191,7 +191,7 @@ case "$ARCH" in
                     cp build/virt_riscv64/kernel.elf "$BUILD_DIR/rv64_virt/kernel.elf"
 
                     log_info "Ensuring native toolchain is installed in disk image..."
-                    bash ./scripts/install_toolchain.sh riscv64
+                    #bash ./scripts/install_toolchain.sh riscv64
                 fi
                 
                 if [[ "$ACTION" == "run" ]]; then

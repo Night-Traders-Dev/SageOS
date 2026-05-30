@@ -9,6 +9,7 @@ void     console_putc(char c);
 void     console_write(const char *s);
 void     console_write_n(const char *s, size_t n);
 void     console_hex64(uint64_t v);
+void     console_u64(uint64_t v);
 void     console_u32(uint32_t v);
 void     console_set_fg(uint32_t rgb);
 uint32_t console_get_fg(void);

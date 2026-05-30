@@ -79,6 +79,20 @@ void console_u32(uint32_t v) {
     while (i > 0) serial_putc(buf[--i]);
 }
 
+void console_u64(uint64_t v) {
+    if (v == 0) {
+        serial_putc('0');
+        return;
+    }
+    char buf[20];
+    int i = 0;
+    while (v) {
+        buf[i++] = (char)('0' + (v % 10));
+        v /= 10;
+    }
+    while (i > 0) serial_putc(buf[--i]);
+}
+
 void     console_set_fg(uint32_t rgb) { (void)rgb; }
 uint32_t console_get_fg(void) { return 0xFFFFFF; }
 void     console_set_bg(uint32_t rgb) { (void)rgb; }
