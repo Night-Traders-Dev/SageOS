@@ -18,7 +18,85 @@
 #define SYS_getpid     39
 #define SYS_isatty    100
 #define SYS_kill        62
-#define SYS_times     101
+/* Add missing syscall definitions to newlib */
+#define SYS_vfork      58
+#define SYS_execve     59
+#define SYS_waitpid    61
+#define SYS_getcwd     79
+#define SYS_chdir      80
+#define SYS_mkdir      83
+#define SYS_dup2       33
+#define SYS_gettimeofday 96
+#define SYS_nanosleep  35
+#define SYS_unlink     87
+#define SYS_getdents64 217
+
+/* Implementation of new syscalls */
+pid_t _vfork(void) {
+    long ret = __syscall(SYS_vfork, 0, 0, 0, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (pid_t)ret;
+}
+
+int _execve(const char *path, char *const argv[], char *const envp[]) {
+    long ret = __syscall(SYS_execve, (long)path, (long)argv, (long)envp, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}
+
+pid_t _waitpid(pid_t pid, int *status, int options) {
+    long ret = __syscall(SYS_waitpid, (long)pid, (long)status, (long)options, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (pid_t)ret;
+}
+
+char *_getcwd(char *buf, size_t size) {
+    long ret = __syscall(SYS_getcwd, (long)buf, (long)size, 0, 0, 0);
+    if (ret < 0) { errno = -ret; return NULL; }
+    return buf;
+}
+
+int _chdir(const char *path) {
+    long ret = __syscall(SYS_chdir, (long)path, 0, 0, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}
+
+int _mkdir(const char *path, mode_t mode) {
+    long ret = __syscall(SYS_mkdir, (long)path, (long)mode, 0, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}
+
+int _dup2(int oldfd, int newfd) {
+    long ret = __syscall(SYS_dup2, (long)oldfd, (long)newfd, 0, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}
+
+int _gettimeofday(struct timeval *tv, void *tz) {
+    long ret = __syscall(SYS_gettimeofday, (long)tv, (long)tz, 0, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}
+
+int _nanosleep(const struct timespec *req, struct timespec *rem) {
+    long ret = __syscall(SYS_nanosleep, (long)req, (long)rem, 0, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}
+
+int _unlink(const char *path) {
+    long ret = __syscall(SYS_unlink, (long)path, 0, 0, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}
+
+int _getdents64(int fd, void *dirp, size_t count) {
+    long ret = __syscall(SYS_getdents64, (long)fd, (long)dirp, (long)count, 0, 0);
+    if (ret < 0) { errno = -ret; return -1; }
+    return (int)ret;
+}
 
 /* Helper macro for syscalls */
 #if defined(__x86_64__)

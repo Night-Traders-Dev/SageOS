@@ -111,6 +111,19 @@ static void setup_vectors(void) {
 extern void sage_runtime_init(void);
 
 void kmain(SageOSBootInfo *info) {
+    static SageOSBootInfo dummy_info;
+    if (!info || info->magic != SAGEOS_BOOT_MAGIC) {
+        // Construct dummy info for bare-metal boot
+        __builtin_memset(&dummy_info, 0, sizeof(dummy_info));
+        dummy_info.magic = SAGEOS_BOOT_MAGIC;
+        // Assume virt-riscv64 base/size (must match linker.ld)
+        dummy_info.kernel_base = 0x80000000;
+        dummy_info.kernel_size = 0x1000000; 
+        dummy_info.memory_total = 1024 * 1024 * 1024; // 1GB
+        dummy_info.memory_usable = 1024 * 1024 * 1024;
+        info = &dummy_info;
+    }
+
     // --- STAGE 1: Early Kernel Initialization ---
     sageos_set_boot_stage(STAGE_1_KERNEL_INIT);
     
@@ -162,10 +175,6 @@ void kmain(SageOSBootInfo *info) {
 
     dmesg_log("SageOS Virt Kernel initialization complete.");
     
-    /* GCC Port Phase 0: Syscall Smoke Test */
-    dmesg_log("Syscall Smoke Test: Calling SYS_write to stdout...");
-    syscall_dispatch(SYS_write, 1, (long)"[SYSCALL TEST] Hello via syscall_dispatch\n", 42, 0, 0);
-
     // --- STAGE 3: System Service Activation ---
     sageos_set_boot_stage(STAGE_3_SERVICE_ACTIVATION);
     // Future: launch VFS service, device manager, etc.
@@ -175,25 +184,6 @@ void kmain(SageOSBootInfo *info) {
     // --- Userspace Session ---
     sageos_set_boot_stage(STAGE_USERSPACE_SESSION);
 
-    /* Milestone 2: Execute userspace Hello World */
-    console_write("Milestone 2: Attempting to exec /mnt/fat32/hello with args...\n");
-    char *argv[] = {"/mnt/fat32/hello", "arg1", "arg2", NULL};
-    
-    long pid = syscall_dispatch(SYS_vfork, 0, 0, 0, 0, 0);
-    if (pid == 0) {
-        /* Child */
-        syscall_dispatch(SYS_execve, (long)"/mnt/fat32/hello", (long)argv, 0, 0, 0);
-        syscall_dispatch(SYS_exit, 1, 0, 0, 0, 0);
-    } else {
-        /* Parent */
-        int status;
-        syscall_dispatch(SYS_waitpid, pid, (long)&status, 0, 0, 0);
-        console_write("Child exited. Parent resuming.\n");
-    }
-
-    extern void cmd_dmesg(void);
-    cmd_dmesg();
-
     // Launch interactive C shell
     shell_run();
-}
+    }
