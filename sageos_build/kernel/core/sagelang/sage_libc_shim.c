@@ -106,23 +106,11 @@ static void put_uint(uint64_t v) {
 int sage_printf(const char *fmt, ...) {
     __builtin_va_list ap;
     __builtin_va_start(ap, fmt);
-    while (*fmt) {
-        if (*fmt != '%') { console_putc(*fmt++); continue; }
-        fmt++;
-        switch (*fmt) {
-        case 's': { const char *s = __builtin_va_arg(ap, const char *); console_write(s ? s : "(null)"); break; }
-        case 'd': { int v = __builtin_va_arg(ap, int); if (v < 0) { console_putc('-'); put_uint((uint64_t)(-(int64_t)v)); } else put_uint((uint64_t)v); break; }
-        case 'u': { unsigned v = __builtin_va_arg(ap, unsigned); put_uint(v); break; }
-        case 'c': { int c = __builtin_va_arg(ap, int); console_putc((char)c); break; }
-        case '%': console_putc('%'); break;
-        case 0: goto done;
-        default: console_putc('%'); console_putc(*fmt); break;
-        }
-        fmt++;
-    }
-done:
+    char buf[512];
+    int n = sage_vsnprintf(buf, sizeof(buf), fmt, ap);
+    console_write(buf);
     __builtin_va_end(ap);
-    return 0;
+    return n;
 }
 
 int sage_vsnprintf(char *buf, size_t n, const char *fmt, __builtin_va_list ap) {
@@ -143,23 +131,38 @@ int sage_vsnprintf(char *buf, size_t n, const char *fmt, __builtin_va_list ap) {
         int zero_pad = 0;
         
         while (*fmt == '0') { zero_pad = 1; fmt++; }
-        while (*fmt >= '0' && *fmt <= '9') { width = width * 10 + (*fmt - '0'); fmt++; }
+        if (*fmt == '*') {
+            width = __builtin_va_arg(ap, int);
+            if (width < 0) { width = -width; } // Left-justify not supported yet
+            fmt++;
+        } else {
+            while (*fmt >= '0' && *fmt <= '9') { width = width * 10 + (*fmt - '0'); fmt++; }
+        }
         if (*fmt == '.') {
             fmt++;
             precision = 0;
-            while (*fmt >= '0' && *fmt <= '9') { precision = precision * 10 + (*fmt - '0'); fmt++; }
+            if (*fmt == '*') {
+                precision = __builtin_va_arg(ap, int);
+                fmt++;
+            } else {
+                while (*fmt >= '0' && *fmt <= '9') { precision = precision * 10 + (*fmt - '0'); fmt++; }
+            }
         }
         while (*fmt == 'h' || *fmt == 'l' || *fmt == 'L' || *fmt == 'z' || *fmt == 'j' || *fmt == 't') fmt++;
 
         if (*fmt == 's') {
             const char *s = __builtin_va_arg(ap, const char *);
             if (!s) s = "(null)";
-            while (*s) {
-                if (buf && pos + 1 < n) {
-                    buf[pos] = *s;
-                }
+            int len = 0;
+            while (s[len] && (precision < 0 || len < precision)) len++;
+            int pad = width > len ? width - len : 0;
+            while (pad > 0) {
+                if (buf && pos + 1 < n) buf[pos] = ' ';
+                pos++; pad--;
+            }
+            for (int i = 0; i < len; i++) {
+                if (buf && pos + 1 < n) buf[pos] = s[i];
                 pos++;
-                s++;
             }
         } else if (*fmt == 'd' || *fmt == 'u' || *fmt == 'x' || *fmt == 'X' || *fmt == 'p') {
             uint64_t uv;

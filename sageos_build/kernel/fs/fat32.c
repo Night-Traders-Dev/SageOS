@@ -139,7 +139,7 @@ static int streq(const char *a, const char *b) {
 }
 
 static uint32_t fat32_read_fat_entry(uint32_t cluster) {
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
     uint32_t fat_offset = cluster * 4;
     uint32_t lba = fat32_partition_lba + fat32_reserved_sectors + (fat_offset / 512);
     uint32_t index = fat_offset % 512;
@@ -150,7 +150,7 @@ static uint32_t fat32_read_fat_entry(uint32_t cluster) {
 }
 
 static int fat32_write_fat_entry(uint32_t cluster, uint32_t value) {
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
     uint32_t fat_offset = cluster * 4;
     uint32_t lba = fat32_partition_lba + fat32_reserved_sectors + (fat_offset / 512);
     uint32_t index = fat_offset % 512;
@@ -174,7 +174,7 @@ static uint32_t fat32_find_free_cluster(void) {
 }
 
 static int fat32_update_directory_entry(uint32_t cluster, const char *name, FAT32_DirEntry *new_entry) {
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
 
     while (!fat32_is_end_of_chain(cluster)) {
         for (uint32_t sector_idx = 0; sector_idx < fat32_sectors_per_cluster; sector_idx++) {
@@ -223,7 +223,7 @@ static void fat32_lfn_to_name(const FAT32_LFNEntry *lfn, char *name_buf, int off
 }
 
 static int fat32_find_entry_in_cluster(uint32_t cluster, const char *name, FAT32_DirEntry *out_entry) {
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
     char lfn_name[256];
     int lfn_active = 0;
 
@@ -473,7 +473,7 @@ void fat32_ls(void) {
     }
 
     uint32_t cluster = fat32_root_cluster;
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
 
     console_write("\n/FAT32:");
     while (!fat32_is_end_of_chain(cluster)) {
@@ -527,7 +527,7 @@ int fat32_cat(const char *path) {
 
     uint32_t cluster = ((uint32_t)entry.first_cluster_hi << 16) | entry.first_cluster_lo;
     uint32_t remaining = entry.file_size;
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
 
     console_write("\n");
     while (remaining > 0 && !fat32_is_end_of_chain(cluster)) {
@@ -614,7 +614,7 @@ int fat32_readdir(const char *path, VfsDirEntry *entries, int max_entries) {
         cluster = ((uint32_t)dir_entry.first_cluster_hi << 16) | dir_entry.first_cluster_lo;
     }
 
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
     int count = 0;
     char lfn_name[256];
     int lfn_active = 0;
@@ -697,7 +697,7 @@ int fat32_read(const char *path, uint64_t offset, void *buffer, size_t size) {
         skip -= cluster_bytes;
     }
 
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
     uint8_t *out = (uint8_t *)buffer;
     size_t bytes_read = 0;
 
@@ -760,7 +760,7 @@ int fat32_write(const char *path, uint64_t offset, const void *buffer, size_t si
     }
 
     /* Perform write */
-    uint8_t sector[512];
+    uint8_t sector[512] __attribute__((aligned(8)));
     const uint8_t *in = (const uint8_t *)buffer;
     size_t bytes_written = 0;
     current_cluster = cluster;
