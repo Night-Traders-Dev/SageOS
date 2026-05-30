@@ -59,6 +59,12 @@ echo "Installing native toolchain ($ARCH) into $DISK_IMG..."
 mmd -i "$DISK_IMG@@1M" ::/bin 2>/dev/null || true
 mmd -i "$DISK_IMG@@1M" ::/lib 2>/dev/null || true
 mmd -i "$DISK_IMG@@1M" ::/include 2>/dev/null || true
+mmd -i "$DISK_IMG@@1M" ::/usr 2>/dev/null || true
+mmd -i "$DISK_IMG@@1M" ::/usr/bin 2>/dev/null || true
+mmd -i "$DISK_IMG@@1M" ::/usr/lib 2>/dev/null || true
+mmd -i "$DISK_IMG@@1M" ::/usr/include 2>/dev/null || true
+mmd -i "$DISK_IMG@@1M" ::/usr/libexec 2>/dev/null || true
+mmd -i "$DISK_IMG@@1M" ::/usr/share 2>/dev/null || true
 
 # Copy bin, lib, include from the distribution
 echo "Copying toolchain files from $NATIVE_DIST..."
@@ -68,12 +74,16 @@ if [ -d "$NATIVE_DIST/usr/bin" ]; then
     mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/bin" ::/
     mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/lib" ::/
     mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/include" ::/
+    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/libexec" ::/
+    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/usr/share" ::/
 else
     # For cross-tarballs, files are at the root of the prefix
     # We install them to /usr inside SageOS
     mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/bin" ::/usr/
     mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/lib" ::/usr/
     mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/include" ::/usr/
+    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/libexec" ::/usr/
+    mcopy -i "$DISK_IMG@@1M" -s -D o "$NATIVE_DIST/share" ::/usr/
     # Also copy the target-specific directory which contains important headers/libs
     TARGET="${TAR_ARCH}-unknown-sageos"
     if [ -d "$NATIVE_DIST/$TARGET" ]; then

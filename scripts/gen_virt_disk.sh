@@ -9,7 +9,7 @@
 # LBA 2099200: SWAP (125MB)
 
 DISK_IMG="virt.img"
-FAT_SIZE_MB=512
+FAT_SIZE_MB=2048
 BTRFS_SIZE_MB=512
 SWAP_SIZE_MB=125
 
@@ -36,16 +36,16 @@ dd if=/dev/zero of=swap.part bs=1M count=$SWAP_SIZE_MB status=none
 echo "  [INFO] Created SWAP placeholder partition."
 
 # 2. Assemble the disk image
-# Create base image of 1150MB (total)
-dd if=/dev/zero of=$DISK_IMG bs=1M count=1150 status=none
+# Create base image of 2700MB (total)
+dd if=/dev/zero of=$DISK_IMG bs=1M count=2700 status=none
 
 # Write partitions at exact offsets
 # LBA 2048 = 1048576 bytes (1MB)
 dd if=fat.part of=$DISK_IMG bs=1M seek=1 conv=notrunc status=none
-# LBA 1050624 = 537919488 bytes (513MB)
-dd if=btrfs.part of=$DISK_IMG bs=1M seek=513 conv=notrunc status=none
-# LBA 2099200 = 1074790400 bytes (1025MB)
-dd if=swap.part of=$DISK_IMG bs=1M seek=1025 conv=notrunc status=none
+# BTRFS starts after FAT (1MB + 2048MB = 2049MB)
+dd if=btrfs.part of=$DISK_IMG bs=1M seek=2049 conv=notrunc status=none
+# SWAP starts after BTRFS (2049MB + 512MB = 2561MB)
+dd if=swap.part of=$DISK_IMG bs=1M seek=2561 conv=notrunc status=none
 
 # Cleanup
 rm -f fat.part btrfs.part swap.part
