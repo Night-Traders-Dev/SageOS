@@ -53,7 +53,14 @@ if [ ! -f "$DISK_IMG" ]; then
     exit 1
 fi
 
+# Check if already installed to avoid costly re-copy
+if mdir -i "$DISK_IMG@@1M" ::/usr/bin/gcc >/dev/null 2>&1; then
+    echo "Toolchain already detected in $DISK_IMG. Skipping installation."
+    exit 0
+fi
+
 echo "Installing native toolchain ($ARCH) into $DISK_IMG..."
+echo "WARNING: This is a large operation (1.2GB+) and may take several minutes depending on your disk speed."
 
 # Ensure standard directories exist in the image root
 mmd -i "$DISK_IMG@@1M" ::/bin 2>/dev/null || true
