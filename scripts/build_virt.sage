@@ -7,6 +7,14 @@ import os.boot.linker as linker
 let architectures = ["x86_64", "aarch64", "riscv64"]
 let NL = chr(10)
 
+# 0. Generate version header from root VERSION source
+let version = io.readfile("VERSION")
+version = replace(version, chr(10), "")
+version = replace(version, chr(13), "")
+
+io.writefile("sageos_build/kernel/include/version.h", "#define SAGEOS_VERSION \"" + version + "\"" + NL)
+print "Generated version.h (v" + version + ")"
+
 proc generate_virt_build(arch):
     let output_dir = "build/virt_" + arch
     sys.exec("mkdir -p " + output_dir)

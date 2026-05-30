@@ -1,4 +1,4 @@
-# SageOS v0.4.4 - The Modular Hybrid Operating System
+# SageOS v0.4.5 - The Modular Hybrid Operating System
 
 SageOS is a hybrid operating system that combines a low-level C kernel with a high-level, SageLang-driven runtime. It is designed to be modular, portable, and extensible across multiple architectures.
 
@@ -9,7 +9,7 @@ SageOS is a hybrid operating system that combines a low-level C kernel with a hi
 - **Unified Memory Management**: Centralized arena allocator for robust kernel-resident SageLang execution.
 - **Standardized SGVM Artifacts**: Core system commands pre-compiled to SGVM bytecode for architecture-independent performance.
 
-## Core Features (v0.4.4)
+## Core Features (v0.4.5)
 - **POSIX-Compatible Process Model**: Multitasking kernel with `vfork`, `execve`, and `waitpid` support.
 - **Enhanced Syscall Layer**: 20+ syscalls implemented for standard File I/O, process control, and memory management.
 - **Multi-Arch Binary Execution**: Load and execute static ELF64 binaries on x64, ARM64, and RV64.

@@ -31,23 +31,75 @@ char serial_getc(void) {
 }
 #endif
 
+static int g_esc_state = 0;
+
 int keyboard_wait_event(KeyEvent *ev) {
     if (!ev) return 0;
-    ev->pressed = 1;
-    ev->extended = 0;
-    ev->scancode = 0;
-    ev->ascii = serial_getc();
-    return 1;
+    
+    for (;;) {
+        char c = serial_getc();
+        
+        if (g_esc_state == 0) {
+            if (c == 27) { // ESC
+                g_esc_state = 1;
+                continue;
+            }
+            ev->pressed = 1;
+            ev->extended = 0;
+            ev->scancode = 0;
+            ev->ascii = c;
+            return 1;
+        } else if (g_esc_state == 1) {
+            if (c == '[') {
+                g_esc_state = 2;
+                continue;
+            }
+            g_esc_state = 0;
+            // Treat as raw ESC followed by this char? 
+            // For now just return the char
+            ev->pressed = 1;
+            ev->extended = 0;
+            ev->ascii = c;
+            return 1;
+        } else if (g_esc_state == 2) {
+            g_esc_state = 0;
+            ev->pressed = 1;
+            ev->extended = 1;
+            ev->ascii = 0;
+            switch (c) {
+                case 'A': ev->scancode = 0x48; return 1; // Up
+                case 'B': ev->scancode = 0x50; return 1; // Down
+                case 'C': ev->scancode = 0x4D; return 1; // Right
+                case 'D': ev->scancode = 0x4B; return 1; // Left
+                case 'H': ev->scancode = 0x47; return 1; // Home
+                case 'F': ev->scancode = 0x4F; return 1; // End
+                case '3': g_esc_state = 3; continue;    // Possible Delete [3~
+                default: break;
+            }
+            ev->extended = 0;
+            ev->ascii = c;
+            return 1;
+        } else if (g_esc_state == 3) {
+            g_esc_state = 0;
+            if (c == '~') {
+                ev->pressed = 1;
+                ev->extended = 1;
+                ev->scancode = 0x53; // Delete
+                ev->ascii = 0;
+                return 1;
+            }
+            ev->pressed = 1;
+            ev->extended = 0;
+            ev->ascii = c;
+            return 1;
+        }
+    }
 }
 
 int keyboard_poll_any_event(KeyEvent *ev) {
     if (!ev) return 0;
-    if (serial_avail()) {
-        ev->pressed = 1;
-        ev->extended = 0;
-        ev->scancode = 0;
-        ev->ascii = serial_getc();
-        return 1;
+    if (serial_avail() || g_esc_state > 0) {
+        return keyboard_wait_event(ev);
     }
     return 0;
 }
