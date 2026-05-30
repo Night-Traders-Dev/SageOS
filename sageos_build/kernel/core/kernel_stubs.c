@@ -59,7 +59,10 @@ uint32_t timer_cpu_percent_at(uint32_t cpu) {
     seed = (seed * 1103515245 + 12345 + cpu) & 0x7FFFFFFF;
     return (seed % 100); // 0-100% per core
 }
+void timer_init(void) {}
+void timer_irq(void) {}
 void timer_poll(void) {}
+void timer_idle_poll(void) { timer_poll(); }
 // Memory stubs
 // Memory stubs
 #include "sysinfo_shared.h"

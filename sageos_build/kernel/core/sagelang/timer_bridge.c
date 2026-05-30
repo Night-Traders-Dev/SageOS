@@ -119,5 +119,3 @@ void     sage_timer_delay_ms(uint32_t ms)    { timer_delay_ms(ms); }
 void     sage_timer_poll(void)               { timer_poll(); }
 void     sage_timer_idle_poll(void)          { timer_idle_poll(); }
 void     sage_timer_cmd_info(void)           { timer_cmd_info(); }
-uint32_t timer_cpu_percent(void)             { return 0; }
-uint32_t timer_cpu_percent_at(uint32_t cpu)  { (void)cpu; return 0; }
