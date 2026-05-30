@@ -66,5 +66,12 @@ Thumbs.db
 test_hello
 test_hello_x64
 test_syscall
+test_hello.c
+test_syscall.c
 sageos-toolchain-*.tar.gz
+
+# Generated / debug artifacts
+benchmark_chart.png
+*.pyc
+/getenv.s
 
