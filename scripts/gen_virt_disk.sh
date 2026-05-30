@@ -4,12 +4,12 @@
 #
 # Layout:
 # LBA 0-2047: MBR / Reserved
-# FAT32: Configurable (default 2048MB)
+# FAT32: Configurable (default 4096MB)
 # BTRFS: Configurable (default 512MB)
 # SWAP: Configurable (default 512MB)
 
 DISK_IMG="virt.img"
-FAT_SIZE_MB=${1:-2048}
+FAT_SIZE_MB=${1:-4096}
 BTRFS_SIZE_MB=${2:-512}
 SWAP_SIZE_MB=${3:-512}
 
