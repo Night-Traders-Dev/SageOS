@@ -185,3 +185,7 @@ int sched_get_thread_info(uint32_t index, char *name, thread_state_t *state, uin
     }
     return 0;
 }
+
+void sched_timer_tick(void) {
+    /* Called by timer IRQ. Preemption logic goes here. */
+}
