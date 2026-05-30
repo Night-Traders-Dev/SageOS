@@ -483,11 +483,17 @@ proc vfs_init_fs():
 
     # Fetch and populate all C-embedded files dynamically
     let count = os_get_embedded_count()
+    os_write_str("\\n[VFS] Populating ")
+    os_write_str(os_num_to_str(count))
+    os_write_str(" embedded files...\\n")
     let i = 0
     while i < count:
         let file_info = os_get_embedded_file(i)
         if file_info != nil:
             let path = file_info["path"]
+            os_write_str("  -> ")
+            os_write_str(path)
+            os_write_str("\\n")
             let data = file_info["data"]
             ramfs_create(path)
             ramfs_write(path, 0, data, os_strlen(data))

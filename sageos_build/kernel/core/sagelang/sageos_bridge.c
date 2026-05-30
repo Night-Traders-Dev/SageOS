@@ -5,6 +5,7 @@
 #include "parser.h"
 #include "lexer.h"
 #include "interpreter.h"
+#include "repl.h"
 #include "sage_libc_shim.h"
 #include "console.h"
 #include "scheduler.h"
@@ -169,12 +170,14 @@ void sage_execute(const char* mod) {
 
     // Otherwise treat as direct code
     dmesg_printf("sage_execute: treating %s as direct code", mod);
-    Stmt* program = sage_parse_string(mod);
-    dmesg_printf("sage_execute: program loaded, interpreting..."); if (program) {
-        interpret(program, g_sage_env);
-    } else {
-        dmesg_printf("sage_execute: failed to parse direct code.");
+    g_repl_mode = 1;
+    if (setjmp(g_repl_error_jmp) == 0) {
+        Stmt* program = sage_parse_string(mod);
+        if (program) {
+            interpret(program, g_sage_env);
+        }
     }
+    g_repl_mode = 0;
 }
 
 // --- Input Helpers ---
