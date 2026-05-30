@@ -5,6 +5,7 @@
 #include <string.h>
 #include "metal_vm.h"
 #include "vfs_bridge_bytecode.h"
+#include "dmesg.h"
 #include "commands_embed.h"
 
 static const char test_sage_source[] =
