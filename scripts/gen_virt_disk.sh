@@ -4,16 +4,24 @@
 #
 # Layout:
 # LBA 0-2047: MBR / Reserved
-# LBA 2048: FAT32 (512MB)
-# LBA 1050624: BTRFS (512MB)
-# LBA 2099200: SWAP (125MB)
+# FAT32: Configurable (default 2048MB)
+# BTRFS: Configurable (default 512MB)
+# SWAP: Configurable (default 512MB)
 
 DISK_IMG="virt.img"
-FAT_SIZE_MB=2048
-BTRFS_SIZE_MB=512
-SWAP_SIZE_MB=125
+FAT_SIZE_MB=${1:-2048}
+BTRFS_SIZE_MB=${2:-512}
+SWAP_SIZE_MB=${3:-512}
 
 echo "Generating $DISK_IMG..."
+echo "Sizes - FAT32: ${FAT_SIZE_MB}MB, BTRFS: ${BTRFS_SIZE_MB}MB, SWAP: ${SWAP_SIZE_MB}MB"
+
+# Calculate Offsets (in MB)
+# 1MB for MBR/reserved
+FAT_SEEK=1
+BTRFS_SEEK=$((FAT_SEEK + FAT_SIZE_MB))
+SWAP_SEEK=$((BTRFS_SEEK + BTRFS_SIZE_MB))
+TOTAL_SIZE=$((SWAP_SEEK + SWAP_SIZE_MB))
 
 # 1. Create components
 dd if=/dev/zero of=fat.part bs=1M count=$FAT_SIZE_MB status=none
@@ -36,16 +44,18 @@ dd if=/dev/zero of=swap.part bs=1M count=$SWAP_SIZE_MB status=none
 echo "  [INFO] Created SWAP placeholder partition."
 
 # 2. Assemble the disk image
-# Create base image of 2700MB (total)
-dd if=/dev/zero of=$DISK_IMG bs=1M count=2700 status=none
+echo "  [INFO] Creating base image of ${TOTAL_SIZE}MB..."
+dd if=/dev/zero of=$DISK_IMG bs=1M count=$TOTAL_SIZE status=none
 
 # Write partitions at exact offsets
-# LBA 2048 = 1048576 bytes (1MB)
-dd if=fat.part of=$DISK_IMG bs=1M seek=1 conv=notrunc status=none
-# BTRFS starts after FAT (1MB + 2048MB = 2049MB)
-dd if=btrfs.part of=$DISK_IMG bs=1M seek=2049 conv=notrunc status=none
-# SWAP starts after BTRFS (2049MB + 512MB = 2561MB)
-dd if=swap.part of=$DISK_IMG bs=1M seek=2561 conv=notrunc status=none
+echo "  [INFO] Writing FAT32 at ${FAT_SEEK}MB..."
+dd if=fat.part of=$DISK_IMG bs=1M seek=$FAT_SEEK conv=notrunc status=none
+
+echo "  [INFO] Writing BTRFS at ${BTRFS_SEEK}MB..."
+dd if=btrfs.part of=$DISK_IMG bs=1M seek=$BTRFS_SEEK conv=notrunc status=none
+
+echo "  [INFO] Writing SWAP at ${SWAP_SEEK}MB..."
+dd if=swap.part of=$DISK_IMG bs=1M seek=$SWAP_SEEK conv=notrunc status=none
 
 # Cleanup
 rm -f fat.part btrfs.part swap.part
