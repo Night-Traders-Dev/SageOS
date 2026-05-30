@@ -96,7 +96,8 @@ proc generate_virt_build(arch):
         "sageos_build/kernel/core/sagelang/metal_vm.c",
         "sageos_build/kernel/core/syscall.c",
         "sageos_build/kernel/core/mm.c",
-        "sageos_build/kernel/fs/elf.c"
+        "sageos_build/kernel/fs/elf.c",
+        "sageos_build/kernel/core/sagelang/timer_bridge.c"
     ]
     
     if arch == "x86_64":
