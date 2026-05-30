@@ -1,14 +1,15 @@
-# SageOS v0.4.3 - The Modular Hybrid Operating System
+# SageOS v0.4.4 - The Modular Hybrid Operating System
 
 SageOS is a hybrid operating system that combines a low-level C kernel with a high-level, SageLang-driven runtime. It is designed to be modular, portable, and extensible across multiple architectures.
 
 ## What SageOS Provides
 - **Hybrid kernel architecture**: C for performance, SageLang for system services, shell logic, and runtime extensions.
-- **Multi-architecture support**: x64, ARM64, and RV64 ports are maintained as submodules under `arch/`.
-- **Custom SageLang runtime**: A bespoke MetalVM interpreter enables safe SageLang execution inside the OS.
-- **Forked third-party networking stacks**: `lwip` and `mbedtls` are integrated as custom submodule forks to support networking and security.
+- **Multi-architecture support**: Native ports for x86_64, ARM64 (AArch64), and RISC-V 64.
+- **Functional Sage REPL**: Full AST interpreter integrated into the kernel for interactive on-device development.
+- **Unified Memory Management**: Centralized arena allocator for robust kernel-resident SageLang execution.
+- **Standardized SGVM Artifacts**: Core system commands pre-compiled to SGVM bytecode for architecture-independent performance.
 
-## Core Features (v0.4.1)
+## Core Features (v0.4.4)
 - **POSIX-Compatible Process Model**: Multitasking kernel with `vfork`, `execve`, and `waitpid` support.
 - **Enhanced Syscall Layer**: 20+ syscalls implemented for standard File I/O, process control, and memory management.
 - **Multi-Arch Binary Execution**: Load and execute static ELF64 binaries on x64, ARM64, and RV64.
@@ -16,7 +17,7 @@ SageOS is a hybrid operating system that combines a low-level C kernel with a hi
 - **Disk Drivers**: Legacy ATA PIO (x64) and VirtIO-MMIO (ARM/RISCV) block drivers.
 
 ## Native Toolchain
-SageOS 0.4.1 introduces a native C toolchain (GCC 14.1.0 + Binutils) integrated directly into the system image. This enables:
+SageOS 0.4.4 introduces a native C toolchain (GCC 14.1.0 + Binutils) integrated directly into the system image. This enables:
 - **On-Device Development**: Compile C programs directly within SageShell.
 - **Self-Hosting Path**: Steps toward SageOS compiling its own kernel and runtime.
 - **Automated Setup**: Prebuilt toolchains are automatically downloaded from GitHub during the first build.

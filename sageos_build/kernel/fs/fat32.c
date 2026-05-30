@@ -4,7 +4,16 @@
 #include "ata.h"
 #include "fat32.h"
 
-#define FAT32_PARTITION_START_LBA 2048
+static uint32_t fat32_partition_lba = 2048;
+
+typedef struct {
+    uint8_t bootable;
+    uint8_t start_chs[3];
+    uint8_t type;
+    uint8_t end_chs[3];
+    uint32_t start_lba;
+    uint32_t size;
+} __attribute__((packed)) MBRPartition;
 #define FAT32_ENTRY_SIZE 32
 #define FAT32_ATTR_LONG_NAME 0x0F
 #define FAT32_ATTR_DIRECTORY 0x10
@@ -101,7 +110,7 @@ static void fat32_print_name(const FAT32_DirEntry *entry) {
 }
 
 static uint32_t fat32_cluster_to_lba(uint32_t cluster) {
-    uint32_t data_start = FAT32_PARTITION_START_LBA +
+    uint32_t data_start = fat32_partition_lba +
         fat32_reserved_sectors +
         fat32_fat_count * fat32_fat_size;
 
@@ -132,7 +141,7 @@ static int streq(const char *a, const char *b) {
 static uint32_t fat32_read_fat_entry(uint32_t cluster) {
     uint8_t sector[512];
     uint32_t fat_offset = cluster * 4;
-    uint32_t lba = FAT32_PARTITION_START_LBA + fat32_reserved_sectors + (fat_offset / 512);
+    uint32_t lba = fat32_partition_lba + fat32_reserved_sectors + (fat_offset / 512);
     uint32_t index = fat_offset % 512;
 
     fat32_read_sector(lba, sector);
@@ -143,7 +152,7 @@ static uint32_t fat32_read_fat_entry(uint32_t cluster) {
 static int fat32_write_fat_entry(uint32_t cluster, uint32_t value) {
     uint8_t sector[512];
     uint32_t fat_offset = cluster * 4;
-    uint32_t lba = FAT32_PARTITION_START_LBA + fat32_reserved_sectors + (fat_offset / 512);
+    uint32_t lba = fat32_partition_lba + fat32_reserved_sectors + (fat_offset / 512);
     uint32_t index = fat_offset % 512;
 
     if (!fat32_read_sector(lba, sector)) return 0;
@@ -292,6 +301,20 @@ static int fat32_find_root_entry(const char *path, FAT32_DirEntry *out_entry) {
     }
 }
 
+static uint32_t fat32_find_partition(void) {
+    uint8_t mbr[512];
+    if (!fat32_read_sector(0, mbr)) return 2048;
+    if (mbr[510] != 0x55 || mbr[511] != 0xAA) return 2048;
+
+    MBRPartition* parts = (MBRPartition*)&mbr[446];
+    for (int i = 0; i < 4; i++) {
+        if (parts[i].type == 0x0B || parts[i].type == 0x0C || parts[i].type == 0xEF) {
+            return parts[i].start_lba;
+        }
+    }
+    return 2048;
+}
+
 int fat32_init(void) {
     uint8_t buffer[512];
 
@@ -300,7 +323,9 @@ int fat32_init(void) {
         return 0;
     }
 
-    if (!fat32_read_sector(FAT32_PARTITION_START_LBA, buffer)) {
+    fat32_partition_lba = fat32_find_partition();
+
+    if (!fat32_read_sector(fat32_partition_lba, buffer)) {
         fat32_available = 0;
         return 0;
     }
@@ -337,7 +362,7 @@ int fat32_init(void) {
 
     console_write("\nFAT32: Mounted on primary master");
     console_write("\n  partition start LBA: ");
-    console_u32(FAT32_PARTITION_START_LBA);
+    console_u32(fat32_partition_lba);
     console_write("\n  root cluster: ");
     console_u32(fat32_root_cluster);
     console_write("\n  sectors per cluster: ");
@@ -384,7 +409,7 @@ int fat32_storage_info(uint32_t *total_kb, uint32_t *free_kb) {
     }
 
     uint8_t buf[512];
-    if (!fat32_read_sector(FAT32_PARTITION_START_LBA + fat32_fsinfo_sector, buf)) {
+    if (!fat32_read_sector(fat32_partition_lba + fat32_fsinfo_sector, buf)) {
         return 0;
     }
     FAT32_FSInfo *fi = (FAT32_FSInfo *)buf;

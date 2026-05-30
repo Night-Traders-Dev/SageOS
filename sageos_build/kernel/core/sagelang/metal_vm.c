@@ -7,7 +7,6 @@
 
 #include "metal_vm.h"
 #include <stdint.h>
-#include <ctype.h>
 #include <string.h>
 #include "sage_libc_shim.h"
 #include "console.h"

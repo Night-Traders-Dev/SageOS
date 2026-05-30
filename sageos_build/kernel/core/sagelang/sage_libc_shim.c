@@ -9,79 +9,10 @@
 #include <stddef.h>
 #include "console.h"
 #include "sage_alloc.h"
+#include "sage_libc_shim.h"
 
 void *sage_memset(void *s, int c, size_t n);
 void *sage_memcpy(void *dest, const void *src, size_t n);
-
-/* --- Bump allocator implementation --- */
-
-static uint8_t sage_heap[SAGE_ARENA_SIZE] __attribute__((aligned(16)));
-static size_t sage_bump = 0;
-
-void *sage_malloc(size_t size) {
-    size_t raw_size = size;
-    size = (size + 15) & ~(size_t)15;
-    if (sage_bump + size + 16 > SAGE_ARENA_SIZE) {
-        console_write("\nsage: out of memory (request: ");
-        console_u32((uint32_t)raw_size);
-        console_write(" bytes, aligned: ");
-        console_u32((uint32_t)size);
-        console_write(", bump: ");
-        console_u32((uint32_t)sage_bump);
-        console_write("/");
-        console_u32((uint32_t)SAGE_ARENA_SIZE);
-        console_write(")\n");
-        return (void *)0;
-    }
-    size_t *header = (size_t *)&sage_heap[sage_bump];
-    *header = size;
-    sage_bump += size + 16;
-    void *ptr = (void *)(header + 2);
-    sage_memset(ptr, 0, size); // Compiler likes zeroed memory
-    return ptr;
-}
-
-void *sage_calloc(size_t count, size_t size) {
-    return sage_malloc(count * size);
-}
-
-void *sage_realloc(void *ptr, size_t new_size) {
-    if (!ptr) return sage_malloc(new_size);
-    if (new_size == 0) return (void *)0;
-    
-    size_t *header = (size_t *)((uint8_t *)ptr - 16);
-    size_t old_size = *header;
-    
-    if (new_size <= old_size) return ptr; // Already big enough
-
-    // Optimization: if this is the very last allocation, just grow it in place
-    if ((uint8_t *)ptr + old_size == &sage_heap[sage_bump]) {
-        size_t needed = (new_size + 15) & ~(size_t)15;
-        size_t extra = needed - old_size;
-        if (sage_bump + extra <= SAGE_ARENA_SIZE) {
-            *header = needed;
-            sage_bump += extra;
-            return ptr;
-        }
-    }
-    
-    void *np = sage_malloc(new_size);
-    if (!np) return (void *)0;
-    
-    sage_memcpy(np, ptr, old_size);
-    return np;
-}
-
-void sage_free(void *ptr) { (void)ptr; }
-
-char *sage_strdup(const char *s) {
-    if (!s) return (char *)0;
-    size_t len = 0; while (s[len]) len++;
-    char *d = (char *)sage_malloc(len + 1);
-    if (!d) return (char *)0;
-    for (size_t i = 0; i <= len; i++) d[i] = s[i];
-    return d;
-}
 
 void* kernel_malloc(size_t size) { return sage_malloc(size); }
 void* kernel_realloc(void* ptr, size_t size) { return sage_realloc(ptr, size); }
@@ -89,20 +20,8 @@ void* kernel_calloc(size_t n, size_t size) { return sage_calloc(n, size); }
 void  kernel_free(void* ptr) { sage_free(ptr); }
 char* kernel_strdup(const char* str) { return sage_strdup(str); }
 
-#undef calloc
-#undef realloc
-#undef strdup
-#undef free
-#undef malloc
-
-void *calloc(size_t n, size_t size) __attribute__((alias("sage_calloc")));
-void *realloc(void *ptr, size_t size) __attribute__((alias("sage_realloc")));
-char *strdup(const char *s) __attribute__((alias("sage_strdup")));
-void free(void *ptr) __attribute__((alias("sage_free")));
-void *malloc(size_t size) __attribute__((alias("sage_malloc")));
-
-void sage_arena_reset(void) { sage_bump = 0; }
-size_t sage_arena_used(void) { return sage_bump; }
+void sage_arena_reset_shim(void) { sage_arena_reset(); }
+size_t sage_arena_used_shim(void) { return sage_arena_used(); }
 
 /* --- String functions --- */
 
