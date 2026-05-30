@@ -119,7 +119,7 @@ proc ramfs_readdir(path):
         i = i + 1
     return arr
 
-proc ramfs_read(path, offset, size):
+proc ramfs_read(path, offset, out_buf, size):
     let node = ramfs_resolve(path)
     if node == nil or node["type"] != "file":
         return nil

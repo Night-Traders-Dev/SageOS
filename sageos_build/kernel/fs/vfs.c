@@ -623,16 +623,19 @@ int vfs_stat(const char *path, VfsStat *out) {
                 union { double d; uint64_t u; } v;
                 v.u = v_type.as.num_bits;
                 out->type = (VfsNodeType)v.d;
+                if (v_size.type == MV_NUM) {
+                    union { double d; uint64_t u; } v;
+                    v.u = v_size.as.num_bits;
+                    out->size = (uint64_t)v.d;
+                }
+                ret_val = VFS_OK;
+                dmesg_printf("vfs_stat SGVM success: %s (type=%d, size=%d)", out->name, (int)out->type, (int)out->size);
+            } else {
+                dmesg_printf("vfs_stat SGVM failed: no name in dict");
             }
-            if (v_size.type == MV_NUM) {
-                union { double d; uint64_t u; } v;
-                v.u = v_size.as.num_bits;
-                out->size = (uint64_t)v.d;
-            }
-            ret_val = VFS_OK;
-        }
-
-        g_vfs_vm.string_used = saved_string;
+        } else {
+            dmesg_printf("vfs_stat SGVM failed: not a dict (type=%d)", res.type);
+        } g_vfs_vm.string_used = saved_string;
         g_vfs_vm.heap_used = saved_heap;
         g_vfs_vm.array_count = saved_arrays;
         g_vfs_vm.dict_count = saved_dicts;
