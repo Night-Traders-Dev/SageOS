@@ -14,15 +14,9 @@ extern void thread_switch(uint64_t *prev_rsp_ptr, uint64_t *next_rsp_ptr);
 
 static void idle_task(void *arg) {
     (void)arg;
+    extern void timer_idle_poll(void);
     while (1) {
-        /* Wait for interrupt */
-#if defined(__x86_64__)
-        __asm__ volatile ("hlt");
-#elif defined(__aarch64__)
-        __asm__ volatile ("wfe");
-#elif defined(__riscv)
-        __asm__ volatile ("wfi");
-#endif
+        timer_idle_poll();
         sched_schedule();
     }
 }
@@ -116,14 +110,9 @@ void sched_schedule(void) {
 
         /* If no tasks are ready, we must wait for an interrupt (like a timer or IO).
          * But wait, in a cooperative system without interrupts, this is a deadlock.
-         * For SageOS, we just yield via WFE/WFI/HLT. */
-#if defined(__x86_64__)
-        __asm__ volatile ("hlt");
-#elif defined(__aarch64__)
-        __asm__ volatile ("wfe");
-#elif defined(__riscv)
-        __asm__ volatile ("wfi");
-#endif
+         * For SageOS virt, we yield via timer_idle_poll(). */
+        extern void timer_idle_poll(void);
+        timer_idle_poll();
     }
 
     if (next == prev) return;

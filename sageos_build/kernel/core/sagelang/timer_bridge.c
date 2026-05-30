@@ -106,6 +106,15 @@ static uint64_t g_timer_freq = 0;
 static uint64_t g_timer_interval = 0;
 static uint64_t g_ticks = 0;
 static uint32_t g_flip_counter = 0;
+static uint64_t g_next_tick_time = 0;
+
+#if CURRENT_ARCH == TIMER_ARCH_X86
+static inline uint64_t rdtsc(void) {
+    uint32_t lo, hi;
+    __asm__ volatile ("rdtsc" : "=a"(lo), "=d"(hi));
+    return ((uint64_t)hi << 32) | lo;
+}
+#endif
 
 #define PIT_HZ 100
 #define PIT_BASE_HZ 1193182
@@ -126,6 +135,7 @@ void timer_init(void) {
         outb(PIT_CMD, 0x34);
         outb(PIT_CH0, pit_reload & 0xFF);
         outb(PIT_CH0, pit_reload >> 8);
+        g_next_tick_time = rdtsc() + 20000000ULL; // ~100Hz on 2GHz CPU
 #endif
         g_timer_freq = PIT_BASE_HZ;
         g_timer_interval = 0;
@@ -139,7 +149,8 @@ void timer_init(void) {
         g_timer_freq = arch_timer_freq();
         if (g_timer_freq == 0) g_timer_freq = 10000000;
         g_timer_interval = g_timer_freq / PIT_HZ;
-        arch_timer_cval_write(arch_timer_count() + g_timer_interval);
+        g_next_tick_time = arch_timer_count() + g_timer_interval;
+        arch_timer_cval_write(g_next_tick_time);
     }
 }
 
@@ -151,7 +162,8 @@ void timer_irq(void) {
         arch_timer_cval_write(arch_timer_count() + g_timer_interval);
         arch_timer_ctl_write(CNTV_ENABLE);
     } else if (arch == TIMER_ARCH_RV64) {
-        arch_timer_cval_write(arch_timer_count() + g_timer_interval);
+        g_next_tick_time = arch_timer_count() + g_timer_interval;
+        arch_timer_cval_write(g_next_tick_time);
     }
     
     ata_timer_tick();
@@ -164,15 +176,28 @@ void timer_irq(void) {
 }
 
 void timer_poll(void) {
-    if (arch_id() == TIMER_ARCH_ARM64) {
+    int arch = arch_id();
+    if (arch == TIMER_ARCH_ARM64) {
         if (arch_timer_ctl_read() & CNTV_ISTATUS) {
             timer_irq();
         }
+    } else if (arch == TIMER_ARCH_RV64) {
+        if (arch_timer_count() >= g_next_tick_time) {
+            timer_irq();
+        }
+    } else if (arch == TIMER_ARCH_X86) {
+#if CURRENT_ARCH == TIMER_ARCH_X86
+        uint64_t current = rdtsc();
+        if (current >= g_next_tick_time) {
+            g_next_tick_time = current + 20000000ULL;
+            timer_irq();
+        }
+#endif
     }
 }
 
 void timer_idle_poll(void) {
-    arch_cpu_idle();
+    arch_cpu_relax();
     timer_poll();
 }
 
