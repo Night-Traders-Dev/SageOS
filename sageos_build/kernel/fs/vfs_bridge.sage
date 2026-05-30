@@ -27,18 +27,28 @@ proc ramfs_resolve(path):
             if c == 47: # '/'
                 break
             pos = pos + 1
+        end
 
         if pos > start:
             let comp = os_substr(path, start, pos)
             if cur["type"] != "dir":
+                os_write_str("ramfs_resolve: parent not dir\n")
                 return nil
+            end
             let child = cur["children"][comp]
             if child == nil:
+                os_write_str("ramfs_resolve: child not found: ")
+                os_write_str(comp)
+                os_write_str("\n")
                 return nil
+            end
             cur = child
+        end
 
         if pos < len and os_char_at(path, pos) == 47: # '/'
             pos = pos + 1
+        end
+    end
     return cur
 
 proc ramfs_resolve_parent(path):
@@ -63,8 +73,12 @@ proc ramfs_resolve_parent(path):
     return [parent_node, name]
 
 proc ramfs_stat(path):
+    os_write_str("ramfs_stat: ")
+    os_write_str(path)
+    os_write_str("\n")
     let node = ramfs_resolve(path)
     if node == nil:
+        os_write_str("ramfs_stat: node not found\n")
         return nil
     let st = {}
     st["name"] = node["name"]
@@ -72,7 +86,11 @@ proc ramfs_stat(path):
         st["type"] = 1 # VFS_DIRECTORY
     else:
         st["type"] = 0 # VFS_FILE
+    end
     st["size"] = node["size"]
+    os_write_str("ramfs_stat: found ")
+    os_write_str(st["name"])
+    os_write_str("\n")
     return st
 
 proc ramfs_readdir(path):
