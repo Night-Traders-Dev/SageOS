@@ -1,0 +1,6 @@
+- **Core Systems Formalization**: Major refactoring and formalization of kernel core systems to improve stability and portability across architectures.
+- **Integrated IPC Subsystem**: Full integration of the Capability-First IPC subsystem, enabling secure communication between kernel services and future userspace tasks.
+- **Enhanced Timer & Scheduling**: Improved timer initialization and centisecond tracking for more accurate process scheduling and system time management.
+- **Kernel Metrics & Observability**: Added swap usage tracking and updated the `btop` shell command to provide real-time memory and swap statistics.
+- **Expanded SageLang Bindings**: Further exposed kernel primitives to SageLang, allowing more of the system to be written in idiomatic Sage code.
+- **Architectural Parity**: Verified and synchronized "virt" builds for x86_64, AArch64, and RISC-V 64.
