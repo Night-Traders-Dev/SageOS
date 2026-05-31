@@ -128,13 +128,13 @@ void sage_runtime_init(void) {
 extern void sage_execute(const char* mod);
 
 void sage_execute_init(void) {
-    dmesg_log("RUNTIME: Launching System Test script (/system/sagelang/test_boot.sage)...");
-    sage_execute("/system/sagelang/test_boot.sage");
+    dmesg_log("RUNTIME: Launching System Test script (/etc/system/sagelang/test_boot.sage)...");
+    sage_execute("/etc/system/sagelang/test_boot.sage");
     
-    dmesg_log("RUNTIME: Launching System Supervisor (/system/sagelang/runtime_manager.sage)...");
+    dmesg_log("RUNTIME: Launching System Supervisor (/etc/system/sagelang/runtime_manager.sage)...");
     /* The runtime manager is our PID 1 supervisor responsible for 
      * orchestration, service lifecycle, and self-healing. */
-    sage_execute("/system/sagelang/runtime_manager.sage");
+    sage_execute("/etc/system/sagelang/runtime_manager.sage");
 }
 
 void sage_import_module(void* vm, const char* name) {
@@ -159,18 +159,37 @@ void sage_execute(const char* mod) {
     // Check if mod is a file path
     VfsStat st;
     console_write("\nsage: executing ");
-    console_write(mod);
+    if (mod) console_write(mod);
     if (vfs_stat(mod, &st) == VFS_OK && st.type == VFS_FILE) {
-        console_write(" (file found)\n");
+        console_write(" (file found, size: ");
+        char szbuf[16]; snprintf(szbuf, 16, "%d", (int)st.size);
+        console_write(szbuf);
+        console_write(")\n");
         char* source = (char*)malloc((size_t)st.size + 1);
         if (source) {
             vfs_read(mod, 0, source, (size_t)st.size);
             source[st.size] = 0;
-            Stmt* program = sage_parse_string(source);
-            if (program) {
+
+            console_write("sage: first 20 bytes: [");
+            for(int i=0; i<20 && i<st.size; i++) {
+                if(source[i] >= 32 && source[i] <= 126) console_putc(source[i]);
+                else console_putc('.');
+            }
+            console_write("]\n");
+
+            init_lexer(source, mod);
+            parser_init();
+
+            bool found_any = false;
+            while (1) {
+                Stmt* program = parse();
+                if (program == NULL) break;
+                found_any = true;
                 interpret(program, g_sage_env);
-            } else {
-                console_write("sage: parse error\n");
+            }
+
+            if (!found_any) {
+                console_write("sage: parse error or empty file\n");
             }
             free(source);
         } else {
@@ -178,14 +197,18 @@ void sage_execute(const char* mod) {
         }
         return;
     }
+
     console_write(" (file not found)\n");
 
     // Otherwise treat as direct code
     dmesg_printf("sage_execute: treating %s as direct code", mod);
+    init_lexer(mod, "direct_code");
+    parser_init();
     g_repl_mode = 1;
     if (setjmp(g_repl_error_jmp) == 0) {
-        Stmt* program = sage_parse_string(mod);
-        if (program) {
+        while (1) {
+            Stmt* program = parse();
+            if (program == NULL) break;
             interpret(program, g_sage_env);
         }
     }

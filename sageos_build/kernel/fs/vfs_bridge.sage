@@ -520,8 +520,8 @@ proc vfs_init_fs():
         end
         i = i + 1
 
-    # Mount our clean Sage-native RamFS on "/"
-    vfs_mount_sage("/", g_ramfs_backend)
+    # Mount our clean Sage-native RamFS on "/embedded"
+    vfs_mount_sage("/embedded", g_ramfs_backend)
 
 # Automatically bootstrap filesystems on startup
 vfs_init_fs()

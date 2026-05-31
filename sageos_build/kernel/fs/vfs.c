@@ -542,7 +542,7 @@ int vfs_stat(const char *path, VfsStat *out) {
 
     const char *rel;
     VfsMount *m = resolve_mount(norm, &rel);
-    if (m && m->backend && m->backend->stat && strcmp(m->path, "/") != 0) {
+    if (m && m->backend && m->backend->stat) {
         return m->backend->stat(m->backend, rel, out);
     }
 
@@ -596,7 +596,7 @@ int vfs_readdir(const char *path, VfsDirEntry *entries, int max_entries) {
 
     const char *rel;
     VfsMount *m = resolve_mount(norm, &rel);
-    if (m && m->backend && m->backend->readdir && strcmp(m->path, "/") != 0) {
+    if (m && m->backend && m->backend->readdir) {
         return m->backend->readdir(m->backend, rel, entries, max_entries);
     }
 
@@ -706,7 +706,7 @@ int vfs_read(const char *path, uint64_t offset, void *buffer, size_t size) {
 
     const char *rel;
     VfsMount *m = resolve_mount(norm, &rel);
-    if (m && m->backend && m->backend->read && strcmp(m->path, "/") != 0) {
+    if (m && m->backend && m->backend->read) {
         return m->backend->read(m->backend, rel, offset, buffer, size);
     }
 
@@ -755,7 +755,7 @@ int vfs_write(const char *path, uint64_t offset, const void *data, size_t size) 
 
     const char *rel;
     VfsMount *m = resolve_mount(norm, &rel);
-    if (m && m->backend && m->backend->write && strcmp(m->path, "/") != 0) {
+    if (m && m->backend && m->backend->write) {
         return m->backend->write(m->backend, rel, offset, data, size);
     }
 
@@ -785,7 +785,7 @@ int vfs_mkdir(const char *path) {
 
     const char *rel;
     VfsMount *m = resolve_mount(norm, &rel);
-    if (m && m->backend && m->backend->mkdir && strcmp(m->path, "/") != 0) {
+    if (m && m->backend && m->backend->mkdir) {
         return m->backend->mkdir(m->backend, rel);
     }
 
@@ -810,7 +810,7 @@ int vfs_create(const char *path) {
 
     const char *rel;
     VfsMount *m = resolve_mount(norm, &rel);
-    if (m && m->backend && m->backend->create && strcmp(m->path, "/") != 0) {
+    if (m && m->backend && m->backend->create) {
         return m->backend->create(m->backend, rel);
     }
 
@@ -835,7 +835,7 @@ int vfs_unlink(const char *path) {
 
     const char *rel;
     VfsMount *m = resolve_mount(norm, &rel);
-    if (m && m->backend && m->backend->unlink && strcmp(m->path, "/") != 0) {
+    if (m && m->backend && m->backend->unlink) {
         return m->backend->unlink(m->backend, rel);
     }
 
