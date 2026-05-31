@@ -1,4 +1,4 @@
-# SageOS v0.6.0 - Formalized Hybrid Operating System
+# SageOS v0.6.2 - Formalized Hybrid Operating System
 
 SageOS is a hybrid operating system that combines a low-level C kernel with a high-level, SageLang-driven runtime. It is designed to be modular, secure, and fully observable across multiple architectures.
 
@@ -9,7 +9,7 @@ SageOS is a hybrid operating system that combines a low-level C kernel with a hi
 - **Capability-First Security**: Strict authority gating via unforgeable tokens and task-level permissions.
 - **Deep Instrumentation**: System-wide telemetry for real-time observability of scheduler, IPC, and VM events.
 
-## Core Features (v0.6.0)
+## Core Features (v0.6.2)
 - **Formalized IPC**: Robust communication backbone with strict object lifecycle and capability routing.
 - **Capability Security**: Permission-gated syscalls (reboot, raw IO) and isolated resource access.
 - **System Supervision**: SageLang-native PID 1 supervisor managing the system bootstrap and service health.

@@ -83,7 +83,6 @@ static bool file_exists(const char* path) {
 // Validate module name: only allow alphanumeric, underscore, and single dots (no path separators)
 static bool is_valid_module_name(const char* name) {
     if (name == NULL || name[0] == '\0') return false;
-    if (name[0] == '/') return true; // Allow absolute paths
     for (const char* p = name; *p != '\0'; p++) {
         char c = *p;
         if (c == '/' || c == '\\') return false;  // No path separators
@@ -121,10 +120,6 @@ static char* module_name_to_path(const char* name) {
 
 // Resolve module path by searching in search paths
 char* resolve_module_path(ModuleCache* cache, const char* name) {
-    if (name[0] == '/') {
-        if (file_exists(name)) return SAGE_STRDUP(name);
-        return NULL;
-    }
     // Reject module names with path traversal attempts
     if (!is_valid_module_name(name)) {
         fprintf(stderr, "Error: Invalid module name '%s' (path traversal not allowed)\n", name);
@@ -571,6 +566,11 @@ void module_add_source_dir(const char* source_path) {
         char lib_dir[4096];
         snprintf(lib_dir, sizeof(lib_dir), "%slib", dir);
         add_search_path(global_module_cache, lib_dir);
+        
+        // Also add dir/core/lib/ for the common sage repo structure
+        char core_lib_dir[4096];
+        snprintf(core_lib_dir, sizeof(core_lib_dir), "%score/lib", dir);
+        add_search_path(global_module_cache, core_lib_dir);
 
         // Also add PARENT directory and parent/lib/ — handles the common
         // pattern where source is in examples/ or src/ but libs are in
@@ -588,7 +588,21 @@ void module_add_source_dir(const char* source_path) {
             char parent_lib[4096];
             snprintf(parent_lib, sizeof(parent_lib), "%slib", parent);
             add_search_path(global_module_cache, parent_lib);
+            
+            // Also parent/core/lib
+            char parent_core_lib[4096];
+            snprintf(parent_core_lib, sizeof(parent_core_lib), "%score/lib", parent);
+            add_search_path(global_module_cache, parent_core_lib);
         }
+    } else {
+        // No slash: script is in current directory
+        add_search_path(global_module_cache, "./");
+        add_search_path(global_module_cache, "./lib");
+        add_search_path(global_module_cache, "./core/lib");
+        
+        // Also add ../lib and ../core/lib
+        add_search_path(global_module_cache, "../lib");
+        add_search_path(global_module_cache, "../core/lib");
     }
 }
 

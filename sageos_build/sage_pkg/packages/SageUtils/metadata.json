@@ -1,9 +1,0 @@
-{
-  "name": "SageUtils",
-  "version": "2.1.3",
-  "main": "universal/main.sage",
-  "files": [
-    "universal/main.sage",
-    "universal/ui_worker.sage"
-  ]
-}

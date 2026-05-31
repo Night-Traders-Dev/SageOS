@@ -27,8 +27,6 @@ let NL = chr(10)
 comptime:
     let UART_X86_BASE = 1016
     let UART_AARCH64_BASE = 150994944
-    let UART_RPI4_BASE = 0xfe201000
-    let UART_ORANGEPI_RV2_BASE = 0x12030000
     let UART_RISCV64_BASE = 268435456
     let UART_BAUD = 115200
 
@@ -37,16 +35,17 @@ comptime:
 # ============================================================================
 
 comptime:
-    let AS_X86 = "x86_64-linux-gnu-as"
+    let AS_X86 = "as"
     let AS_AARCH64 = "aarch64-linux-gnu-as"
     let AS_RISCV64 = "riscv64-linux-gnu-as"
-    let LD_X86 = "x86_64-linux-gnu-ld"
+    let LD_X86 = "ld"
     let LD_AARCH64 = "aarch64-linux-gnu-ld"
     let LD_RISCV64 = "riscv64-linux-gnu-ld"
-    let CC_X86 = "x86_64-linux-gnu-gcc"
+    let CC_X86 = "gcc"
     let CC_AARCH64 = "aarch64-linux-gnu-gcc"
     let CC_RISCV64 = "riscv64-linux-gnu-gcc"
-    let OBJCOPY_X86 = "x86_64-linux-gnu-objcopy"
+    let OBJCOPY_X86 = "objcopy"
+    let OBJCOPY_AARCH64 = "aarch64-linux-gnu-objcopy"
     let OBJCOPY_RISCV64 = "riscv64-linux-gnu-objcopy"
 
 # ============================================================================
@@ -58,10 +57,10 @@ proc get_assembler(arch):
     if arch == "x86_64":
         return AS_X86
     end
-    if arch == "aarch64" or arch == "rpi4":
+    if arch == "aarch64":
         return AS_AARCH64
     end
-    if arch == "riscv64" or arch == "orangepi_rv2":
+    if arch == "riscv64":
         return AS_RISCV64
     end
     return "as"
@@ -72,10 +71,10 @@ proc get_linker(arch):
     if arch == "x86_64":
         return LD_X86
     end
-    if arch == "aarch64" or arch == "rpi4":
+    if arch == "aarch64":
         return LD_AARCH64
     end
-    if arch == "riscv64" or arch == "orangepi_rv2":
+    if arch == "riscv64":
         return LD_RISCV64
     end
     return "ld"
@@ -86,10 +85,10 @@ proc get_cc(arch):
     if arch == "x86_64":
         return CC_X86
     end
-    if arch == "aarch64" or arch == "rpi4":
+    if arch == "aarch64":
         return CC_AARCH64
     end
-    if arch == "riscv64" or arch == "orangepi_rv2":
+    if arch == "riscv64":
         return CC_RISCV64
     end
     return "gcc"
@@ -100,10 +99,10 @@ proc get_objcopy(arch):
     if arch == "x86_64":
         return OBJCOPY_X86
     end
-    if arch == "aarch64" or arch == "rpi4":
+    if arch == "aarch64":
         return OBJCOPY_AARCH64
     end
-    if arch == "riscv64" or arch == "orangepi_rv2":
+    if arch == "riscv64":
         return OBJCOPY_RISCV64
     end
     return "objcopy"
@@ -247,56 +246,6 @@ proc generate_serial_boot_aarch64():
     return asm
 end
 
-proc generate_serial_boot_rpi4():
-    let base = "0xfe201000"
-    let asm = ""
-    asm = asm + ".section .text" + NL
-    asm = asm + ".global serial_init, serial_putchar, serial_puts" + NL
-    # PL011 init for RPi4
-    asm = asm + "serial_init:" + NL
-    asm = asm + "    ldr x1, =" + base + NL
-    asm = asm + "    # Disable UART" + NL
-    asm = asm + "    str wzr, [x1, #48]" + NL
-    asm = asm + "    # IBRD = 26 (48MHz / 16 / 115200)" + NL
-    asm = asm + "    mov w2, #26" + NL
-    asm = asm + "    str w2, [x1, #36]" + NL
-    asm = asm + "    # FBRD = 3" + NL
-    asm = asm + "    mov w2, #3" + NL
-    asm = asm + "    str w2, [x1, #40]" + NL
-    asm = asm + "    # LCRH: 8-bit, FIFO enable" + NL
-    asm = asm + "    mov w2, #0x70" + NL
-    asm = asm + "    str w2, [x1, #44]" + NL
-    asm = asm + "    # Enable UART, TX, RX" + NL
-    asm = asm + "    mov w2, #0x301" + NL
-    asm = asm + "    str w2, [x1, #48]" + NL
-    asm = asm + "    ret" + NL
-    asm = asm + NL
-    # serial_putchar: write byte in w0
-    asm = asm + "serial_putchar:" + NL
-    asm = asm + "    ldr x1, =" + base + NL
-    asm = asm + ".Lwait_tx:" + NL
-    asm = asm + "    ldr w2, [x1, #24]" + NL
-    asm = asm + "    tst w2, #0x20" + NL
-    asm = asm + "    b.ne .Lwait_tx" + NL
-    asm = asm + "    str w0, [x1]" + NL
-    asm = asm + "    ret" + NL
-    asm = asm + NL
-    # serial_puts: write null-terminated string at x0
-    asm = asm + "serial_puts:" + NL
-    asm = asm + "    stp x29, x30, [sp, #-16]!" + NL
-    asm = asm + "    mov x19, x0" + NL
-    asm = asm + ".Lputs_loop:" + NL
-    asm = asm + "    ldrb w0, [x19], #1" + NL
-    asm = asm + "    cbz w0, .Lputs_done" + NL
-    asm = asm + "    bl serial_putchar" + NL
-    asm = asm + "    b .Lputs_loop" + NL
-    asm = asm + ".Lputs_done:" + NL
-    asm = asm + "    ldp x29, x30, [sp], #16" + NL
-    asm = asm + "    ret" + NL
-    asm = asm + NL
-    return asm
-end
-
 proc generate_serial_boot_riscv64():
     let base = "0x10000000"
     let asm = ""
@@ -343,65 +292,6 @@ proc generate_serial_boot_riscv64():
     asm = asm + "    mv s0, a0" + NL
     asm = asm + ".Lputs_loop:" + NL
     asm = asm + "    lb a0, 0(s0)" + NL
-    asm = asm + "    beqz a0, .Lputs_done" + NL
-    asm = asm + "    call serial_putchar" + NL
-    asm = asm + "    addi s0, s0, 1" + NL
-    asm = asm + "    j .Lputs_loop" + NL
-    asm = asm + ".Lputs_done:" + NL
-    asm = asm + "    ld ra, 8(sp)" + NL
-    asm = asm + "    ld s0, 0(sp)" + NL
-    asm = asm + "    addi sp, sp, 16" + NL
-    asm = asm + "    ret" + NL
-    asm = asm + NL
-    return asm
-end
-
-proc generate_serial_boot_orangepi_rv2():
-    let base = "0x12030000"
-    let asm = ""
-    asm = asm + ".section .text" + NL
-    asm = asm + ".global serial_init, serial_putchar, serial_puts" + NL
-    # 16550 MMIO init
-    asm = asm + "serial_init:" + NL
-    asm = asm + "    li t0, " + base + NL
-    asm = asm + "    # Disable interrupts" + NL
-    asm = asm + "    sb zero, 1(t0)" + NL
-    asm = asm + "    # Enable DLAB" + NL
-    asm = asm + "    li t1, 0x80" + NL
-    asm = asm + "    sb t1, 3(t0)" + NL
-    asm = asm + "    # Divisor = 1 (115200 baud at 1.8432MHz)" + NL
-    asm = asm + "    li t1, 1" + NL
-    asm = asm + "    sb t1, 0(t0)" + NL
-    asm = asm + "    sb zero, 1(t0)" + NL
-    asm = asm + "    # 8N1" + NL
-    asm = asm + "    li t1, 3" + NL
-    asm = asm + "    sb t1, 3(t0)" + NL
-    asm = asm + "    # Enable FIFO" + NL
-    asm = asm + "    li t1, 0xC7" + NL
-    asm = asm + "    sb t1, 2(t0)" + NL
-    asm = asm + "    # DTR + RTS + OUT2" + NL
-    asm = asm + "    li t1, 0x0B" + NL
-    asm = asm + "    sb t1, 4(t0)" + NL
-    asm = asm + "    ret" + NL
-    asm = asm + NL
-    # serial_putchar: write byte in a0
-    asm = asm + "serial_putchar:" + NL
-    asm = asm + "    li t0, " + base + NL
-    asm = asm + ".Lwait_tx:" + NL
-    asm = asm + "    lb t1, 5(t0)" + NL
-    asm = asm + "    andi t1, t1, 0x20" + NL
-    asm = asm + "    beqz t1, .Lwait_tx" + NL
-    asm = asm + "    sb a0, 0(t0)" + NL
-    asm = asm + "    ret" + NL
-    asm = asm + NL
-    # serial_puts: write null-terminated string at a0
-    asm = asm + "serial_puts:" + NL
-    asm = asm + "    addi sp, sp, -16" + NL
-    asm = asm + "    sd ra, 8(sp)" + NL
-    asm = asm + "    sd s0, 0(sp)" + NL
-    asm = asm + "    mv s0, a0" + NL
-    asm = asm + ".Lputs_loop:" + NL
-    asm = asm + "    lbu a0, 0(s0)" + NL
     asm = asm + "    beqz a0, .Lputs_done" + NL
     asm = asm + "    call serial_putchar" + NL
     asm = asm + "    addi s0, s0, 1" + NL
@@ -481,27 +371,38 @@ comptime:
     let BARE_METAL_C = "src/c/bare_metal.c"
 
 proc build_commands(arch, boot_asm_path, kernel_c_path, linker_script_path, output_elf):
+    let as_cmd = get_assembler(arch)
+    let cc = get_cc(arch)
+    let ld = get_linker(arch)
     let cmds = []
 
     let boot_obj = "boot.o"
     let kernel_obj = "kernel.o"
 
     # Step 1: Assemble boot stub
-    push(cmds, "$AS $ASFLAGS -o " + boot_obj + " " + boot_asm_path)
+    if arch == "x86_64":
+        push(cmds, as_cmd + " --64 -o " + boot_obj + " " + boot_asm_path)
+    end
+    if arch == "aarch64":
+        push(cmds, as_cmd + " -o " + boot_obj + " " + boot_asm_path)
+    end
+    if arch == "riscv64":
+        push(cmds, as_cmd + " -march=rv64gc -mabi=lp64d -o " + boot_obj + " " + boot_asm_path)
+    end
 
     # Step 2: Compile kernel C code
     if arch == "x86_64":
-        push(cmds, "$CC -ffreestanding -nostdlib -mno-red-zone -c -o " + kernel_obj + " " + kernel_c_path)
+        push(cmds, cc + " -ffreestanding -nostdlib -mno-red-zone -c -o " + kernel_obj + " " + kernel_c_path)
     end
-    if arch == "aarch64" or arch == "rpi4":
-        push(cmds, "$CC -ffreestanding -nostdlib -mgeneral-regs-only -c -o " + kernel_obj + " " + kernel_c_path)
+    if arch == "aarch64":
+        push(cmds, cc + " -ffreestanding -nostdlib -c -o " + kernel_obj + " " + kernel_c_path)
     end
-    if arch == "riscv64" or arch == "orangepi_rv2":
-        push(cmds, "$CC -ffreestanding -nostdlib -march=rv64gc -mabi=lp64d -mcmodel=medany -c -o " + kernel_obj + " " + kernel_c_path)
+    if arch == "riscv64":
+        push(cmds, cc + " -ffreestanding -nostdlib -march=rv64gc -mabi=lp64d -c -o " + kernel_obj + " " + kernel_c_path)
     end
 
     # Step 3: Link into ELF
-    push(cmds, "$LD -z max-page-size=4096 -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj)
+    push(cmds, ld + " -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj)
 
     return cmds
 end
@@ -509,6 +410,9 @@ end
 # Build commands with bare_metal.c runtime linked in (provides memset, memcpy,
 # inb/outb, cli/sti/hlt, rdmsr/wrmsr, invlpg, read_cr3/write_cr3)
 proc build_commands_with_runtime(arch, boot_asm_path, kernel_c_path, linker_script_path, output_elf, sage_root):
+    let as_cmd = get_assembler(arch)
+    let cc = get_cc(arch)
+    let ld = get_linker(arch)
     let cmds = []
 
     let boot_obj = "boot.o"
@@ -517,7 +421,15 @@ proc build_commands_with_runtime(arch, boot_asm_path, kernel_c_path, linker_scri
     let runtime_src = sage_root + "/" + BARE_METAL_C
 
     # Step 1: Assemble boot stub
-    push(cmds, "$AS $ASFLAGS -o " + boot_obj + " " + boot_asm_path)
+    if arch == "x86_64":
+        push(cmds, as_cmd + " --64 -o " + boot_obj + " " + boot_asm_path)
+    end
+    if arch == "aarch64":
+        push(cmds, as_cmd + " -o " + boot_obj + " " + boot_asm_path)
+    end
+    if arch == "riscv64":
+        push(cmds, as_cmd + " -march=rv64gc -mabi=lp64d -o " + boot_obj + " " + boot_asm_path)
+    end
 
     # Step 2: Compile kernel C code
     let cflags = " -ffreestanding -nostdlib -DSAGE_BARE_METAL"
@@ -525,15 +437,15 @@ proc build_commands_with_runtime(arch, boot_asm_path, kernel_c_path, linker_scri
         cflags = cflags + " -mno-red-zone"
     end
     if arch == "riscv64":
-        cflags = cflags + " -march=rv64gc -mabi=lp64d -mcmodel=medany"
+        cflags = cflags + " -march=rv64gc -mabi=lp64d"
     end
-    push(cmds, "$CC" + cflags + " -c -o " + kernel_obj + " " + kernel_c_path)
+    push(cmds, cc + cflags + " -c -o " + kernel_obj + " " + kernel_c_path)
 
     # Step 3: Compile bare_metal.c runtime
-    push(cmds, "$CC" + cflags + " -c -o " + runtime_obj + " " + runtime_src)
+    push(cmds, cc + cflags + " -c -o " + runtime_obj + " " + runtime_src)
 
     # Step 4: Link all objects
-    push(cmds, "$LD -z max-page-size=4096 -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj + " " + runtime_obj)
+    push(cmds, ld + " -T " + linker_script_path + " -o " + output_elf + " " + boot_obj + " " + kernel_obj + " " + runtime_obj)
 
     return cmds
 end
@@ -544,16 +456,13 @@ end
 
 proc qemu_command(arch, kernel_path):
     if arch == "x86_64":
-        return "qemu-system-x86_64 -m 4G -display none -serial mon:stdio -kernel " + kernel_path
+        return "qemu-system-x86_64 -m 128M -display none -serial mon:stdio -kernel " + kernel_path
     end
     if arch == "aarch64":
-        return "qemu-system-aarch64 -machine virt -cpu cortex-a57 -m 4G -display none -serial mon:stdio -kernel " + kernel_path
-    end
-    if arch == "rpi4":
-        return "qemu-system-aarch64 -machine raspi4b -cpu cortex-a72 -m 4G -display none -serial stdio -kernel " + kernel_path
+        return "qemu-system-aarch64 -machine virt -cpu cortex-a57 -m 128M -display none -serial mon:stdio -kernel " + kernel_path
     end
     if arch == "riscv64":
-        return "qemu-system-riscv64 -machine virt -m 4G -display none -serial mon:stdio -bios none -kernel " + kernel_path
+        return "qemu-system-riscv64 -machine virt -m 128M -display none -serial mon:stdio -bios none -kernel " + kernel_path
     end
     return ""
 end
@@ -579,17 +488,9 @@ proc write_build_files(arch, output_dir, message):
         boot_asm = start.emit_start_aarch64("kmain", "stack_top")
         boot_asm = boot_asm + generate_serial_boot_aarch64()
     end
-    if arch == "rpi4":
-        boot_asm = start.emit_start_aarch64("kmain", "stack_top")
-        boot_asm = boot_asm + generate_serial_boot_rpi4()
-    end
     if arch == "riscv64":
         boot_asm = start.emit_start_riscv64("kmain", "stack_top")
         boot_asm = boot_asm + generate_serial_boot_riscv64()
-    end
-    if arch == "orangepi_rv2":
-        boot_asm = start.emit_start_riscv64("kmain", "stack_top")
-        boot_asm = boot_asm + generate_serial_boot_orangepi_rv2()
     end
 
     # Generate minimal kernel
@@ -600,14 +501,8 @@ proc write_build_files(arch, output_dir, message):
     if arch == "aarch64":
         ld_config["base_address"] = 1073741824
     end
-    if arch == "rpi4":
-        ld_config["base_address"] = 524288 # 0x80000
-    end
     if arch == "riscv64":
         ld_config["base_address"] = 2147483648
-    end
-    if arch == "orangepi_rv2":
-        ld_config["base_address"] = 0x40000000 # Typical RAM start for JH7110
     end
     let linker_script = linker.generate_script(ld_config)
 
@@ -638,47 +533,6 @@ proc generate_build_script(arch, output_dir, message):
     let files = write_build_files(arch, output_dir, message)
     let script = "#!/bin/sh" + NL
     script = script + "set -e" + NL
-    
-    if arch == "x86_64":
-        script = script + "if command -v x86_64-linux-gnu-as >/dev/null 2>&1; then" + NL
-        script = script + "    AS=\"x86_64-linux-gnu-as\"" + NL
-        script = script + "    ASFLAGS=\"--64\"" + NL
-        script = script + "    CC=\"x86_64-linux-gnu-gcc\"" + NL
-        script = script + "    LD=\"x86_64-linux-gnu-ld\"" + NL
-        script = script + "else" + NL
-        script = script + "    AS=\"clang -target x86_64-unknown-elf -c\"" + NL
-        script = script + "    ASFLAGS=\"\"" + NL
-        script = script + "    CC=\"clang -target x86_64-unknown-elf\"" + NL
-        script = script + "    LD=\"ld.lld\"" + NL
-        script = script + "fi" + NL
-    end
-    if arch == "aarch64" or arch == "rpi4":
-        script = script + "if command -v aarch64-linux-gnu-as >/dev/null 2>&1; then" + NL
-        script = script + "    AS=\"aarch64-linux-gnu-as\"" + NL
-        script = script + "    ASFLAGS=\"\"" + NL
-        script = script + "    CC=\"aarch64-linux-gnu-gcc\"" + NL
-        script = script + "    LD=\"aarch64-linux-gnu-ld\"" + NL
-        script = script + "else" + NL
-        script = script + "    AS=\"clang -target aarch64-unknown-elf -c\"" + NL
-        script = script + "    ASFLAGS=\"\"" + NL
-        script = script + "    CC=\"clang -target aarch64-unknown-elf\"" + NL
-        script = script + "    LD=\"ld.lld\"" + NL
-        script = script + "fi" + NL
-    end
-    if arch == "riscv64" or arch == "orangepi_rv2":
-        script = script + "if command -v riscv64-linux-gnu-as >/dev/null 2>&1; then" + NL
-        script = script + "    AS=\"riscv64-linux-gnu-as\"" + NL
-        script = script + "    ASFLAGS=\"-march=rv64gc -mabi=lp64d\"" + NL
-        script = script + "    CC=\"riscv64-linux-gnu-gcc\"" + NL
-        script = script + "    LD=\"riscv64-linux-gnu-ld\"" + NL
-        script = script + "else" + NL
-        script = script + "    AS=\"clang -target riscv64-unknown-elf -c\"" + NL
-        script = script + "    ASFLAGS=\"-march=rv64gc -mabi=lp64d\"" + NL
-        script = script + "    CC=\"clang -target riscv64-unknown-elf\"" + NL
-        script = script + "    LD=\"ld.lld\"" + NL
-        script = script + "fi" + NL
-    end
-    
     script = script + "echo 'Building " + arch + " kernel...'" + NL
     for cmd in files["build_commands"]:
         script = script + "echo '  " + cmd + "'" + NL

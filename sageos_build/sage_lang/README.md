@@ -4,7 +4,7 @@
 
 ![SageLang Logo](core/assets/SageLang.png)
 
-Sage is a systems programming language that combines the readability of Python (indentation blocks, clean syntax) with the performance of C. It features ten execution backends (C, LLVM IR, native x86-64/aarch64/rv64, bytecode VM, **SageMetal VM**, JIT, AOT, **Kotlin/Android**), a **self-hosted interpreter** with hybrid JIT/AOT profile-guided type specialization, **Vulkan + OpenGL graphics**, **true atomic operations** and **POSIX semaphores** for multicore concurrency, **SMP/hyperthreading detection**, and **three GC modes** (tracing, ARC, ORC). As of v3.5.1, Sage features expanded REPL commands, improved developer tools (Linter, Type Checker), enhanced LSP support, and stabilized synchronization primitives.
+Sage is a systems programming language that combines the readability of Python (indentation blocks, clean syntax) with the performance of C. It features ten execution backends (C, LLVM IR, native x86-64/aarch64/rv64, bytecode VM, **SageMetal VM**, JIT, AOT, **Kotlin/Android**), a **self-hosted interpreter** with hybrid JIT/AOT profile-guided type specialization, **Vulkan + OpenGL graphics**, **true atomic operations** and **POSIX semaphores** for multicore concurrency, **SMP/hyperthreading detection**, and **three GC modes** (tracing, ARC, ORC). As of v3.5.4, Sage features structural value equality in uniqueness checks, safe non-hanging string/value repeating, and robust tab/whitespace token checks in sandbox security guards.
 
 ## Install (One line installer)
 
@@ -1153,7 +1153,7 @@ proc write_memory(ptr: *mut u8, value: u8):
 - **Self-Hosting**: Lexer, parser, interpreter, formatter, linter, LSP, codegen, compiler ported to Sage with full bootstrap
 - **Status**: Specification locked (v2.0) with working interpreter, self-hosted compiler, C/LLVM/native/JIT/AOT backends, GPU graphics engine, and Linux kernel support
 - **License**: MIT
-- **Current Version**: v3.4.5
+- **Current Version**: v3.5.6
 - **Spec Version**: 3.0 (see `STABILITY.md` for guarantees)
 
 ## 💾 Project Structure
@@ -1331,6 +1331,7 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
 
 **Recent Milestones:**
 
+- May 29, 2026: v3.5.6: Fixed doc comment detachment for `errno.strerror` and updated core metadata.
 - May 20, 2026: v3.4.5: Secure `io.mkdir` permissions (0755) and optimized `math.pow_int` with binary exponentiation (O(log n)).
 - May 15, 2026: v3.4.2: High-severity security hardening for AOT compiler and graphics modules.
 - May 7, 2026: Optimization: implemented length-aware dictionary lookups and direct token pointers in method dispatch for 15% speedup

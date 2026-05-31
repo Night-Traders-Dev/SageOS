@@ -1,5 +1,19 @@
 # SageLang Updates
 
+## v3.5.6 — Hotfix: Doc Comment Restoration (May 2026)
+
+- **Bug Fix**:
+  - **Restored `errno.strerror` Documentation**: Fixed a bug where a detached and incorrectly formatted comment prevented `proc strerror` from being recognized as documented. Changed `# #` to `##` and removed the blank line to ensure adjacency, satisfying the linter's S003 check and restoring visibility to `doc(errno.strerror)`.
+- **Version Bump**: Milestone v3.5.6 release.
+
+## v3.5.4 — Hotfix: Structural Uniqueness, Repeating, and Sandbox Import Guards (May 2026)
+
+- **Bug Fixes**:
+  - **Preserved Value Equality in `unique`**: Refactored the standard library's `unique(values)` in `arrays.sage` to correctly resolve colliding composite string representations (e.g. dictionaries stringifying to `"<dict>"`) using fallback lists and structural `==` checks.
+  - **Whitespace Safety in Sandbox Module Guards**: Replaced simple substring checking of `import ` in `sandbox.sage` with a robust, token-level lexical analyzer helper (`is_import_token_present`) that detects any whitespace separators (including tab `\t`) while safely ignoring comments and string literals.
+  - **Prevented Infinite Array Self-Extension**: Fixed memory corruption and hanging bugs in `strings.repeat` (`strings.sage`) and `repeat_value` (`utils.sage`) by cloning arrays prior to extension rather than executing unsafe aliasing operations.
+- **Version Bump**: Milestone v3.5.4 release.
+
 ## v3.5.1 — Hotfix: Synchronization Primitives (May 2026)
 
 - **Bug Fix**:

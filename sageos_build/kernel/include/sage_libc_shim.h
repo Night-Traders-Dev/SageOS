@@ -136,14 +136,16 @@ int putchar(int c);
 #define NULL ((void*)0)
 #endif
 
+#ifndef PATH_MAX
 #define PATH_MAX 1024
+#endif
 #define SEEK_SET 0
 #define SEEK_CUR 1
 #define SEEK_END 2
 
 #define F_OK 0
 
-#define SAGE_VERSION_STR "0.4.3"
+#define SAGE_VERSION_STR "0.6.2"
 
 #define CLOCK_MONOTONIC 1
 #ifndef _TIMESPEC_DEFINED

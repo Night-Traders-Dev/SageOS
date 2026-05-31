@@ -6,5 +6,6 @@
 - **IPC-Centric Design**: Communication between subsystems MUST use the formalized IPC subsystem with strict lifecycle and capability semantics. Avoid global shared state.
 - **Runtime Supervision**: All system services must be registered with and managed by the `runtime_manager` (PID 1). Services must define their dependencies and support self-healing/restart semantics.
 - **Instrumentation**: New core logic MUST include tracepoints using the `telemetry` subsystem to maintain system observability.
+- **Rootfs Build System**: All system files, SGVM bytecode, and scripts MUST be organized within the `rootfs/` directory before being merged into the virtual disk image. Use `scripts/populate_rootfs.sh` to update the rootfs and `scripts/merge_rootfs.sh` to sync it with `virt.img`.
 - **Documentation**: All new `SageLang` modules must be documented within the source. Refer to `docs/architecture/` for subsystem-specific contracts.
 - **Code Style**: Prefer idiomatic `SageLang` patterns over complex C boilerplate.

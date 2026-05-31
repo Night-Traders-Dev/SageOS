@@ -63,7 +63,6 @@ static const RamFile ramfs[] = {
     },
 };
 
-#if defined(__x86_64__)
 static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
 }
@@ -73,10 +72,6 @@ static inline uint8_t inb(uint16_t port) {
     __asm__ volatile ("inb %1, %0" : "=a"(ret) : "Nd"(port));
     return ret;
 }
-#else
-static inline void outb(uint16_t port, uint8_t val) { (void)port; (void)val; }
-static inline uint8_t inb(uint16_t port) { (void)port; return 0; }
-#endif
 
 static void serial_init(void) {
     outb(COM1 + 1, 0x00);

@@ -1,8 +1,0 @@
-{
-  "name": "SageFetch",
-  "version": "2.1.3",
-  "main": "universal/main.sage",
-  "files": [
-    "universal/main.sage"
-  ]
-}

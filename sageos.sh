@@ -108,7 +108,8 @@ case "$ARCH" in
                     cp build/virt_aarch64/kernel.elf "$BUILD_DIR/arm64_virt/kernel.elf"
                     
                     log_info "Installing system scripts and toolchain into disk image..."
-                    bash ./scripts/install_sys.sh
+                    bash ./scripts/populate_rootfs.sh
+                    bash ./scripts/merge_rootfs.sh
                     bash ./scripts/install_toolchain.sh arm64
                 fi
 
@@ -140,7 +141,8 @@ case "$ARCH" in
                     cp build/virt_x86_64/kernel.elf "$BUILD_DIR/x64_virt/kernel.elf"
 
                     log_info "Installing system scripts and toolchain into disk image..."
-                    bash ./scripts/install_sys.sh
+                    bash ./scripts/populate_rootfs.sh
+                    bash ./scripts/merge_rootfs.sh
                     bash ./scripts/install_toolchain.sh x86_64
                 fi
                 
@@ -193,7 +195,8 @@ case "$ARCH" in
                     cp build/virt_riscv64/kernel.elf "$BUILD_DIR/rv64_virt/kernel.elf"
 
                     log_info "Installing system scripts and toolchain into disk image..."
-                    bash ./scripts/install_sys.sh
+                    bash ./scripts/populate_rootfs.sh
+                    bash ./scripts/merge_rootfs.sh
                     #bash ./scripts/install_toolchain.sh riscv64
                 fi
                 

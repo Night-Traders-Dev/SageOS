@@ -20,9 +20,9 @@ extern "C" {
 // Platform Detection
 // ============================================================================
 
-#if defined(PICO_BUILD) || defined(__sageos__)
-    #define SAGE_PLATFORM_PICO  0
-    #define SAGE_HAS_THREADS    0   // No pthreads in kernel
+#if defined(PICO_BUILD)
+    #define SAGE_PLATFORM_PICO  1
+    #define SAGE_HAS_THREADS    0   // RP2040 has no pthreads
 #else
     #define SAGE_PLATFORM_PICO  0
     #define SAGE_HAS_THREADS    1   // Desktop has pthreads

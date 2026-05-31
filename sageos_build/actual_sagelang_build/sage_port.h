@@ -7,7 +7,9 @@
 #include <sys/types.h>
 
 // Missing macros/types
+#ifndef PATH_MAX
 #define PATH_MAX 256
+#endif
 #define INT_MAX  2147483647
 
 #define SEEK_SET 0
@@ -70,6 +72,7 @@ static inline char* realpath_stub(const char* p, char* r) {
     return r;
 }
 
+#ifndef __sageos__
 #define getcwd getcwd_stub
 #define chdir chdir_stub
 #define mkdir mkdir_stub
@@ -85,6 +88,7 @@ static inline char* realpath_stub(const char* p, char* r) {
 #define clock_gettime clock_gettime_stub
 #define setenv setenv_stub
 #define realpath realpath_stub
+#endif
 
 #define WIFEXITED(s) 1
 #define WEXITSTATUS(s) 0

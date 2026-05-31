@@ -34,6 +34,7 @@ endif
 ifeq ($(VULKAN_CHECK),yes)
     CFLAGS += -DSAGE_HAS_VULKAN
     LDFLAGS += -lvulkan
+    HAS_GPU_API = yes
     $(info Vulkan support enabled)
     # GLFW detection for windowed mode
     GLFW_CHECK := $(shell pkg-config --exists glfw3 2>/dev/null && echo yes || echo no)
@@ -57,6 +58,7 @@ endif
 ifeq ($(OPENGL_CHECK),yes)
     CFLAGS += -DSAGE_HAS_OPENGL $(shell pkg-config --cflags gl 2>/dev/null)
     LDFLAGS += $(shell pkg-config --libs gl 2>/dev/null || echo "-lGL")
+    HAS_GPU_API = yes
     $(info OpenGL support enabled)
     # GLFW detection for OpenGL windowed mode (if not already detected for Vulkan)
     ifneq ($(GLFW_CHECK),yes)
@@ -121,9 +123,12 @@ CORE_SOURCES = \
     $(SRC_DIR)/stubs.c \
     $(SRC_DIR)/aot.c \
     $(SRC_DIR)/kotlin_backend.c \
-    $(SRC_DIR)/gpu_api.c \
     $(SRC_DIR)/ml_backend.c \
     $(SRC_DIR)/net.c
+
+ifeq ($(HAS_GPU_API),yes)
+    CORE_SOURCES += $(SRC_DIR)/gpu_api.c
+endif
 
 VM_SOURCES = \
     $(VM_DIR)/bytecode.c \
@@ -201,7 +206,9 @@ all: $(TARGET)
 $(TARGET): $(ALL_OBJECTS) $(LLVM_RT_OBJECT)
 	@mkdir -p $(BIN_DIR)
 	$(CC) $(CFLAGS) -o $@ $(ALL_OBJECTS) $(LDFLAGS)
-	@echo "✅ Built: $(TARGET)"
+	@BIN_SIZE=$$(du -h $@ | cut -f1); \
+	 SRC_COUNT=$$(find src -name "*.c" | wc -l); \
+	 echo "Built: $(TARGET) $(SAGE_VERSION)  ($$BIN_SIZE, $$SRC_COUNT source files)"
 	@echo "   Run with: ./$(TARGET) examples/hello.sage"
 
 $(LLVM_RT_OBJECT): $(LLVM_RT_SOURCE) $(HEADERS)

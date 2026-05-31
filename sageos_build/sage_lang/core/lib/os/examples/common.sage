@@ -29,75 +29,39 @@ let TAB = chr(9)
 
 proc get_as(arch):
     if arch == "x86_64":
-        if sys.exec("command -v x86_64-linux-gnu-as >/dev/null 2>&1") == 0:
-            return "x86_64-linux-gnu-as"
-        end
         return "as"
     end
     if arch == "aarch64":
-        if sys.exec("command -v aarch64-linux-gnu-as >/dev/null 2>&1") == 0:
-            return "aarch64-linux-gnu-as"
-        end
-        return "clang -target aarch64-unknown-elf -c"
+        return "aarch64-linux-gnu-as"
     end
     if arch == "riscv64":
-        if sys.exec("command -v riscv64-linux-gnu-as >/dev/null 2>&1") == 0:
-            return "riscv64-linux-gnu-as"
-        end
-        if sys.exec("command -v riscv64-unknown-elf-as >/dev/null 2>&1") == 0:
-            return "riscv64-unknown-elf-as"
-        end
-        return "clang -target riscv64-unknown-elf -c"
+        return "riscv64-unknown-elf-as"
     end
     return "as"
 end
 
 proc get_cc(arch):
     if arch == "x86_64":
-        if sys.exec("command -v x86_64-linux-gnu-gcc >/dev/null 2>&1") == 0:
-            return "x86_64-linux-gnu-gcc"
-        end
         return "gcc"
     end
     if arch == "aarch64":
-        if sys.exec("command -v aarch64-linux-gnu-gcc >/dev/null 2>&1") == 0:
-            return "aarch64-linux-gnu-gcc"
-        end
-        return "clang -target aarch64-unknown-elf"
+        return "aarch64-linux-gnu-gcc"
     end
     if arch == "riscv64":
-        if sys.exec("command -v riscv64-linux-gnu-gcc >/dev/null 2>&1") == 0:
-            return "riscv64-linux-gnu-gcc"
-        end
-        if sys.exec("command -v riscv64-unknown-elf-gcc >/dev/null 2>&1") == 0:
-            return "riscv64-unknown-elf-gcc"
-        end
-        return "clang -target riscv64-unknown-elf"
+        return "riscv64-unknown-elf-gcc"
     end
     return "gcc"
 end
 
 proc get_ld(arch):
     if arch == "x86_64":
-        if sys.exec("command -v x86_64-linux-gnu-ld >/dev/null 2>&1") == 0:
-            return "x86_64-linux-gnu-ld"
-        end
         return "ld"
     end
     if arch == "aarch64":
-        if sys.exec("command -v aarch64-linux-gnu-ld >/dev/null 2>&1") == 0:
-            return "aarch64-linux-gnu-ld"
-        end
-        return "ld.lld"
+        return "aarch64-linux-gnu-ld"
     end
     if arch == "riscv64":
-        if sys.exec("command -v riscv64-linux-gnu-ld >/dev/null 2>&1") == 0:
-            return "riscv64-linux-gnu-ld"
-        end
-        if sys.exec("command -v riscv64-unknown-elf-ld >/dev/null 2>&1") == 0:
-            return "riscv64-unknown-elf-ld"
-        end
-        return "ld.lld"
+        return "riscv64-unknown-elf-ld"
     end
     return "ld"
 end
@@ -111,10 +75,10 @@ proc _gen_boot_x86_64(entry):
     let asm = ""
     asm = asm + "# x86_64 boot stub — Multiboot1 + 32-bit entry" + NL
     asm = asm + ".set MB_MAGIC,    0x1BADB002" + NL
-    asm = asm + ".set MB_FLAGS,    0x00000001" + NL
+    asm = asm + ".set MB_FLAGS,    0x00000000" + NL
     asm = asm + ".set MB_CHECKSUM, -(MB_MAGIC + MB_FLAGS)" + NL
     asm = asm + NL
-    asm = asm + ".section .multiboot, \"a\"" + NL
+    asm = asm + ".section .multiboot" + NL
     asm = asm + ".align 4" + NL
     asm = asm + ".long MB_MAGIC" + NL
     asm = asm + ".long MB_FLAGS" + NL
@@ -138,9 +102,6 @@ proc _gen_boot_x86_64(entry):
     asm = asm + "    shrl $2, %ecx" + NL
     asm = asm + "    xorl %eax, %eax" + NL
     asm = asm + "    rep stosl" + NL
-    asm = asm + "    # Push multiboot info" + NL
-    asm = asm + "    pushl %ebx" + NL
-    asm = asm + "    pushl %eax" + NL
     asm = asm + "    call " + entry + NL
     asm = asm + ".Lhalt:" + NL
     asm = asm + "    cli" + NL
@@ -465,12 +426,12 @@ proc gen_linker_script(arch):
         s = s + "ENTRY(_start)" + NL
         s = s + "OUTPUT_FORMAT(\"elf32-i386\")" + NL
         s = s + "SECTIONS {" + NL
-        s = s + "    . = 0x100000;" + NL
-        s = s + "    .multiboot : { *(.multiboot) }" + NL
-        s = s + "    .text : { *(.text .text.*) }" + NL
-        s = s + "    .rodata : { *(.rodata .rodata.*) }" + NL
-        s = s + "    .data : { *(.data .data.*) }" + NL
-        s = s + "    .bss : {" + NL
+        s = s + "    . = 1048576;" + NL
+        s = s + "    .multiboot ALIGN(4) : { *(.multiboot) }" + NL
+        s = s + "    .text ALIGN(16) : { *(.text .text.*) }" + NL
+        s = s + "    .rodata ALIGN(16) : { *(.rodata .rodata.*) }" + NL
+        s = s + "    .data ALIGN(16) : { *(.data .data.*) }" + NL
+        s = s + "    .bss ALIGN(16) : {" + NL
         s = s + "        __bss_start = .;" + NL
         s = s + "        *(.bss .bss.*) *(COMMON)" + NL
         s = s + "        __bss_end = .;" + NL
@@ -552,10 +513,10 @@ proc build_commands(arch, out_dir, boot_asm, kernel_c, ld_script):
         push(cmds, ld + " -m elf_i386 -T " + ld_script + " -o " + elf + " " + boot_o + " " + kernel_o)
     end
     if arch == "aarch64":
-        push(cmds, ld + " -z max-page-size=4096 -T " + ld_script + " -o " + elf + " " + boot_o + " " + kernel_o)
+        push(cmds, ld + " -T " + ld_script + " -o " + elf + " " + boot_o + " " + kernel_o)
     end
     if arch == "riscv64":
-        push(cmds, ld + " -z max-page-size=4096 -m elf64lriscv -T " + ld_script + " -o " + elf + " " + boot_o + " " + kernel_o)
+        push(cmds, ld + " -m elf64lriscv -T " + ld_script + " -o " + elf + " " + boot_o + " " + kernel_o)
     end
 
     return cmds
@@ -578,13 +539,13 @@ end
 
 proc qemu_cmd(arch, elf_path):
     if arch == "x86_64":
-        return "qemu-system-x86_64 -machine q35 -m 4G -display none -serial mon:stdio -no-reboot -kernel " + elf_path
+        return "qemu-system-x86_64 -machine q35 -m 64M -display none -serial mon:stdio -no-reboot -kernel " + elf_path
     end
     if arch == "aarch64":
-        return "qemu-system-aarch64 -machine virt -cpu cortex-a57 -m 4G -display none -serial mon:stdio -no-reboot -kernel " + elf_path
+        return "qemu-system-aarch64 -machine virt -cpu cortex-a57 -m 128M -display none -serial mon:stdio -no-reboot -kernel " + elf_path
     end
     if arch == "riscv64":
-        return "qemu-system-riscv64 -machine virt -m 4G -display none -serial mon:stdio -bios none -no-reboot -kernel " + elf_path
+        return "qemu-system-riscv64 -machine virt -m 128M -display none -serial mon:stdio -bios none -no-reboot -kernel " + elf_path
     end
     return ""
 end

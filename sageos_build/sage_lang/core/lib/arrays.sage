@@ -63,34 +63,47 @@ proc find(values, predicate):
     return nil
 
 proc unique(values):
+    ## Returns a new array containing only the unique elements of the input.
+    ## Uses a dictionary for O(n) average-case lookup performance.
     let result = []
+    let seen = {}
     for item in values:
-        if contains(result, item) == false:
+        let key = str(item) + type(item)
+        if dict_has(seen, key) == false:
+            seen[key] = [item]
             push(result, item)
+        else:
+            let bucket = seen[key]
+            let found = false
+            for x in bucket:
+                if x == item:
+                    found = true
+                    break
+            if found == false:
+                push(bucket, item)
+                push(result, item)
     return result
 
+## Flattens a nested array into a single array.
 proc flatten(nested):
     let result = []
     for group in nested:
-        for item in group:
-            push(result, item)
+        array_extend(result, group)
     return result
 
+## Returns a new array with the first 'count' elements.
+## Optimization: Uses native slice() to avoid interpreter loop overhead.
+@inline
 proc take(values, count):
-    let result = []
-    let i = 0
-    while i < len(values) and i < count:
-        push(result, values[i])
-        i = i + 1
-    return result
+    if count <= 0:
+        return []
+    return slice(values, 0, count)
 
+## Returns a new array with all but the first 'count' elements.
+## Optimization: Uses native slice() to avoid interpreter loop overhead.
+@inline
 proc drop(values, count):
-    let result = []
-    let i = count
-    while i < len(values):
-        push(result, values[i])
-        i = i + 1
-    return result
+    return slice(values, count, len(values))
 
 proc zip(left, right):
     let result = []

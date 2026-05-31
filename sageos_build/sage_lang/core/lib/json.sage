@@ -8,6 +8,8 @@
 #   print cJSON_GetStringValue(name)
 #   cJSON_Delete(root)
 
+from strings import repeat
+
 # ============================================================================
 # Type constants (matching cJSON exactly) — evaluated at compile time
 # ============================================================================
@@ -123,12 +125,16 @@ class _Parser:
             return nil
         self.pos = self.pos + 1
         let result = ""
+        let start = self.pos
         while self.pos < self.slen:
             let c = self.src[self.pos]
-            self.pos = self.pos + 1
             if c == chr(34):
+                result = result + slice(self.src, start, self.pos)
+                self.pos = self.pos + 1
                 return result
             if c == chr(92):
+                result = result + slice(self.src, start, self.pos)
+                self.pos = self.pos + 1
                 if self.pos >= self.slen:
                     return nil
                 let esc = self.src[self.pos]
@@ -153,8 +159,9 @@ class _Parser:
                         result = result + "?"
                 else:
                     result = result + _handle_escape(esc)
+                start = self.pos
             else:
-                result = result + c
+                self.pos = self.pos + 1
         return nil
 
     proc parse_string_node():
@@ -182,11 +189,7 @@ class _Parser:
                 self.pos = self.pos + 1
             while self.pos < self.slen and self.src[self.pos] >= "0" and self.src[self.pos] <= "9":
                 self.pos = self.pos + 1
-        let num_str = ""
-        let i = start
-        while i < self.pos:
-            num_str = num_str + self.src[i]
-            i = i + 1
+        let num_str = slice(self.src, start, self.pos)
         let val = tonumber(num_str)
         let node = cJSON()
         node.type = cJSON_Number
@@ -301,47 +304,23 @@ class _Parser:
 # ============================================================================
 
 proc _escape_str(s):
-    let result = ""
-    let i = 0
-    while i < len(s):
-        let c = s[i]
-        if c == chr(34):
-            result = result + chr(92) + chr(34)
-        elif c == chr(92):
-            result = result + chr(92) + chr(92)
-        elif c == chr(10):
-            result = result + chr(92) + "n"
-        elif c == chr(13):
-            result = result + chr(92) + "r"
-        elif c == chr(9):
-            result = result + chr(92) + "t"
-        elif c == chr(8):
-            result = result + chr(92) + "b"
-        elif c == chr(12):
-            result = result + chr(92) + "f"
-        else:
-            result = result + c
-        i = i + 1
-    return result
+    let r = replace(s, chr(92), chr(92) + chr(92))
+    r = replace(r, chr(34), chr(92) + chr(34))
+    r = replace(r, chr(10), chr(92) + "n")
+    r = replace(r, chr(13), chr(92) + "r")
+    r = replace(r, chr(9), chr(92) + "t")
+    r = replace(r, chr(8), chr(92) + "b")
+    r = replace(r, chr(12), chr(92) + "f")
+    return r
 
 proc _print_number(item):
     let s = str(item.valuedouble)
     if endswith(s, ".0"):
-        let trimmed = ""
-        let i = 0
-        while i < len(s) - 2:
-            trimmed = trimmed + s[i]
-            i = i + 1
-        return trimmed
+        return slice(s, 0, len(s) - 2)
     return s
 
 proc _make_pad(indent, depth):
-    let pad = ""
-    let i = 0
-    while i < indent * depth:
-        pad = pad + " "
-        i = i + 1
-    return pad
+    return repeat(" ", indent * depth)
 
 proc _print_node(item, fmt, depth, indent):
     if item == nil:
@@ -365,56 +344,68 @@ proc _print_node(item, fmt, depth, indent):
         let child = item.child
         if child == nil:
             return "[]"
+        let parts = ["["]
         if fmt:
             let nl = chr(10)
             let pad = _make_pad(indent, depth + 1)
             let close_pad = _make_pad(indent, depth)
-            let out = "[" + nl
+            push(parts, nl)
             let first = true
             while child != nil:
                 if not first:
-                    out = out + "," + nl
-                out = out + pad + _print_node(child, fmt, depth + 1, indent)
+                    push(parts, "," + nl)
+                push(parts, pad)
+                push(parts, _print_node(child, fmt, depth + 1, indent))
                 first = false
                 child = child.next
-            return out + nl + close_pad + "]"
+            push(parts, nl)
+            push(parts, close_pad)
         else:
-            let out = "["
             let first = true
             while child != nil:
                 if not first:
-                    out = out + ","
-                out = out + _print_node(child, fmt, depth + 1, indent)
+                    push(parts, ",")
+                push(parts, _print_node(child, fmt, depth + 1, indent))
                 first = false
                 child = child.next
-            return out + "]"
+        push(parts, "]")
+        return join(parts, "")
     if t == cJSON_Object:
         let child = item.child
         if child == nil:
             return "{}"
+        let parts = ["{"]
         if fmt:
             let nl = chr(10)
             let pad = _make_pad(indent, depth + 1)
             let close_pad = _make_pad(indent, depth)
-            let out = "{" + nl
+            push(parts, nl)
             let first = true
             while child != nil:
                 if not first:
-                    out = out + "," + nl
-                out = out + pad + chr(34) + _escape_str(child.string) + chr(34) + ": " + _print_node(child, fmt, depth + 1, indent)
+                    push(parts, "," + nl)
+                push(parts, pad)
+                push(parts, chr(34))
+                push(parts, _escape_str(child.string))
+                push(parts, chr(34) + ": ")
+                push(parts, _print_node(child, fmt, depth + 1, indent))
                 first = false
                 child = child.next
-            return out + nl + close_pad + "}"
+            push(parts, nl)
+            push(parts, close_pad)
         else:
-            let out = "{"
             let first = true
             while child != nil:
                 if not first:
-                    out = out + ","
-                out = out + chr(34) + _escape_str(child.string) + chr(34) + ":" + _print_node(child, fmt, depth + 1, indent)
+                    push(parts, ",")
+                push(parts, chr(34))
+                push(parts, _escape_str(child.string))
+                push(parts, chr(34) + ":")
+                push(parts, _print_node(child, fmt, depth + 1, indent))
                 first = false
                 child = child.next
-            return out + "}"
+        push(parts, "}")
+        return join(parts, "")
     return ""
 
 # ============================================================================
@@ -429,13 +420,10 @@ proc cJSON_Parse(value):
 
 # cJSON_ParseWithLength(value, buffer_length) -> cJSON node or nil
 proc cJSON_ParseWithLength(value, buffer_length):
+    if buffer_length < 0:
+        return nil
     if buffer_length < len(value):
-        let sub = ""
-        let i = 0
-        while i < buffer_length:
-            sub = sub + value[i]
-            i = i + 1
-        return cJSON_Parse(sub)
+        return cJSON_Parse(slice(value, 0, buffer_length))
     return cJSON_Parse(value)
 
 # cJSON_GetErrorPtr() -> string
@@ -1061,18 +1049,34 @@ proc cJSON_FromSage(val):
     if t == "string":
         return cJSON_CreateString(val)
     if t == "array":
-        let arr = cJSON_CreateArray()
-        let i = 0
-        while i < len(val):
-            cJSON_AddItemToArray(arr, cJSON_FromSage(val[i]))
-            i = i + 1
-        return arr
+        let fs_arr = cJSON_CreateArray()
+        let fs_i = 0
+        let fs_last = nil
+        while fs_i < len(val):
+            let fs_item = cJSON_FromSage(val[fs_i])
+            if fs_last == nil:
+                fs_arr.child = fs_item
+            else:
+                fs_last.next = fs_item
+                fs_item.prev = fs_last
+            fs_last = fs_item
+            fs_i = fs_i + 1
+        return fs_arr
     if t == "dict":
-        let obj = cJSON_CreateObject()
-        let keys = dict_keys(val)
-        let i = 0
-        while i < len(keys):
-            cJSON_AddItemToObject(obj, keys[i], cJSON_FromSage(val[keys[i]]))
-            i = i + 1
-        return obj
+        let fs_obj = cJSON_CreateObject()
+        let fs_keys = dict_keys(val)
+        let fs_idx = 0
+        let fs_last_kv = nil
+        while fs_idx < len(fs_keys):
+            let fs_key = fs_keys[fs_idx]
+            let fs_item = cJSON_FromSage(val[fs_key])
+            fs_item.string = fs_key
+            if fs_last_kv == nil:
+                fs_obj.child = fs_item
+            else:
+                fs_last_kv.next = fs_item
+                fs_item.prev = fs_last_kv
+            fs_last_kv = fs_item
+            fs_idx = fs_idx + 1
+        return fs_obj
     return cJSON_CreateNull()

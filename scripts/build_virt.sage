@@ -54,6 +54,15 @@ proc generate_virt_build(arch):
         ld_config["base_address"] = 0x80000000
     end
     let linker_script = linker.generate_script(ld_config)
+    
+    # Fix linker script segments (ensure data/rodata/bss are in a LOAD segment)
+    linker_script = replace(linker_script, "*(.rodata .rodata.*)", "*(.rodata .rodata.* .srodata .srodata.*)")
+    linker_script = replace(linker_script, "*(.data .data.*)", "*(.data .data.* .sdata .sdata.* .got .got.*)")
+    linker_script = replace(linker_script, "*(.bss .bss.*)", "*(.bss .bss.* .sbss .sbss.*)")
+
+    linker_script = replace(linker_script, ".rodata ALIGN(4096) :" + NL + "	{" + NL + "		*(.rodata .rodata.* .srodata .srodata.*)" + NL + "	}", ".rodata ALIGN(4096) :" + NL + "	{" + NL + "		*(.rodata .rodata.* .srodata .srodata.*)" + NL + "	} :text")
+    linker_script = replace(linker_script, ".data ALIGN(4096) :" + NL + "	{" + NL + "		*(.data .data.* .sdata .sdata.* .got .got.*)" + NL + "	}", ".data ALIGN(4096) :" + NL + "	{" + NL + "		*(.data .data.* .sdata .sdata.* .got .got.*)" + NL + "	} :text")
+    linker_script = replace(linker_script, ".bss ALIGN(4096) :" + NL + "	{" + NL + "		__bss_start = .;" + NL + "		*(.bss .bss.* .sbss .sbss.*)" + NL + "		*(COMMON)" + NL + "		__bss_end = .;" + NL + "	}", ".bss ALIGN(4096) :" + NL + "	{" + NL + "		__bss_start = .;" + NL + "		*(.bss .bss.* .sbss .sbss.*)" + NL + "		*(COMMON)" + NL + "		__bss_end = .;" + NL + "	} :text")
 
     # 3. Write artifacts
     boot_asm = replace(boot_asm, "stack_bottom:", ".global stack_bottom" + NL + "stack_bottom:")
@@ -134,9 +143,9 @@ proc generate_virt_build(arch):
         script = script + "AS=\"riscv64-linux-gnu-as\"; ASFLAGS=\"-march=rv64gc -mabi=lp64d\"; CC=\"riscv64-linux-gnu-gcc\"; LD=\"riscv64-linux-gnu-ld\"" + NL
     end
 
-    script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mno-red-zone -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_X86_64\"" + NL
-    if arch == "aarch64": script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mstrict-align -mno-outline-atomics -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_AARCH64\"" + NL end
-    if arch == "riscv64": script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mcmodel=medany -march=rv64g -mabi=lp64d -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_RV64\"" + NL end
+    script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mno-red-zone -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_X86_64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW\"" + NL
+    if arch == "aarch64": script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mstrict-align -mno-outline-atomics -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_AARCH64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW\"" + NL end
+    if arch == "riscv64": script = script + "CFLAGS=\"-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mcmodel=medany -march=rv64g -mabi=lp64d -Isageos_build/kernel/include -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_RV64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW\"" + NL end
 
     script = script + "echo 'Building SageOS Virt (" + arch + ")...'" + NL
     script = script + "$AS $ASFLAGS -o " + output_dir + "/boot.o " + boot_path + NL
@@ -150,7 +159,11 @@ proc generate_virt_build(arch):
         if src[len(src)-2:len(src)] == ".S":
             script = script + "$CC $CFLAGS -c -o " + obj + " " + src + NL
         else:
-            script = script + "$CC $CFLAGS -include sage_libc_shim.h -O2 -c -o " + obj + " " + src + NL
+            if contains(src, "sage_lang"):
+                script = script + "$CC $CFLAGS -include sage_libc_shim.h -include sage_port.h -O2 -c -o " + obj + " " + src + NL
+            else:
+                script = script + "$CC $CFLAGS -include sage_libc_shim.h -O2 -c -o " + obj + " " + src + NL
+            end
         end
         objects_str = objects_str + " " + obj
         i = i + 1
