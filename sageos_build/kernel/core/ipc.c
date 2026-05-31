@@ -419,10 +419,14 @@ long sys_ipc_endpoint_create(uintptr_t out_send, uintptr_t out_recv) {
     return 0;
 }
 
+#include "telemetry.h"
+
 long sys_ipc_send(uint32_t cap_handle, const ipc_msg_t *user_msg,
                   uint32_t flags) {
     task_t *t = current_task();
     if (!t) return -1;
+
+    trace_log(TRACE_IPC_SEND, (uint64_t)cap_handle, (uint64_t)flags);
 
     ipc_capability_t *cap = ipc_cap_resolve(t, cap_handle);
     if (!cap || !ipc_cap_has_right(cap, IPC_CAP_RIGHT_SEND)) {
@@ -740,6 +744,57 @@ long sys_ipc_object_drain(uint32_t cap_handle, uint32_t timeout_ms) {
     return -1;
 }
 
+long sys_ipc_cap_narrow(uint32_t handle, uint32_t new_rights) {
+    task_t *t = current_task();
+    if (!t) return -1;
+
+    ipc_cap_table_t *tab = ipc_get_cap_table(t);
+    if (handle >= IPC_CAP_MAX_PER_TASK) return -1;
+
+    ipc_spin_lock(&tab->lock);
+    ipc_capability_t *cap = &tab->caps[handle];
+    if (!ipc_cap_is_valid(cap)) {
+        ipc_spin_unlock(&tab->lock);
+        return -1;
+    }
+
+    if (cap->flags & IPC_CAPF_IMMUTABLE) {
+        ipc_spin_unlock(&tab->lock);
+        return -1; /* EPERM */
+    }
+
+    /* Narrowing can only remove rights, never add them */
+    cap->rights &= (new_rights & IPC_CAP_RIGHTS_ALL);
+    
+    ipc_spin_unlock(&tab->lock);
+    return 0;
+}
+
+long sys_ipc_cap_revoke(uint32_t handle) {
+    /* Revoke is effectively destruction/invalidation */
+    return sys_ipc_object_destroy(handle);
+}
+
+long sys_ipc_cap_dup(uint32_t handle, uint32_t *out_new_handle) {
+    task_t *t = current_task();
+    if (!t) return -1;
+
+    ipc_capability_t *src = ipc_cap_resolve(t, handle);
+    if (!src || !ipc_cap_has_right(src, IPC_CAP_RIGHT_DUP)) return -1;
+
+    ipc_cap_table_t *tab = ipc_get_cap_table(t);
+    uint32_t new_h;
+    if (ipc_cap_alloc_slot(tab, &new_h) < 0) return -1;
+
+    ipc_spin_lock(&tab->lock);
+    tab->caps[new_h] = *src;
+    tab->caps[new_h].ref_count++;
+    ipc_spin_unlock(&tab->lock);
+
+    *out_new_handle = new_h;
+    return 0;
+}
+
 /* ============================================================================
  * Dispatch Hook (to be wired into syscall.c)
  * ============================================================================ */
@@ -747,6 +802,12 @@ long sys_ipc_object_drain(uint32_t cap_handle, uint32_t timeout_ms) {
 long ipc_syscall_dispatch(long num, long a1, long a2, long a3,
                           long a4, long a5) {
     switch (num) {
+        case SYS_ipc_cap_narrow:
+            return sys_ipc_cap_narrow((uint32_t)a1, (uint32_t)a2);
+        case SYS_ipc_cap_revoke:
+            return sys_ipc_cap_revoke((uint32_t)a1);
+        case SYS_ipc_cap_dup:
+            return sys_ipc_cap_dup((uint32_t)a1, (uint32_t *)a2);
         case SYS_ipc_endpoint_create:
             return sys_ipc_endpoint_create((uintptr_t)a1, (uintptr_t)a2);
         case SYS_ipc_send:

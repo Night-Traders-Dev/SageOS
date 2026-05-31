@@ -496,6 +496,17 @@ proc vfs_init_fs():
         if file_info != nil:
             let path = file_info["path"]
             let data = file_info["data"]
+            
+            # Map /etc/system/ to /system/
+            if os_starts_with(path, "/etc/system/"):
+                let sys_path = "/system/" + os_substr(path, 12, os_strlen(path))
+                # Ensure parent directories exist
+                if ramfs_resolve("/system") == nil: ramfs_mkdir("/system") end
+                if ramfs_resolve("/system/sagelang") == nil: ramfs_mkdir("/system/sagelang") end
+                ramfs_create(sys_path)
+                ramfs_write(sys_path, 0, data, os_strlen(data))
+            end
+
             ramfs_create(path)
             ramfs_write(path, 0, data, os_strlen(data))
             

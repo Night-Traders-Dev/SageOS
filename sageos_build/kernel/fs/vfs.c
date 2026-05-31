@@ -8,63 +8,8 @@
 #include "dmesg.h"
 #include "commands_embed.h"
 
-static const char test_sage_source[] =
-    "# SageLang test for SageOS REPL\n"
-    "let x = 42\n"
-    "let y = x * 2\n"
-    "print(y)\n"
-    "let name = \"SageOS\"\n"
-    "print(\"Hello, \" + name + \"!\")\n"
-    "print(x + y)\n";
+// Note: EmbeddedFile struct and g_embedded_files array are defined in commands_embed.h
 
-static const char test_error_sage_source[] =
-    "print(\"Testing division by zero...\")\n"
-    "try let a = 10 / 0 catch (e) print(e)\n"
-    "print(\"Testing undefined var...\")\n"
-    "try print(undefined_var) catch (err) print(err)\n"
-    "print(\"Done.\")\n";
-
-typedef struct {
-    const char *path;
-    const unsigned char *data;
-    unsigned int size;
-} EmbeddedFile;
-
-static const EmbeddedFile g_embedded_files[] = {
-    {"/etc/commands/curl.sage", embedded_file_etc_commands_curl_sage, sizeof(embedded_file_etc_commands_curl_sage) - 1},
-    {"/etc/commands/sched.sgvm", embedded_file_etc_commands_sched_sgvm, sizeof(embedded_file_etc_commands_sched_sgvm) - 1},
-    {"/etc/commands/swap.sgvm", embedded_file_etc_commands_swap_sgvm, sizeof(embedded_file_etc_commands_swap_sgvm) - 1},
-    {"/etc/commands/dmesg.sgvm", embedded_file_etc_commands_dmesg_sgvm, sizeof(embedded_file_etc_commands_dmesg_sgvm) - 1},
-    {"/etc/commands/status.sgvm", embedded_file_etc_commands_status_sgvm, sizeof(embedded_file_etc_commands_status_sgvm) - 1},
-    {"/etc/commands/sysinfo.sgvm", embedded_file_etc_commands_sysinfo_sgvm, sizeof(embedded_file_etc_commands_sysinfo_sgvm) - 1},
-    {"/etc/commands/btop.sgvm", embedded_file_etc_commands_btop_sgvm, sizeof(embedded_file_etc_commands_btop_sgvm) - 1},
-    {"/etc/commands/test.sgvm", embedded_file_etc_commands_test_sgvm, sizeof(embedded_file_etc_commands_test_sgvm) - 1},
-    {"/etc/commands/uname.sgvm", embedded_file_etc_commands_uname_sgvm, sizeof(embedded_file_etc_commands_uname_sgvm) - 1},
-    {"/etc/commands/version.sgvm", embedded_file_etc_commands_version_sgvm, sizeof(embedded_file_etc_commands_version_sgvm) - 1},
-
-    {"/etc/commands/hello.json", embedded_file_etc_commands_hello_json, sizeof(embedded_file_etc_commands_hello_json) - 1},
-    {"/etc/import_test.sage", embedded_file_etc_import_test_sage, sizeof(embedded_file_etc_import_test_sage) - 1},
-    {"/etc/init.sage", embedded_file_etc_init_sage, sizeof(embedded_file_etc_init_sage) - 1},
-    {"/etc/commands/install.sage", embedded_file_etc_commands_install_sage, sizeof(embedded_file_etc_commands_install_sage) - 1},
-    {"/bin/io.sage", embedded_file_bin_io_sage, sizeof(embedded_file_bin_io_sage) - 1},
-    {"/bin/json.sage", embedded_file_bin_json_sage, sizeof(embedded_file_bin_json_sage) - 1},
-    {"/etc/packages.json", embedded_file_etc_packages_json, sizeof(embedded_file_etc_packages_json) - 1},
-    {"/bin/sage_shell_combined.sage", embedded_file_bin_sage_shell_combined_sage, sizeof(embedded_file_bin_sage_shell_combined_sage) - 1},
-    {"/bin/sagepkg.sage", embedded_file_bin_sagepkg_sage, sizeof(embedded_file_bin_sagepkg_sage) - 1},
-    {"/bin/sagepkg_mini.sage", embedded_file_bin_sagepkg_mini_sage, sizeof(embedded_file_bin_sagepkg_mini_sage) - 1},
-    {"/bin/string.sage", embedded_file_bin_string_sage, sizeof(embedded_file_bin_string_sage) - 1},
-    {"/bin/strings.sage", embedded_file_bin_strings_sage, sizeof(embedded_file_bin_strings_sage) - 1},
-    {"/bin/sys.sage", embedded_file_bin_sys_sage, sizeof(embedded_file_bin_sys_sage) - 1},
-    {"/etc/test.sage", embedded_file_etc_test_sage, sizeof(embedded_file_etc_test_sage) - 1},
-    {"/etc/test_suite.sage", embedded_file_etc_test_suite_sage, sizeof(embedded_file_etc_test_suite_sage) - 1},
-    {"/etc/test_substr.sage", embedded_file_etc_test_substr_sage, sizeof(embedded_file_etc_test_substr_sage) - 1},
-    {"/etc/test_err.sage", (const unsigned char*)test_error_sage_source, sizeof(test_error_sage_source) - 1},
-    {"/etc/motd", (const unsigned char*)"Welcome to SageOS v0.4.3.\nType help for commands.\n", 52},
-    {"/etc/version", (const unsigned char*)"SageOS 0.4.3 modular kernel\n", 28},
-    {"/bin/sh", (const unsigned char*)"Kernel-resident shell\n", 22},
-    {"/dev/fb0", (const unsigned char*)"UEFI GOP framebuffer\n", 21},
-    {"/proc/input", (const unsigned char*)"native-i8042-ps2\n", 17},
-};
 #define EMBEDDED_FILES_COUNT (sizeof(g_embedded_files)/sizeof(g_embedded_files[0]))
 
 /* -----------------------------------------------------------------------

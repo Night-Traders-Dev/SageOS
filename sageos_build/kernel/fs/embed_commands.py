@@ -2,25 +2,17 @@ import os
 import sys
 
 def generate_header(etc_dir, output_header):
-    # Process multiple directories
-    # 1. /etc (root)
-    # 2. /etc/commands
-    # 3. /bin (for package manager and compiled tools)
-    
     all_files = []
     
-    # Root /etc files
+    # Recursively scan etc_dir
     if os.path.exists(etc_dir):
-        for f in os.listdir(etc_dir):
-            if (f.endswith('.sage') or f.endswith('.json') or f.endswith('.sgvm')) and os.path.isfile(os.path.join(etc_dir, f)):
-                all_files.append((f, etc_dir, f"/etc/{f}"))
-                
-    # /etc/commands files
-    commands_dir = os.path.join(etc_dir, "commands")
-    if os.path.exists(commands_dir):
-        for f in os.listdir(commands_dir):
-            if (f.endswith('.sage') or f.endswith('.json') or f.endswith('.sgvm')) and os.path.isfile(os.path.join(commands_dir, f)):
-                all_files.append((f, commands_dir, f"/etc/commands/{f}"))
+        for root, dirs, files in os.walk(etc_dir):
+            for f in files:
+                if (f.endswith('.sage') or f.endswith('.json') or f.endswith('.sgvm')):
+                    abs_path = os.path.join(root, f)
+                    rel_path = os.path.relpath(abs_path, etc_dir)
+                    target_path = f"/etc/{rel_path}"
+                    all_files.append((f, root, target_path))
 
     # /bin files (from the workspace root's bin directory if it exists)
     # Note: We'll point the script to the kernel/etc dir, so we look for ../bin relative to it
@@ -35,6 +27,7 @@ def generate_header(etc_dir, output_header):
     with open(output_header, 'w') as f:
         f.write("/* Auto-generated command embeddings */\n#pragma once\n\n")
         
+        # Write byte arrays
         for filename, src_dir, target_path in all_files:
             # Clean name for C variable
             clean_name = target_path.replace("/", "_").replace(".", "_").replace("-", "_")
@@ -54,6 +47,19 @@ def generate_header(etc_dir, output_header):
                 f.write("    0x00\n")
             
             f.write("};\n\n")
+            
+        # Write lookup table
+        f.write("typedef struct {\n    const char *path;\n    const unsigned char *data;\n    size_t size;\n} EmbeddedFile;\n\n")
+        f.write("static const EmbeddedFile g_embedded_files[] = {\n")
+        for filename, src_dir, target_path in all_files:
+            clean_name = target_path.replace("/", "_").replace(".", "_").replace("-", "_")
+            var_name = f"embedded_file{clean_name}"
+            # Subtract 1 from size because we added a null terminator but target_path is often treated as binary
+            # Actually, for scripts, the null terminator is helpful for C strings but VFS should know actual size
+            # If we added 0x00, we should probably include it in size for safety or exclude it.
+            # Most SageOS code uses sizeof - 1 for these.
+            f.write(f"    {{\"{target_path}\", {var_name}, sizeof({var_name}) - 1}},\n")
+        f.write("};\n")
 
 if __name__ == "__main__":
     generate_header(sys.argv[1], sys.argv[2])

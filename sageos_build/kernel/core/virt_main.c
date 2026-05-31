@@ -129,6 +129,9 @@ void kmain(SageOSBootInfo *info) {
     
     serial_init();
     
+    extern void telemetry_init(void);
+    telemetry_init();
+
     // Initialize console, keyboard, VFS, RamFS
     console_init(info);
     console_clear();

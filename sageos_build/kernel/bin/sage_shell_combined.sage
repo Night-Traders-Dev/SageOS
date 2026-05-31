@@ -500,6 +500,8 @@ proc dmesg_dump_sage():
 # Export for shell dispatch if needed
 proc cmd_dmesg():
     dmesg_dump_sage()
+    dmesg_log("Test")
+
 # =============================================================================
 # SageOS neofetch implementation
 # neofetch.sage

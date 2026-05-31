@@ -30,4 +30,7 @@
 #define SYS_kill        62
 #define SYS_times     101   /* Adjusted to avoid clash with isatty if needed, but following plan */
 
+#define SYS_reboot    169
+#define SYS_shutdown  170
+
 #endif

@@ -607,10 +607,13 @@ static int metal_truthy(MetalValue v) {
 // Main Dispatch Loop
 // ============================================================================
 
+#include "telemetry.h"
+
 int metal_vm_step(MetalVM* vm) {
     if (vm->halted || vm->error || vm->ip >= vm->code_length) return 0;
     
     int op = read_u8(vm);
+    trace_log(TRACE_VM_EXEC, (uint64_t)op, (uint64_t)vm->ip);
     if (vm->error) return 0;
 
     switch (op) {

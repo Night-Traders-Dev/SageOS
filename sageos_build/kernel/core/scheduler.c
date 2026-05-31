@@ -94,6 +94,8 @@ thread_t *sched_create_thread(const char *name, void (*entry)(void *), void *arg
     return t;
 }
 
+#include "telemetry.h"
+
 void sched_schedule(void) {
     if (!g_sched_inited) return;
 
@@ -121,6 +123,8 @@ void sched_schedule(void) {
     }
 
     if (next == prev) return;
+
+    trace_log(TRACE_SCHED_SWITCH, (uint64_t)(prev ? prev->id : 0), (uint64_t)next->id);
 
     if (prev->state == THREAD_STATE_RUNNING) {
         prev->state = THREAD_STATE_READY;
@@ -177,6 +181,10 @@ int sched_get_thread_info(uint32_t index, char *name, thread_state_t *state, uin
         *cpu = 0;
         return 1;
     }
+    return 0;
+}
+
+uint32_t sched_cpu_id(void) {
     return 0;
 }
 

@@ -3,6 +3,7 @@
 #include "sage_alloc.h"
 #include "console.h"
 #include "sage_libc_shim.h"
+#include "telemetry.h"
 
 /* 
  * sage_alloc.c — Unified memory allocator for SageOS SageLang
@@ -35,6 +36,9 @@ void *sage_malloc(size_t size) {
     
     void *ptr = (void *)((uint8_t*)header + 16);
     sage_memset(ptr, 0, size);
+    
+    trace_log(TRACE_ALLOC_MALLOC, (uint64_t)raw_size, (uint64_t)ptr);
+    
     return ptr;
 }
 
@@ -70,6 +74,7 @@ void *sage_realloc(void *ptr, size_t new_size) {
 }
 
 void sage_free(void *ptr) {
+    trace_log(TRACE_ALLOC_FREE, (uint64_t)ptr, 0);
     (void)ptr;
 }
 

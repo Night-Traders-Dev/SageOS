@@ -1,31 +1,31 @@
-# SageOS v0.5.0 - The Modular Hybrid Operating System
+# SageOS v0.6.0 - Formalized Hybrid Operating System
 
-SageOS is a hybrid operating system that combines a low-level C kernel with a high-level, SageLang-driven runtime. It is designed to be modular, portable, and extensible across multiple architectures.
+SageOS is a hybrid operating system that combines a low-level C kernel with a high-level, SageLang-driven runtime. It is designed to be modular, secure, and fully observable across multiple architectures.
 
 ## What SageOS Provides
 - **Hybrid kernel architecture**: C for performance, SageLang for system services, shell logic, and runtime extensions.
 - **Multi-architecture support**: Native ports for x86_64, ARM64 (AArch64), and RISC-V 64.
-- **Functional Sage REPL**: Full AST interpreter integrated into the kernel for interactive on-device development.
-- **Unified Memory Management**: Centralized arena allocator and bitmap-backed Physical Memory Manager (PMM) for robust kernel-resident execution.
-- **Standardized SGVM Artifacts**: Core system commands pre-compiled to SGVM bytecode for architecture-independent performance.
+- **Self-Healing Runtime Supervision**: Managed by `runtime_manager.sage` (PID 1) with auto-restart and dependency orchestration.
+- **Capability-First Security**: Strict authority gating via unforgeable tokens and task-level permissions.
+- **Deep Instrumentation**: System-wide telemetry for real-time observability of scheduler, IPC, and VM events.
 
-## Core Features (v0.5.0)
-- **Advanced IPC Subsystem**: Formalized Inter-Process Communication with endpoints, channels, and capability-based security.
-- **SageLang System Integration**: Expanded native bindings for SageLang, including direct kernel dmesg logging and IPC primitives.
+## Core Features (v0.6.0)
+- **Formalized IPC**: Robust communication backbone with strict object lifecycle and capability routing.
+- **Capability Security**: Permission-gated syscalls (reboot, raw IO) and isolated resource access.
+- **System Supervision**: SageLang-native PID 1 supervisor managing the system bootstrap and service health.
+- **Unified Telemetry**: High-performance circular trace buffer providing deep insight into kernel and VM behavior.
+- **Locked Internal APIs**: Stable, documented contracts for all core subsystems.
 - **Architectural Boot Sequence**: Formalized 4-stage boot process (Firmware -> Kernel Init -> Runtime Bring-up -> Service Activation).
-- **POSIX-Compatible Process Model**: Multitasking kernel with `vfork`, `execve`, and `waitpid` support.
-- **Enhanced Syscall Layer**: 65+ syscalls implemented for standard File I/O, process control, IPC, and memory management.
 - **Multi-Arch Binary Execution**: Load and execute static ELF64 binaries on x64, ARM64, and RV64.
-- **Filesystem Support**: FAT32, BTRFS (Read-only), and SWAP support across all virtual targets.
-- **Disk Drivers**: Legacy ATA PIO (x64) and VirtIO-MMIO (ARM/RISCV) block drivers.
+- **Native Toolchain Integration**: GCC 14.1.0 pre-installed in the disk image for on-device C development.
 
-## Native Toolchain
-SageOS 0.4.4 introduces a native C toolchain (GCC 14.1.0 + Binutils) integrated directly into the system image. This enables:
-- **On-Device Development**: Compile C programs directly within SageShell.
-- **Self-Hosting Path**: Steps toward SageOS compiling its own kernel and runtime.
-- **Automated Setup**: Prebuilt toolchains are automatically downloaded from GitHub during the first build.
-
-See [docs/toolchain.md](docs/toolchain.md) for more details.
+## Documentation
+SageOS documentation is organized into focused architectural specifications:
+- [Core Systems Architecture](docs/core_systems_architecture.md)
+- [IPC Subsystem Spec](docs/architecture/ipc.md)
+- [Security Model](docs/architecture/security.md)
+- [Internal API Contracts](docs/architecture/internal_apis.md)
+- [Telemetry & Observability](docs/architecture/telemetry.md)
 
 ## Why This Repository Exists
 This repository is the central coordination point for SageOS development. It contains:
@@ -45,32 +45,6 @@ cd SageOS
 ### Important
 Do not use `git submodule update --init --recursive` directly on the root repository. SageOS relies on `./setup_submodules.sh` to properly configure local `core` references and disable redundant nested submodule clones.
 
-## Repository Layout
-- `sageos_build/`
-  - `kernel/`: kernel boot flow, hardware abstraction, VFS bridge.
-  - `sage_lang/`: SageLang compiler, runtime, and standard library support.
-  - `actual_sagelang_build/`: host-side SageLang build utilities.
-- `arch/`
-  - `x64/`: x86_64 hardware and QEMU targets.
-  - `arm64/`: ARM64 hardware and QEMU targets.
-  - `rv64/`: RISC-V hardware and QEMU targets.
-- `docs/`: documentation, architecture overviews, and guides.
-- `examples/`: sample projects and demonstrations.
-- `scripts/`: helper scripts and build utilities.
-
-## Submodule Strategy
-SageOS uses a nested submodule layout to share the core across ports while avoiding duplication.
-- `setup_submodules.sh` initializes root submodules with `--remote`.
-- It configures `arch/*/core` to reuse the local root repository as the core source.
-- It disables redundant nested `lwip` and `mbedtls` updates inside architecture cores.
-
-### Rebuilding the submodule graph
-After pulling new changes:
-```bash
-git pull
-./setup_submodules.sh
-```
-
 ## Building and Running
 Build and run the OS with the management script.
 
@@ -86,47 +60,11 @@ Build and run the OS with the management script.
 ./sageos.sh rv64 virt run
 ```
 
-### Benchmarking virt builds
-Run the benchmark script in a local Python virtual environment to save build results and generate a history chart:
-```bash
-python3 -m venv .venv
-.venv/bin/python -m pip install rich matplotlib
-.venv/bin/python benchmark_build.py --clean
-```
-The script writes benchmark history to `benchmark_history.json` and saves `benchmark_chart.png` when `matplotlib` is available.
-
 ### Virtual Disk for Virt builds
-The `virt` builds (x64, arm64, rv64) use a shared virtual disk image `virt.img`. This image is automatically generated by `scripts/gen_virt_disk.sh` if it does not exist. It contains:
-- **Partition 1**: FAT32 (64MB) - Mounted at `/fat32`. Used for `BOOTLOG.TXT`.
-- **Partition 2**: BTRFS (128MB) - Mounted at `/`.
-- **Partition 3**: SWAP (125MB) - Registered as a swap device.
-
-### Hardware targets
-```bash
-./sageos.sh x64 lenovo_300e build
-```
-
-./sageos.sh x64 lenovo_300e run
-
-./sageos.sh arm64 rpi4 run
-```
-
-## Documentation
-- Read the root [SageOS Book](SageOS_Book.md) for architecture details and project philosophy.
-- See `docs/README.md` for a documentation index and developer guide links.
-
-## Porting Progress
-
-- Many high-level system components have been ported to pure Sage (SageLang) and now run as embedded Sage scripts or VM modules: VFS high-level logic (RamFS/vfs router), most shell commands and utilities (neofetch, dmesg, sched, swap, etc.), and init/service orchestration scripts.
-- The C kernel retains low-level primitives: hardware drivers, bootstrapping, the MetalVM interpreter, and performance-critical shims.
-- To verify builds and run the test suite for virtual targets:
-```bash
-./sageos.sh x64 virt build
-./sageos.sh arm64 virt build
-./sageos.sh rv64 virt build
-# Run test-suite inside a virt image via QEMU (manual):
-# ./sageos.sh x64 virt run  # then run /etc/test_suite.sage from the shell
-```
+The `virt` builds (x64, arm64, rv64) use a shared virtual disk image `virt.img`. 
+- **Partition 1**: FAT32 (4GB) - Mounted at `/fat32`.
+- **Partition 2**: BTRFS (512MB) - Mounted at `/`.
+- **Partition 3**: SWAP (512MB) - Registered as a swap device.
 
 ## License
 MIT License. See [LICENSE](LICENSE).

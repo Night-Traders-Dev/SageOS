@@ -1,14 +1,22 @@
 # SageOS Core Systems Architecture Specification
 
-Revision 0.1
+Revision 0.6 (Formalized)
 
-Project: "github.com" (https://reference-url-citation.invalid/0)
+Project: "github.com/Night-Traders-Dev/SageOS"
 
 ---
 
 1. System Philosophy
 
-SageOS is a runtime-centric operating environment built around the SGVM execution substrate.
+SageOS is a runtime-centric operating environment built around the SGVM execution substrate. 
+
+Version 0.6 formalizes the core communication, security, and supervision layers, establishing a stable foundation for a truly managed operating environment.
+
+Detailed specifications for core subsystems can be found in:
+- [**IPC Subsystem**](architecture/ipc.md)
+- [**Security Model**](architecture/security.md)
+- [**Internal API Contracts**](architecture/internal_apis.md)
+- [**Telemetry & Observability**](architecture/telemetry.md)
 
 The operating system is not designed as a traditional POSIX-first UNIX clone. Instead, SageOS treats:
 

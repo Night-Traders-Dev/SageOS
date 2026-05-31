@@ -81,7 +81,18 @@ typedef struct thread {
     uint64_t  elf_size;
     void     *saved_elf_data;
     int       exit_code;
+
+    /* Security Permissions */
+    uint32_t  permissions;
 } thread_t;
+
+#define PERM_NONE           0x00
+#define PERM_SYS_REBOOT     (1U << 0)
+#define PERM_RAW_IO         (1U << 1)
+#define PERM_SCHED_CTL      (1U << 2)
+#define PERM_DRIVER_LOAD    (1U << 3)
+#define PERM_DEBUG_TRACE    (1U << 4)
+#define PERM_ALL            0xFFFFFFFFU
 
 typedef struct {
     volatile uint32_t locked;

@@ -1966,11 +1966,15 @@ code 171
 endfunction
 function
 params 0
-constants 1
+constants 3
 string 15
 646d6573675f64756d705f73616765
-code 8
-050000240004012b
+string 9
+646d6573675f6c6f67
+string 4
+54657374
+code 17
+050000240004050001000002240104012b
 endfunction
 function
 params 1

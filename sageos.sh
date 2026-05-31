@@ -107,7 +107,8 @@ case "$ARCH" in
                     mkdir -p "$BUILD_DIR/arm64_virt"
                     cp build/virt_aarch64/kernel.elf "$BUILD_DIR/arm64_virt/kernel.elf"
                     
-                    log_info "Ensuring native toolchain is installed in disk image..."
+                    log_info "Installing system scripts and toolchain into disk image..."
+                    bash ./scripts/install_sys.sh
                     bash ./scripts/install_toolchain.sh arm64
                 fi
 
@@ -138,7 +139,8 @@ case "$ARCH" in
                     mkdir -p "$BUILD_DIR/x64_virt"
                     cp build/virt_x86_64/kernel.elf "$BUILD_DIR/x64_virt/kernel.elf"
 
-                    log_info "Ensuring native toolchain is installed in disk image..."
+                    log_info "Installing system scripts and toolchain into disk image..."
+                    bash ./scripts/install_sys.sh
                     bash ./scripts/install_toolchain.sh x86_64
                 fi
                 
@@ -190,7 +192,8 @@ case "$ARCH" in
                     mkdir -p "$BUILD_DIR/rv64_virt"
                     cp build/virt_riscv64/kernel.elf "$BUILD_DIR/rv64_virt/kernel.elf"
 
-                    log_info "Ensuring native toolchain is installed in disk image..."
+                    log_info "Installing system scripts and toolchain into disk image..."
+                    bash ./scripts/install_sys.sh
                     #bash ./scripts/install_toolchain.sh riscv64
                 fi
                 

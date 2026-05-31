@@ -15,6 +15,10 @@ version = replace(version, chr(13), "")
 io.writefile("sageos_build/kernel/include/version.h", "#define SAGEOS_VERSION \"" + version + "\"" + NL)
 print "Generated version.h (v" + version + ")"
 
+# Regenerate command embeddings
+sys.exec("python3 sageos_build/kernel/fs/embed_commands.py sageos_build/kernel/etc sageos_build/kernel/fs/commands_embed.h")
+print "Regenerated sageos_build/kernel/fs/commands_embed.h"
+
 proc generate_virt_build(arch):
     let output_dir = "build/virt_" + arch
     sys.exec("mkdir -p " + output_dir)
@@ -64,6 +68,7 @@ proc generate_virt_build(arch):
         "sageos_build/kernel/core/virt_main.c",
         "sageos_build/kernel/core/virt_console.c",
         "sageos_build/kernel/core/virt_keyboard.c",
+        "sageos_build/kernel/core/telemetry.c",
         "sageos_build/kernel/core/sagelang/sage_libc_shim.c",
         "sageos_build/kernel/core/sagelang/sage_alloc.c",
         "sageos_build/kernel/core/sagelang/sageos_bridge.c",

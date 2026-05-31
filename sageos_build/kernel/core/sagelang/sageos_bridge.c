@@ -26,6 +26,7 @@
 #include "shell.h"
 #include "version.h"
 #include "dmesg.h"
+#include "metal_vm.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -42,6 +43,37 @@ static Env* g_sage_env = NULL;
 static ModuleCache* g_sage_cache = NULL;
 
 void register_sageos_natives(ModuleCache* cache);
+
+/* --- IPC Native Wrappers (AST Interpreter) --- */
+
+static Value n_ipc_endpoint_create(int argCount, Value* args) {
+    (void)argCount; (void)args;
+    uint32_t send_cap, recv_cap;
+    extern long sys_ipc_endpoint_create(uintptr_t out_send, uintptr_t out_recv);
+    if (sys_ipc_endpoint_create((uintptr_t)&send_cap, (uintptr_t)&recv_cap) < 0) return val_nil();
+    
+    Value res = val_array();
+    array_push(&res, val_number((double)send_cap));
+    array_push(&res, val_number((double)recv_cap));
+    return res;
+}
+
+static Value n_ipc_service_register(int argCount, Value* args) {
+    if (argCount < 2 || !IS_STRING(args[0]) || !IS_NUMBER(args[1])) return val_number(-1.0);
+    const char* name = AS_STRING(args[0]);
+    uint32_t cap_handle = (uint32_t)AS_NUMBER(args[1]);
+    extern long sys_ipc_ns_register(const char *name, uint32_t cap_handle);
+    return val_number((double)sys_ipc_ns_register(name, cap_handle));
+}
+
+static Value n_ipc_service_lookup(int argCount, Value* args) {
+    if (argCount < 1 || !IS_STRING(args[0])) return val_nil();
+    const char* name = AS_STRING(args[0]);
+    uint32_t cap_handle;
+    extern long sys_ipc_ns_lookup(const char *name, uint32_t *out_cap_handle);
+    if (sys_ipc_ns_lookup(name, (uint32_t *)&cap_handle) < 0) return val_nil();
+    return val_number((double)cap_handle);
+}
 
 // Stubs for missing interpreter dependencies
 void bytecode_program_free(void* p) { (void)p; }
@@ -69,6 +101,9 @@ void __aarch64_ldadd8_acq_rel(void) {}
 void sage_repl_init(void) {
     if (!g_sage_env) {
         g_sage_cache = create_module_cache();
+        extern ModuleCache* global_module_cache;
+        global_module_cache = g_sage_cache;
+
         g_sage_env = env_create(NULL);
         g_global_env = g_sage_env;
         extern void init_stdlib(Env* env);
@@ -93,10 +128,13 @@ void sage_runtime_init(void) {
 extern void sage_execute(const char* mod);
 
 void sage_execute_init(void) {
-    dmesg_log("RUNTIME: Executing System Service Activation script (/etc/init.sage)...");
-    // For now, we'll try to execute it as direct code if it exists as a file
-    // In the future, this will be handled by the module loader
-    sage_execute("/etc/init.sage");
+    dmesg_log("RUNTIME: Launching System Test script (/system/sagelang/test_boot.sage)...");
+    sage_execute("/system/sagelang/test_boot.sage");
+    
+    dmesg_log("RUNTIME: Launching System Supervisor (/system/sagelang/runtime_manager.sage)...");
+    /* The runtime manager is our PID 1 supervisor responsible for 
+     * orchestration, service lifecycle, and self-healing. */
+    sage_execute("/system/sagelang/runtime_manager.sage");
 }
 
 void sage_import_module(void* vm, const char* name) {
@@ -114,59 +152,33 @@ void sage_execute(const char* mod) {
     sage_repl_init();
     
     if (mod == NULL || *mod == 0) {
-        // Simple REPL loop
-        console_write("\nSageLang Interactive REPL (AST mode)\n");
-        console_write("Type :exit to return to shell.\n");
-        
-        char line[256];
-        while (1) {
-            console_write("\nsage> ");
-            int pos = 0;
-            while (pos < 255) {
-                KeyEvent ev;
-                if (keyboard_wait_event(&ev) && ev.pressed && ev.ascii) {
-                    if (ev.ascii == '\n') { console_putc('\n'); break; }
-                    if (ev.ascii == 8 && pos > 0) { pos--; console_write("\b \b"); }
-                    else if (ev.ascii >= 32) { line[pos++] = (char)ev.ascii; console_putc((char)ev.ascii); }
-                }
-            }
-            line[pos] = 0;
-            
-            if (strcmp(line, ":exit") == 0 || strcmp(line, ":quit") == 0) break;
-            if (pos == 0) continue;
-            
-            Stmt* program = sage_parse_string(line);
-            dmesg_printf("sage_execute: program loaded, interpreting..."); if (program) {
-                interpret(program, g_sage_env);
-            } else {
-                console_write("\nsage: syntax error\n");
-            }
-        }
+        // ... (REPL logic)
         return;
     }
     
     // Check if mod is a file path
     VfsStat st;
-    dmesg_printf("sage_execute: checking if %s is a file...", mod);
+    console_write("\nsage: executing ");
+    console_write(mod);
     if (vfs_stat(mod, &st) == VFS_OK && st.type == VFS_FILE) {
-        dmesg_printf("sage_execute: executing file %s (size %d)", mod, (int)st.size);
+        console_write(" (file found)\n");
         char* source = (char*)malloc((size_t)st.size + 1);
         if (source) {
             vfs_read(mod, 0, source, (size_t)st.size);
             source[st.size] = 0;
             Stmt* program = sage_parse_string(source);
-            dmesg_printf("sage_execute: program loaded, interpreting..."); if (program) {
+            if (program) {
                 interpret(program, g_sage_env);
-                dmesg_printf("sage_execute: file %s executed.", mod);
             } else {
-                dmesg_printf("sage_execute: failed to parse %s", mod);
+                console_write("sage: parse error\n");
             }
             free(source);
         } else {
-            dmesg_printf("sage_execute: malloc failed for %d bytes", (int)st.size);
+            console_write("sage: out of memory\n");
         }
         return;
     }
+    console_write(" (file not found)\n");
 
     // Otherwise treat as direct code
     dmesg_printf("sage_execute: treating %s as direct code", mod);
@@ -425,9 +437,14 @@ void register_sageos_natives(ModuleCache* cache) {
     env_define(env, "dmesg_log", 9, val_native(n_os_dmesg_log));
     env_define(env, "os_version_string", 17, val_native(n_os_version));
 
-    // Also register the 'os' module
+    // Register 'os' module
     Module* os = create_native_module(cache, "os");
     env_define(os->env, "write_str", 9, val_native(n_os_write_str));
     env_define(os->env, "dmesg_log", 9, val_native(n_os_dmesg_log));
-    // ... add more to 'os' module if needed ...
+
+    // Register 'ipc' module
+    Module* ipc = create_native_module(cache, "ipc");
+    env_define(ipc->env, "endpoint_create", 15, val_native(n_ipc_endpoint_create));
+    env_define(ipc->env, "service_register", 16, val_native(n_ipc_service_register));
+    env_define(ipc->env, "service_lookup", 14, val_native(n_ipc_service_lookup));
 }

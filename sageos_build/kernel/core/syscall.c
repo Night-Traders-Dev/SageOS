@@ -10,10 +10,15 @@
 
 #include "timer.h"
 #include "sage_alloc.h"
+#include "dmesg.h"
+#include "telemetry.h"
 
 /* Forward declaration of IPC dispatch router */
 extern long ipc_syscall_dispatch(long num, long a1, long a2, long a3,
                                   long a4, long a5);
+
+extern void power_reboot(void);
+extern void power_shutdown(void);
 
 struct timeval {
     long tv_sec;
@@ -52,12 +57,15 @@ long sys_gettimeofday(struct timeval *tv, void *tz);
 long sys_nanosleep(const struct timespec *req, struct timespec *rem);
 long sys_times(struct tms *buf);
 void sys_exit(int code);
+long sys_reboot(void);
+long sys_shutdown(void);
 
 long sys_vfork(void);
 
 long syscall_dispatch(long num, long a1, long a2, long a3,
                       long a4, long a5) {
     task_t *t = current_task();
+    trace_log(TRACE_SYSCALL_ENTER, (uint64_t)num, (uint64_t)a1);
     long ret = 0;
     switch (num) {
     case SYS_read:
@@ -116,6 +124,12 @@ long syscall_dispatch(long num, long a1, long a2, long a3,
         break;
     case SYS_times:
         ret = sys_times((struct tms *)a1);
+        break;
+    case SYS_reboot:
+        ret = sys_reboot();
+        break;
+    case SYS_shutdown:
+        ret = sys_shutdown();
         break;
     case SYS_exit:
         sys_exit((int)a1);
@@ -541,4 +555,24 @@ void sys_exit(int code) {
     }
     
     sched_exit();
+}
+
+long sys_reboot(void) {
+    task_t *t = current_task();
+    if (!t || !(t->permissions & PERM_SYS_REBOOT)) {
+        dmesg_log("SECURITY: Denied reboot request from task (no PERM_SYS_REBOOT)");
+        return -VFS_EACCES;
+    }
+    power_reboot();
+    return 0;
+}
+
+long sys_shutdown(void) {
+    task_t *t = current_task();
+    if (!t || !(t->permissions & PERM_SYS_REBOOT)) {
+        dmesg_log("SECURITY: Denied shutdown request from task (no PERM_SYS_REBOOT)");
+        return -VFS_EACCES;
+    }
+    power_shutdown();
+    return 0;
 }
