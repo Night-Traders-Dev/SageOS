@@ -104,9 +104,9 @@ void *sage_malloc_tagged(size_t size, alloc_tag_t tag) {
         g_alloc_stats[tag].bytes_total += raw_size;
     }
 
-    if (tag == ALLOC_TAG_PARSER) {
+    if (0 && tag == ALLOC_TAG_PARSER) {
         thread_t *curr_t = sched_current_thread();
-        console_write("[DEBUG_ALLOC_PARSER] thread=");
+//        console_write("[DEBUG_ALLOC_PARSER] thread=");
         if (curr_t) {
             console_write(curr_t->name);
         } else {
@@ -136,9 +136,9 @@ void sage_free(void *ptr) {
     size_t user_size = *(size_t *)header;
     alloc_tag_t tag = (alloc_tag_t)(*(uint32_t *)(header + 8));
 
-    if (tag == ALLOC_TAG_PARSER) {
+    if (0 && tag == ALLOC_TAG_PARSER) {
         thread_t *curr_t = sched_current_thread();
-        console_write("[DEBUG_FREE_PARSER] thread=");
+//        console_write("[DEBUG_FREE_PARSER] thread=");
         if (curr_t) {
             console_write(curr_t->name);
         } else {

@@ -1,36 +1,76 @@
-let tasks = [
-    {"id": 0, "name": "idle", "state": 2, "cpu": 0},
-    {"id": 1, "name": "runtime_manager", "state": 1, "cpu": 0}
-]
+# Runtime Manager (PID 1) — Production Specification
+# Manages system services, dependency graphs, and self-healing.
 
-let i = 0
-let t_count = len(tasks)
+import os
+import ipc
+import vfs
+import log
 
-while i < t_count:
-    let t = tasks[i]
-    let id = str(t["id"])
-    while len(id) < 3: 
-        id = " " + id
-    
-    let name = t["name"]
-    while len(name) < 16: name = name + " "
-    
-    let state_val = t["state"]
-    let state = "UNKNOWN"
-    if state_val == 0: state = "UNUSED  "
-    elif state_val == 1: state = "READY   "
-    elif state_val == 2: state = "RUNNING "
-    elif state_val == 3: state = "SLEEPING"
-    elif state_val == 4: state = "BLOCKED "
-    elif state_val == 5: state = "EXITED  "
-    
-    let cpu = str(t["cpu"])
-    while len(cpu) < 3: cpu = " " + cpu
-    
-    print "| " + id + " | " + name + " | " + state + " | " + cpu + " |"
-    i = i + 1
+# Service definition structure:
+# { 
+#   "name": str,
+#   "exec": str,
+#   "deps": list[str],
+#   "status": str ("pending", "running", "failed"),
+#   "pid": int
+# }
 
-print "DONE"
+let registry = {}
 
-# Spawn interactive userspace shell (Stage 7)
-os_spawn_task("shell", "lib/sagelang/sage_shell_combined.sage")
+proc register_service(name, exec_path, dependencies):
+    registry[name] = {
+        "name": name,
+        "exec": exec_path,
+        "deps": dependencies,
+        "status": "pending",
+        "pid": 0
+    }
+    log.info("Registered service: " + name)
+
+proc start_service(name):
+    if registry[name]["status"] == "running":
+        return
+
+    # Check dependencies
+    for dep in registry[name]["deps"]:
+        if registry[dep]["status"] != "running":
+            log.warn("Dependency " + dep + " not ready for " + name)
+            return
+
+    log.info("Launching service: " + name)
+    let pid = os_spawn_task(name, registry[name]["exec"])
+    if pid > 0:
+        registry[name]["pid"] = pid
+        registry[name]["status"] = "running"
+    else:
+        log.error("Failed to start service: " + name)
+        registry[name]["status"] = "failed"
+
+proc monitor_loop():
+    log.info("Entering service monitoring loop...")
+    while true:
+        let names = dict_keys(registry)
+        for name in names:
+            let service = registry[name]
+            if service["status"] == "pending":
+                start_service(name)
+            elif service["status"] == "running":
+                # Check heartbeat/process existence
+                if not os.process_exists(service["pid"]):
+                    log.error("Service " + name + " died! Attempting restart.")
+                    service["status"] = "pending"
+
+        # Co-operative yield to allow other services to run
+        timer_poll()
+
+# Main Bootstrapping
+log.info("Initializing Service Registry...")
+
+# Critical Base Services
+register_service("dev.manager", "/etc/sagelang/device.sage", [])
+register_service("vfs.root", "/lib/vfs_bridge.bc", ["dev.manager"])
+
+# System Services
+register_service("shell", "/lib/sage_shell.bc", ["vfs.root", "dev.manager"])
+
+monitor_loop()

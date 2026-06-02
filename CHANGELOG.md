@@ -4,6 +4,21 @@ All notable changes to SageOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.0] — 2026-06-02
+
+### Added
+- **Transparent Execution**: Refactored kernel bridge to automatically detect and execute both SGVM bytecode and Sage source files from disk.
+- **Service Supervision**: Implemented `os_process_exists` and `os_timer_poll` in the AST interpreter to support full PID 1 supervision capabilities.
+- **Supervisor Logging**: Enabled console mirroring for `log.*` calls in the System Supervisor for better boot diagnostics.
+
+### Changed
+- **Service Paths**: Updated `runtime_manager.sage` to use canonical rootfs paths (`/lib` for bytecode, `/etc/sagelang` for source).
+- **Log Hygiene**: Silenced verbose GIL and allocator tracing to clean up system boot output.
+
+### Fixed
+- **Supervisor Syntax**: Resolved reserved keyword conflicts and unsupported loop unpacking in `runtime_manager.sage`.
+- **Task Labeling**: Corrected `os_spawn_task` API usage to ensure proper thread naming in the scheduler.
+
 ## [0.7.8] — 2026-06-01
 
 ### Added

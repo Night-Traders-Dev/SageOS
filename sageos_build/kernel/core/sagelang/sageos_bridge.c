@@ -31,6 +31,7 @@
 #include "metal_vm.h"
 #include "ast.h"
 #include "gc.h"
+#include "sage_shell_entry.h"
 #include <string.h>
 #include <stdio.h>
 
@@ -204,7 +205,7 @@ void sage_gil_acquire(void) {
         sched_yield();
     }
     g_gil_owner = sched_current_thread();
-    console_write("\n[gil acquired]\n");
+    // console_write("\n[gil acquired]\n");
 }
 
 void sage_gil_release(void) {
@@ -284,20 +285,24 @@ int sage_execute_file(const char* path) {
     VfsStat st;
     int err = vfs_stat(path, &st);
     if (err != VFS_OK) {
+        /*
         char err_buf[64];
         extern int sprintf(char* str, const char* format, ...);
         sprintf(err_buf, " (vfs_stat failed: %d)\n", err);
         console_write(err_buf);
+        */
         return -1;
     }
     if (st.type != VFS_FILE) {
-        console_write(" (not a file)\n");
+        // console_write(" (not a file)\n");
         return -1;
     }
+    /*
     char sz_buf[64];
     extern int sprintf(char* str, const char* format, ...);
     sprintf(sz_buf, " (size: %d bytes)\n", (int)st.size);
     console_write(sz_buf);
+    */
 
     char* source = (char*)malloc((size_t)st.size + 1);
     if (!source) {
@@ -308,10 +313,28 @@ int sage_execute_file(const char* path) {
     int read_bytes = vfs_read(path, 0, source, (size_t)st.size);
     source[st.size] = 0;
     
+    /*
     sprintf(sz_buf, " (read: %d bytes)\n", read_bytes);
     console_write(sz_buf);
+    */
     
-    sage_execute_source(source, path);
+    if (read_bytes >= 4 && source[0] == 'S' && source[1] == 'G' && source[2] == 'V' && source[3] == 'M') {
+        // Run as bytecode via MetalVM
+        MetalVM vm;
+        metal_vm_init(&vm);
+        vm.write_char = bridge_write_char;
+        vm.read_char = bridge_read_char;
+        register_natives(&vm);
+        if (metal_vm_load_binary(&vm, (const uint8_t*)source, (int)read_bytes)) {
+            metal_vm_run(&vm);
+        } else {
+            console_write("\nsage: error loading bytecode artifact from disk: ");
+            console_write(path);
+            console_write("\n");
+        }
+    } else {
+        sage_execute_source(source, path);
+    }
     
     free(source);
     return 0;
@@ -328,19 +351,21 @@ void sage_execute(const char* mod) {
     // Heuristic to decide if this is a file path or direct code
     bool is_path = (mod[0] == '/' || mod[0] == '.' || strstr(mod, ".sage") != NULL);
     
+    /*
     console_write("\nsage: executing ");
     if (mod) console_write(mod);
+    */
 
     if (is_path) {
         if (sage_execute_file(mod) == 0) {
-            console_write(" (ok)\n");
+            // console_write(" (ok)\n");
             return;
         }
-        console_write(" (file not found or error)\n");
+        // console_write(" (file not found or error)\n");
         return; // DO NOT fall through if it was clearly meant to be a path
     }
 
-    console_write(" (direct code)\n");
+    // console_write(" (direct code)\n");
     sage_execute_source(mod, "direct_code");
 }
 
@@ -373,6 +398,13 @@ static int key_event_code(const KeyEvent *ev) {
 }
 
 // --- OS Natives ---
+
+static Value n_os_timer_poll(int argCount, Value* args) {
+    (void)argCount; (void)args;
+    extern void timer_poll(void);
+    timer_poll();
+    return val_nil();
+}
 
 static Value n_os_version(int argCount, Value* args) {
     (void)argCount; (void)args;
@@ -583,26 +615,52 @@ static Value n_os_console_clear(int argCount, Value* args) {
 
 static Value n_os_dmesg_log(int argCount, Value* args) {
     if (argCount >= 1 && IS_STRING(args[0])) {
-        dmesg_log(AS_STRING(args[0]));
+        const char *msg = AS_STRING(args[0]);
+        dmesg_log(msg);
+        console_write("[log] ");
+        console_write(msg);
+        console_write("\n");
     }
     return val_nil();
 }
 
 static void sage_task_entry(void *arg) {
     char *script_path = (char *)arg;
-    extern void sage_execute(const char *path);
     
-    ThreadState *ts = (ThreadState*)calloc(1, sizeof(ThreadState));
-    if (ts) {
-        ts->gas_limit = -1;
-        gc_register_thread(ts);
-    }
-    
-    sage_execute(script_path);
-    
-    if (ts) {
-        gc_unregister_thread(ts);
-        free(ts);
+    // Check if this is bytecode or source
+    uint64_t sz = 0;
+    extern const char* vfs_get_embedded_data(const char* path, uint64_t* out_size);
+    const char *data = vfs_get_embedded_data(script_path, &sz);
+
+    if (data && sz >= 4 && data[0] == 'S' && data[1] == 'G' && data[2] == 'V' && data[3] == 'M') {
+        // Run as bytecode via MetalVM
+        MetalVM vm;
+        metal_vm_init(&vm);
+        vm.write_char = bridge_write_char;
+        vm.read_char = bridge_read_char;
+        register_natives(&vm);
+        if (metal_vm_load_binary(&vm, (const uint8_t*)data, (int)sz)) {
+            metal_vm_run(&vm);
+        } else {
+            console_write("\nsage: error loading bytecode artifact: ");
+            console_write(script_path);
+            console_write("\n");
+        }
+    } else {
+        // Run as source via AST interpreter
+        extern void sage_execute(const char *path);
+        ThreadState *ts = (ThreadState*)calloc(1, sizeof(ThreadState));
+        if (ts) {
+            ts->gas_limit = -1;
+            gc_register_thread(ts);
+        }
+        
+        sage_execute(script_path);
+        
+        if (ts) {
+            gc_unregister_thread(ts);
+            free(ts);
+        }
     }
     
     free(script_path);
@@ -617,11 +675,13 @@ static Value n_os_spawn_task(int argCount, Value* args) {
     const char *name = AS_STRING(args[0]);
     const char *script_path = AS_STRING(args[1]);
 
+    /*
     console_write("[TRACE] os_spawn_task: name=");
     console_write(name);
     console_write(" path=");
     console_write(script_path);
     console_write("\n");
+    */
 
     char *path_copy = malloc(strlen(script_path) + 1);
     if (!path_copy) return val_number(-2);
@@ -678,6 +738,18 @@ static Value n_os_ram_used_mb(int argCount, Value* args) {
 static Value n_os_ram_total_mb(int argCount, Value* args) {
     (void)argCount; (void)args;
     return val_number((double)(ram_total_bytes()/1024/1024));
+}
+
+static Value n_os_process_exists(int argCount, Value* args) {
+    if (argCount < 1 || !IS_NUMBER(args[0])) return val_bool(0);
+    uint32_t tid = (uint32_t)AS_NUMBER(args[0]);
+    char name[32];
+    thread_state_t state;
+    uint32_t cpu_id;
+    if (sched_get_thread_info(tid, name, &state, &cpu_id)) {
+        return val_bool(state != THREAD_STATE_TERMINATED && state != THREAD_STATE_UNUSED);
+    }
+    return val_bool(0);
 }
 
 static Value n_os_status_refresh(int argCount, Value* args) {
@@ -784,7 +856,10 @@ void register_sageos_natives(ModuleCache* cache) {
     env_define(env, "os_dmesg_log", 12, val_native(n_os_dmesg_log));
     env_define(env, "dmesg_log", 9, val_native(n_os_dmesg_log));
     env_define(env, "os_version_string", 17, val_native(n_os_version));
+    env_define(env, "os_timer_poll", 13, val_native(n_os_timer_poll));
+    env_define(env, "timer_poll", 10, val_native(n_os_timer_poll));
     env_define(env, "os_spawn_task", 13, val_native(n_os_spawn_task));
+    env_define(env, "os_process_exists", 17, val_native(n_os_process_exists));
     env_define(env, "os_set_color", 12, val_native(n_os_set_color));
     env_define(env, "status_refresh", 14, val_native(n_os_status_refresh));
     env_define(env, "os_status_refresh", 17, val_native(n_os_status_refresh));
@@ -799,13 +874,24 @@ void register_sageos_natives(ModuleCache* cache) {
     Module* os = create_native_module(cache, "os");
     env_define(os->env, "write_str", 9, val_native(n_os_write_str));
     env_define(os->env, "gc_collect", 10, val_native(n_os_gc_collect));
+    env_define(os->env, "timer_poll", 10, val_native(n_os_timer_poll));
     env_define(os->env, "num_to_str", 10, val_native(n_os_num_to_str));
     env_define(os->env, "dmesg_log", 9, val_native(n_os_dmesg_log));
     env_define(os->env, "spawn_task", 10, val_native(n_os_spawn_task));
+    env_define(os->env, "process_exists", 14, val_native(n_os_process_exists));
 
     // Register 'ipc' module
     Module* ipc = create_native_module(cache, "ipc");
     env_define(ipc->env, "endpoint_create", 15, val_native(n_ipc_endpoint_create));
     env_define(ipc->env, "service_register", 16, val_native(n_ipc_service_register));
     env_define(ipc->env, "service_lookup", 14, val_native(n_ipc_service_lookup));
+
+    // Register 'log' module (one-arg versions for dmesg)
+    Module* log = create_native_module(cache, "log");
+    env_define(log->env, "info",  4, val_native(n_os_dmesg_log));
+    env_define(log->env, "warn",  4, val_native(n_os_dmesg_log));
+    env_define(log->env, "error", 5, val_native(n_os_dmesg_log));
+
+    // Register 'vfs' module
+    create_native_module(cache, "vfs");
 }

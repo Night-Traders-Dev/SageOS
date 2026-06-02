@@ -60,7 +60,7 @@ static uint32_t g_input_start_col = 0;
 /* -----------------------------------------------------------------------
  * I/O bridge
  * --------------------------------------------------------------------- */
-static void bridge_write_char(char c) { console_putc(c); }
+void bridge_write_char(char c) { console_putc(c); }
 
 static int key_event_code(const KeyEvent *ev) {
     if (!ev || !ev->pressed) return -1;
@@ -82,7 +82,7 @@ static int key_event_code(const KeyEvent *ev) {
     return -1;
 }
 
-static int bridge_read_char(void) {
+int bridge_read_char(void) {
     KeyEvent ev;
     for (;;) {
         if (!keyboard_wait_event(&ev)) return -1;
@@ -926,7 +926,7 @@ static MetalValue n_os_get_terminal_size(MetalVM *vm, MetalValue *a, int c) {
 /* -----------------------------------------------------------------------
  * Register all natives
  * --------------------------------------------------------------------- */
-static void register_natives(MetalVM *vm) {
+void register_natives(MetalVM *vm) {
 #define REG(name, fn) metal_vm_register_native(vm, name, fn)
     /* Output */
     REG("os_write_char",    n_write_char);
