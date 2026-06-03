@@ -65,6 +65,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
+if [[ -f "$SAGE_BIN" ]]; then
+    rm sageos_build/sage_lang/core/sage
+fi
 # Ensure sage is built
 if [[ ! -f "$SAGE_BIN" ]]; then
     log_info "Building SageLang..."

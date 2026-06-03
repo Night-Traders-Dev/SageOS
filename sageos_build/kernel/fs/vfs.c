@@ -542,17 +542,28 @@ static VfsMount *resolve_mount(const char *norm_path, const char **rel_out) {
 static int g_in_vfs_vm = 0;
 
 int vfs_stat(const char *path, VfsStat *out) {
+    console_write("\nvfs_stat: ");
+    console_write(path);
+    
     char norm[VFS_MAX_PATH];
     vfs_normalize_path(path, norm, VFS_MAX_PATH);
+    console_write("\nvfs_stat: norm=");
+    console_write(norm);
 
     const char *rel = NULL;
     VfsMount *m = resolve_mount(norm, &rel);
     if (m && m->backend && m->backend->stat) {
+        console_write("\nvfs_stat: using backend ");
+        console_write(m->backend->name);
         int res = m->backend->stat(m->backend, rel, out);
+        console_write("\nvfs_stat: backend returned ");
+        console_u32((uint32_t)res);
         if (res == VFS_OK) return VFS_OK;
     }
 
+    /*
     if (g_vfs_vm_inited && !g_in_vfs_vm) {
+        console_write("\nvfs_stat: trying VM");
         g_in_vfs_vm = 1;
         int saved_string = g_vfs_vm.string_used;
         int saved_heap = g_vfs_vm.heap_used;
@@ -560,12 +571,12 @@ int vfs_stat(const char *path, VfsStat *out) {
         int saved_dicts = g_vfs_vm.dict_count;
 
         MetalValue arg = mv_str(&g_vfs_vm, path, strlen(path));
-        MetalValue res = metal_vm_call(&g_vfs_vm, "vfs_stat", &arg, 1);
+        MetalValue res_mv = metal_vm_call(&g_vfs_vm, "vfs_stat", &arg, 1);
         int ret_val = -1;
-        if (res.type == MV_DICT) {
-            MetalValue v_name = metal_dict_get(&g_vfs_vm, res.as.dict_idx, metal_string_intern(&g_vfs_vm, "name", 4));
-            MetalValue v_type = metal_dict_get(&g_vfs_vm, res.as.dict_idx, metal_string_intern(&g_vfs_vm, "type", 4));
-            MetalValue v_size = metal_dict_get(&g_vfs_vm, res.as.dict_idx, metal_string_intern(&g_vfs_vm, "size", 4));
+        if (res_mv.type == MV_DICT) {
+            MetalValue v_name = metal_dict_get(&g_vfs_vm, res_mv.as.dict_idx, metal_string_intern(&g_vfs_vm, "name", 4));
+            MetalValue v_type = metal_dict_get(&g_vfs_vm, res_mv.as.dict_idx, metal_string_intern(&g_vfs_vm, "type", 4));
+            MetalValue v_size = metal_dict_get(&g_vfs_vm, res_mv.as.dict_idx, metal_string_intern(&g_vfs_vm, "size", 4));
             
             if (v_name.type == MV_STR) {
                 const char* name = metal_string_get(&g_vfs_vm, v_name.as.str_idx);
@@ -590,10 +601,18 @@ int vfs_stat(const char *path, VfsStat *out) {
         g_vfs_vm.dict_count = saved_dicts;
         g_in_vfs_vm = 0;
 
-        if (ret_val == VFS_OK) return VFS_OK;
+        if (ret_val == VFS_OK) {
+            console_write("\nvfs_stat: VM returned OK");
+            return VFS_OK;
+        }
+        console_write("\nvfs_stat: VM returned error");
     }
+    */
 
-    if (!m || !m->backend || !m->backend->stat) return VFS_ENOENT;
+    if (!m || !m->backend || !m->backend->stat) {
+        console_write("\nvfs_stat: no backend/stat found");
+        return VFS_ENOENT;
+    }
 
     return m->backend->stat(m->backend, rel, out);
 }

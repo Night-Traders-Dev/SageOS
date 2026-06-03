@@ -82,6 +82,10 @@ static void sched_trampoline(void) {
     void (*entry)(void *) = t->entry;
     void *arg = t->arg;
     
+    console_write("\n[SCHED] Trampoline for ");
+    console_write(t->name);
+    console_write("...");
+    
     /* Release scheduler lock if we had one (we don't yet) */
     
     if (entry) {

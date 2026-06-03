@@ -42,176 +42,39 @@ extern void timer_irq(void);
 extern SageOSBootInfo* console_boot_info(void);
 extern uint32_t console_get_fg(void);
 
-// --- Sage Interpreter Integration ---
-
-void sage_gil_acquire(void);
-void sage_gil_release(void);
-
-static Env* g_sage_env = NULL;
-static ModuleCache* g_sage_cache = NULL;
-
-void register_sageos_natives(ModuleCache* cache);
-
-/* --- IPC Native Wrappers (AST Interpreter) --- */
-
-static Value n_ipc_endpoint_create(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    uint32_t send_cap, recv_cap;
-    extern long sys_ipc_endpoint_create(uintptr_t out_send, uintptr_t out_recv);
-    if (sys_ipc_endpoint_create((uintptr_t)&send_cap, (uintptr_t)&recv_cap) < 0) return val_nil();
-    
-    Value res = val_array();
-    array_push(&res, val_number((double)send_cap));
-    array_push(&res, val_number((double)recv_cap));
-    return res;
-}
-
-static Value n_ipc_service_register(int argCount, Value* args) {
-    if (argCount < 2 || !IS_STRING(args[0]) || !IS_NUMBER(args[1])) return val_number(-1.0);
-    const char* name = AS_STRING(args[0]);
-    uint32_t cap_handle = (uint32_t)AS_NUMBER(args[1]);
-    extern long sys_ipc_ns_register(const char *name, uint32_t cap_handle);
-    return val_number((double)sys_ipc_ns_register(name, cap_handle));
-}
-
-static Value n_ipc_service_lookup(int argCount, Value* args) {
-    if (argCount < 1 || !IS_STRING(args[0])) return val_nil();
-    const char* name = AS_STRING(args[0]);
-    uint32_t cap_handle;
-    extern long sys_ipc_ns_lookup(const char *name, uint32_t *out_cap_handle);
-    if (sys_ipc_ns_lookup(name, (uint32_t *)&cap_handle) < 0) return val_nil();
-    return val_number((double)cap_handle);
-}
-
-// Stubs for missing interpreter dependencies
-void bytecode_program_free(void* p) { (void)p; }
-void vm_mark_roots(void* vm) { (void)vm; }
-void* parse_program(const char* s) { (void)s; return NULL; }
-void bytecode_program_init(void* p) { (void)p; }
-void bytecode_compile_program(void* p, void* ast) { (void)p; (void)ast; }
-void bytecode_program_read_file(void* p, const char* path) { (void)p; (void)path; }
-void bytecode_program_write_file(void* p, const char* path) { (void)p; (void)path; }
-void vm_execute_program(void* vm, void* p) { (void)vm; (void)p; }
-void aot_init(void* a) { (void)a; }
-void aot_free(void* a) { (void)a; }
-void aot_set_var_type(void* a, const char* n, int t) { (void)a; (void)n; (void)t; }
-void aot_compile_program(void* a, void* p) { (void)a; (void)p; }
-void aot_compile_to_binary(void* a, const char* path) { (void)a; (void)path; }
-void run_passes(void* p) { (void)p; }
-
-// Atomic stubs for ARM64
-#ifdef __aarch64__
-void __aarch64_swp8_acq_rel(void) {}
-void __aarch64_cas8_acq_rel(void) {}
-void __aarch64_ldadd8_acq_rel(void) {}
-#endif
-
-#include "version.h"
-
-void sage_repl_init(void) {
-    sage_gil_acquire();
-    if (!g_sage_env) {
-        extern int g_repl_mode;
-        g_repl_mode = 1;
-        gc_init();
-        static ThreadState main_ts = {0};
-        gc_register_thread(&main_ts);
-
-        g_sage_cache = create_module_cache();
-        add_search_path(g_sage_cache, "/lib/sagelang");
-        add_search_path(g_sage_cache, "/etc/sagelang");
-        extern ModuleCache* global_module_cache;
-        global_module_cache = g_sage_cache;
-
-        g_sage_env = env_create(NULL);
-        g_global_env = g_sage_env;
-        extern void init_stdlib(Env* env);
-        extern void register_stdlib_modules(ModuleCache* cache);
-        init_stdlib(g_sage_env);
-        register_stdlib_modules(g_sage_cache);
-        register_sageos_natives(g_sage_cache);
-
-        // Define ABI version constants for runtime/kernel handshake
-        env_define_const(g_sage_env, "SAGE_ABI_MAJOR", 14, val_number(SAGE_ABI_MAJOR));
-        env_define_const(g_sage_env, "SAGE_ABI_MINOR", 14, val_number(SAGE_ABI_MINOR));
-    }
-    sage_gil_release();
-}
-
-void sage_runtime_init(void) {
-    dmesg_log("RUNTIME: Initializing SGVM Core...");
-    sage_repl_init();
-    
-    // In the future, this will also:
-    // - initialize runtime object allocator
-    // - initialize IPC namespace
-    // - initialize service registry
-    // - initialize capability manager
-    
-    dmesg_log("RUNTIME: SGVM Runtime Bring-up complete.");
-}
-
-extern void sage_execute(const char* mod);
-
-static void sage_supervisor_thread(void *arg) {
-    (void)arg;
-    
-    ThreadState *ts = (ThreadState*)calloc(1, sizeof(ThreadState));
-    if (!ts) {
-        console_write("\n[SUPERVISOR] Failed to allocate thread state!\n");
-        return;
-    }
-    ts->gas_limit = -1; // unlimited
-    gc_register_thread(ts);
-
-    dmesg_log("RUNTIME: Launching System Supervisor (/etc/sagelang/runtime_manager.sage)...");
-    sage_execute("/etc/sagelang/runtime_manager.sage");
-    
-    extern void sageos_set_boot_stage(int stage);
-    sageos_set_boot_stage(7); // STAGE_7_USERSPACE_SESSION
-    
-    gc_unregister_thread(ts);
-    free(ts);
-
-    extern void sys_exit(int code);
-    sys_exit(0);
-}
-
-void sage_execute_init(void) {
-    thread_t *t = sched_create_thread("supervisor", sage_supervisor_thread, NULL, THREAD_PRIORITY_NORMAL);
-    if (t) {
-        dmesg_log("RUNTIME: Successfully spawned System Supervisor (PID 1) in background.");
-    } else {
-        dmesg_log("RUNTIME: FAILED to spawn System Supervisor!");
-    }
-}
-
-void sage_import_module(void* vm, const char* name) {
-    (void)vm;
-    sage_repl_init();
-}
-
-static Stmt* sage_parse_string(const char* source) {
-    init_lexer(source, "/system/init.sage");
-    parser_init();
-    return parse();
-}
-
 // --- Global Interpreter Lock (GIL) ---
 static thread_t *g_gil_owner = NULL;
 
 void sage_gil_acquire(void) {
-    while (g_gil_owner != NULL && g_gil_owner != sched_current_thread()) {
+    thread_t *curr = sched_current_thread();
+    while (g_gil_owner != NULL && g_gil_owner != curr) {
         sched_yield();
     }
-    g_gil_owner = sched_current_thread();
-    // console_write("\n[gil acquired]\n");
+    g_gil_owner = curr;
 }
 
 void sage_gil_release(void) {
     if (g_gil_owner == sched_current_thread()) {
         g_gil_owner = NULL;
     }
+}
+
+static Env* g_sage_env = NULL;
+static ModuleCache* g_sage_cache = NULL;
+
+void register_sageos_natives(ModuleCache* cache);
+
+void sage_repl_init(void) {
+    sage_gil_acquire();
+    if (!g_sage_env) {
+        extern int g_repl_mode;
+        g_repl_mode = 1;
+        g_sage_cache = create_module_cache();
+        g_sage_env = env_create(NULL);
+        register_sageos_natives(g_sage_cache);
+        init_stdlib(g_sage_env);
+    }
+    sage_gil_release();
 }
 
 void sage_execute_source(const char* source, const char* name) {
@@ -257,409 +120,184 @@ void sage_execute_source(const char* source, const char* name) {
         }
 
     } else {
-
         console_write("\n[RUNTIME MANAGER EXCEPTION CAUGHT!]\n");
-
-        /*
-         * IMPORTANT:
-         * Any partially allocated AST/interpreter state
-         * from the interrupted execution may now leak.
-         *
-         * Parser/interpreter globals may also now
-         * be inconsistent.
-         */
     }
-
-    /*
-     * These do not currently exist in your snippet,
-     * but you likely need them architecturally.
-     */
-    // parser_cleanup();
-    // lexer_cleanup();
 
     sage_gil_release();
 }
 
-
-int sage_execute_file(const char* path) {
-    VfsStat st;
-    int err = vfs_stat(path, &st);
-    if (err != VFS_OK) {
-        /*
-        char err_buf[64];
-        extern int sprintf(char* str, const char* format, ...);
-        sprintf(err_buf, " (vfs_stat failed: %d)\n", err);
-        console_write(err_buf);
-        */
-        return -1;
-    }
-    if (st.type != VFS_FILE) {
-        // console_write(" (not a file)\n");
-        return -1;
-    }
-    /*
-    char sz_buf[64];
-    extern int sprintf(char* str, const char* format, ...);
-    sprintf(sz_buf, " (size: %d bytes)\n", (int)st.size);
-    console_write(sz_buf);
-    */
-
-    char* source = (char*)malloc((size_t)st.size + 1);
-    if (!source) {
-        console_write("sage: out of memory reading file\n");
-        return -1;
-    }
+__attribute__((noinline)) void sage_execute(const char* mod) {
+    console_write("\nsage_execute entry: ");
+    if (mod) console_write(mod);
+    else console_write("NULL");
     
-    int read_bytes = vfs_read(path, 0, source, (size_t)st.size);
-    source[st.size] = 0;
-    
-    /*
-    sprintf(sz_buf, " (read: %d bytes)\n", read_bytes);
-    console_write(sz_buf);
-    */
-    
-    if (read_bytes >= 4 && source[0] == 'S' && source[1] == 'G' && source[2] == 'V' && source[3] == 'M') {
-        // Run as bytecode via MetalVM
-        MetalVM vm;
-        metal_vm_init(&vm);
-        vm.write_char = bridge_write_char;
-        vm.read_char = bridge_read_char;
-        register_natives(&vm);
-        if (metal_vm_load_binary(&vm, (const uint8_t*)source, (int)read_bytes)) {
-            metal_vm_run(&vm);
-        } else {
-            console_write("\nsage: error loading bytecode artifact from disk: ");
-            console_write(path);
-            console_write("\n");
-        }
-    } else {
-        sage_execute_source(source, path);
-    }
-    
-    free(source);
-    return 0;
-}
-
-void sage_execute(const char* mod) {
     sage_repl_init();
+    console_write("\nsage_execute: after sage_repl_init");
     
     if (mod == NULL || *mod == 0) {
-        // REPL mode (not fully implemented here as a block, usually handled via sage_repl_step)
+        console_write("\nsage_execute: empty mod, returning");
         return;
     }
     
     // Heuristic to decide if this is a file path or direct code
-    bool is_path = (mod[0] == '/' || mod[0] == '.' || strstr(mod, ".sage") != NULL);
+    bool is_path = (mod[0] == '/');
+    console_write("\nsage_execute: is_path=");
+    console_write(is_path ? "true" : "false");
     
-    /*
-    console_write("\nsage: executing ");
-    if (mod) console_write(mod);
-    */
-
     if (is_path) {
-        if (sage_execute_file(mod) == 0) {
-            // console_write(" (ok)\n");
+        console_write("\nsage_execute: handling path directly");
+        VfsStat *st = (VfsStat*)malloc(sizeof(VfsStat));
+        if (!st) return;
+        int err = vfs_stat(mod, st);
+        if (err != VFS_OK) {
+            console_write("\nsage: vfs_stat failed for ");
+            console_write(mod);
+            free(st);
             return;
         }
-        // console_write(" (file not found or error)\n");
-        return; // DO NOT fall through if it was clearly meant to be a path
+        
+        console_write("\nsage_execute: vfs_stat SUCCESS. size=");
+        console_u32((uint32_t)st->size);
+
+        char* source = (char*)malloc((size_t)st->size + 1);
+        if (!source) {
+            console_write("\nsage: out of memory reading ");
+            console_write(mod);
+            free(st);
+            return;
+        }
+
+        int read_bytes = vfs_read(mod, 0, source, (size_t)st->size);
+        source[st->size] = 0;
+        console_write("\nsage_execute: vfs_read returned ");
+        console_u32((uint32_t)read_bytes);
+
+        if (read_bytes >= 4 && source[0] == 'S' && source[1] == 'G' && source[2] == 'V' && source[3] == 'M') {
+            console_write("\nsage: executing bytecode artifact: ");
+            console_write(mod);
+            // Run as bytecode via MetalVM
+            MetalVM *vm = (MetalVM*)malloc(sizeof(MetalVM));
+            if (vm) {
+                metal_vm_init(vm);
+                vm->write_char = bridge_write_char;
+                vm->read_char = bridge_read_char;
+                register_natives(vm);
+                if (metal_vm_load_binary(vm, (const uint8_t*)source, (int)read_bytes)) {
+                    metal_vm_run(vm);
+                } else {
+                    console_write("\nsage: error loading bytecode artifact from disk: ");
+                    console_write(mod);
+                    console_write("\n");
+                }
+                free(vm);
+            }
+        } else {
+            console_write("\nsage: interpreting source: ");
+            console_write(mod);
+            sage_execute_source(source, mod);
+        }
+
+        free(source);
+        free(st);
+        return;
     }
 
-    // console_write(" (direct code)\n");
+    console_write("\nsage_execute: calling sage_execute_source");
     sage_execute_source(mod, "direct_code");
 }
 
-// --- Input Helpers ---
-
-#define SAGE_KEY_UP      1001
-#define SAGE_KEY_DOWN    1002
-#define SAGE_KEY_RIGHT   1003
-#define SAGE_KEY_LEFT    1004
-#define SAGE_KEY_HOME    1005
-#define SAGE_KEY_END     1006
-#define SAGE_KEY_DELETE  1008
-
-static int key_event_code(const KeyEvent *ev) {
-    if (!ev || !ev->pressed) return -1;
-    if (ev->extended) {
-        switch (ev->scancode) {
-        case 0x48: return SAGE_KEY_UP;
-        case 0x50: return SAGE_KEY_DOWN;
-        case 0x4D: return SAGE_KEY_RIGHT;
-        case 0x4B: return SAGE_KEY_LEFT;
-        case 0x47: return SAGE_KEY_HOME;
-        case 0x4F: return SAGE_KEY_END;
-        case 0x53: return SAGE_KEY_DELETE;
-        default: return -1;
-        }
+static void sage_supervisor_thread(void *arg) {
+    (void)arg;
+    console_write("\n[SUPERVISOR] Starting supervisor thread...");
+    
+    ThreadState *ts = (ThreadState*)calloc(1, sizeof(ThreadState));
+    if (!ts) {
+        console_write("\n[SUPERVISOR] Failed to allocate thread state!\n");
+        return;
     }
-    if (ev->ascii) return (int)(unsigned char)ev->ascii;
-    return -1;
+    ts->gas_limit = -1; // unlimited
+    gc_register_thread(ts);
+
+    console_write("\n[SUPERVISOR] Launching /etc/sagelang/runtime_manager.sage...");
+    // dmesg_log("RUNTIME: Launching System Supervisor (/etc/sagelang/runtime_manager.sage)...");
+    console_write("\n[SUPERVISOR] About to call sage_execute...");
+    sage_execute("/etc/sagelang/runtime_manager.sage");
+    
+    console_write("\n[SUPERVISOR] Supervisor script execution finished.");
+    extern void sageos_set_boot_stage(int stage);
+    sageos_set_boot_stage(7); // STAGE_7_USERSPACE_SESSION
+    
+    gc_unregister_thread(ts);
+    free(ts);
+
+    console_write("\n[SUPERVISOR] Calling sys_exit(0)...");
+    extern void sys_exit(int code);
+    sys_exit(0);
 }
 
-// --- OS Natives ---
-
-static Value n_os_timer_poll(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    extern void timer_poll(void);
-    timer_poll();
-    return val_nil();
+void sage_runtime_init(void) {
+    dmesg_log("RUNTIME: Initializing SGVM Core...");
+    sage_repl_init();
+    dmesg_log("RUNTIME: SGVM Runtime Bring-up complete.");
 }
 
-static Value n_os_version(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    return val_string(SAGEOS_VERSION);
+void sage_import_module(void* vm, const char* name) {
+    (void)vm;
+    (void)name;
+    sage_repl_init();
 }
 
-static Value n_os_gc_collect(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    gc_collect();
-    return val_nil();
-}
-
-static Value n_os_arena_reset(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    // VERY DANGEROUS - only call if you know what you're doing
-    sage_arena_reset();
-    return val_nil();
-}
-
-static Value n_os_write_char(int argCount, Value* args) {
-    if (argCount >= 1 && IS_NUMBER(args[0])) {
-        console_putc((char)AS_NUMBER(args[0]));
-    }
-    return val_nil();
-}
-
-static Value n_os_write_str(int argCount, Value* args) {
-    if (argCount >= 1 && IS_STRING(args[0])) {
-        console_write(AS_STRING(args[0]));
-    }
-    return val_nil();
-}
-
-static Value n_os_num_to_str(int argCount, Value* args) {
-    if (argCount < 1 || !IS_NUMBER(args[0])) return val_nil();
-    char buf[32];
-    double d = AS_NUMBER(args[0]);
-    if (d == (double)(long long)d) {
-        sage_snprintf(buf, sizeof(buf), "%lld", (long long)d);
+void sage_execute_init(void) {
+    thread_t *t = sched_create_thread("supervisor", sage_supervisor_thread, NULL, THREAD_PRIORITY_NORMAL);
+    if (t) {
+        dmesg_log("RUNTIME: Successfully spawned System Supervisor (PID 1) in background.");
     } else {
-        // Fallback to minimal fixed point or just assume integer for now if %g missing
-        // sage_libc_shim snprintf only supports %d/%lld
-        sage_snprintf(buf, sizeof(buf), "%lld", (long long)d);
+        dmesg_log("RUNTIME: FAILED to spawn System Supervisor!");
     }
-    return val_string(buf);
-}
-
-static Value n_os_read_char(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    KeyEvent ev;
-    for (;;) {
-        if (!keyboard_wait_event(&ev)) return val_number(-1.0);
-        int code = key_event_code(&ev);
-        if (code >= 0) return val_number((double)code);
-    }
-}
-
-static Value n_os_read_key(int argCount, Value* args) {
-    return n_os_read_char(argCount, args);
-}
-
-static Value n_os_poll_char(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    KeyEvent ev;
-    if (keyboard_poll_any_event(&ev) && ev.pressed && ev.ascii) {
-        return val_number((double)(unsigned char)ev.ascii);
-    }
-    return val_number(-1.0);
-}
-
-static Value n_os_poll_key(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    KeyEvent ev;
-    if (!keyboard_poll_any_event(&ev)) return val_number(-1.0);
-    return val_number((double)key_event_code(&ev));
-}
-
-static Value n_os_set_color_hex(int argCount, Value* args) {
-    if (argCount >= 1 && IS_NUMBER(args[0])) {
-        console_set_fg((uint32_t)AS_NUMBER(args[0]));
-    }
-    return val_nil();
-}
-
-static Value n_os_get_color(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    return val_number((double)console_get_fg());
-}
-
-static uint32_t g_input_start_row = 0;
-static uint32_t g_input_start_col = 0;
-
-static Value n_os_input_begin(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    console_get_cursor(&g_input_start_row, &g_input_start_col);
-    return val_nil();
-}
-
-static void serial_raw(const char *s) {
-    while (*s) serial_putc(*s++);
-}
-static void serial_dec(uint32_t v) {
-    char tmp[12]; int n = 0;
-    if (v == 0) { serial_putc('0'); return; }
-    while (v && n < (int)sizeof(tmp)) { tmp[n++] = (char)('0' + (v % 10)); v /= 10; }
-    while (n > 0) serial_putc(tmp[--n]);
-}
-
-static Value n_os_line_redraw(int argCount, Value* args) {
-    if (argCount < 4) return val_nil();
-    if (!IS_STRING(args[0]) || !IS_NUMBER(args[1]) || !IS_NUMBER(args[2]) || !IS_STRING(args[3])) return val_nil();
-    const char *line = AS_STRING(args[0]);
-    int pos = (int)AS_NUMBER(args[1]);
-    int erase_len = (int)AS_NUMBER(args[2]);
-    const char *hint = AS_STRING(args[3]);
-    
-    int line_len = strlen(line);
-    int hint_len = (hint && *hint && strncmp(hint, line, line_len) == 0) ? strlen(hint) : 0;
-    int visible_len = hint_len > line_len ? hint_len : line_len;
-    
-    int saved_echo = console_get_serial_echo();
-    console_set_serial_echo(0);
-    console_set_cursor(g_input_start_row, g_input_start_col);
-    console_write(line);
-    if (hint_len > line_len) {
-        uint32_t old = console_get_fg();
-        console_set_fg(0x606060);
-        console_write(hint + line_len);
-        console_set_fg(old);
-    }
-    if (erase_len > visible_len) {
-        for (int i = 0; i < erase_len - visible_len; i++) console_putc(' ');
-    }
-    uint32_t off = g_input_start_col + (uint32_t)pos;
-    console_set_cursor(g_input_start_row + off / console_cols(), off % console_cols());
-    console_set_serial_echo(saved_echo);
-    
-    // Serial redraw
-    serial_putc('\r');
-    serial_raw("\033[0K");
-    serial_raw("root@sageos:/# ");
-    serial_raw(line);
-    if (hint_len > line_len) { serial_raw("\033[90m"); serial_raw(hint + line_len); serial_raw("\033[0m"); }
-    serial_putc('\r');
-    serial_raw("\033[");
-    serial_dec((uint32_t)(15 + pos + 1)); // 15 is len of prompt
-    serial_putc('G');
-    
-    return val_nil();
-}
-
-static Value n_os_strlen(int argCount, Value* args) {
-    if (argCount < 1 || !IS_STRING(args[0])) return val_number(0);
-    return val_number((double)strlen(AS_STRING(args[0])));
-}
-
-static Value n_os_char_at(int argCount, Value* args) {
-    if (argCount < 2 || !IS_STRING(args[0])) return val_number(-1.0);
-    const char* s = AS_STRING(args[0]);
-    int idx = (int)AS_NUMBER(args[1]);
-    if (idx < 0 || idx >= (int)strlen(s)) return val_number(-1.0);
-    return val_number((double)(unsigned char)s[idx]);
-}
-
-static Value n_os_substr(int argCount, Value* args) {
-    if (argCount < 3 || !IS_STRING(args[0])) return val_string("");
-    const char* s = AS_STRING(args[0]);
-    int from = (int)AS_NUMBER(args[1]);
-    int to = (int)AS_NUMBER(args[2]);
-    int len = strlen(s);
-    if (from < 0) from = 0; if (to > len) to = len;
-    if (from >= to) return val_string("");
-    return val_string_len(s + from, to - from);
-}
-
-static Value n_os_chr(int argCount, Value* args) {
-    if (argCount < 1) return val_string("");
-    char buf[2]; buf[0] = (char)AS_NUMBER(args[0]); buf[1] = 0;
-    return val_string(buf);
-}
-
-static Value n_os_array_push(int argCount, Value* args) {
-    if (argCount < 2 || !IS_ARRAY(args[0])) return val_nil();
-    array_push(&args[0], args[1]);
-    return val_nil();
-}
-
-static Value n_os_shell_suggestion(int argCount, Value* args) {
-    if (argCount < 1 || !IS_STRING(args[0])) return val_string("");
-    return val_string(shell_suggestion(AS_STRING(args[0])));
-}
-
-static Value n_os_shell_completion_common(int argCount, Value* args) {
-    if (argCount < 1 || !IS_STRING(args[0])) return val_string("");
-    return val_string(shell_completion_common_prefix(AS_STRING(args[0])));
-}
-
-static Value n_os_shell_print_completions(int argCount, Value* args) {
-    if (argCount < 1 || !IS_STRING(args[0])) return val_nil();
-    shell_print_completions(AS_STRING(args[0]));
-    return val_nil();
-}
-
-static Value n_os_console_clear(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    console_clear(); return val_nil();
-}
-
-static Value n_os_dmesg_log(int argCount, Value* args) {
-    if (argCount >= 1 && IS_STRING(args[0])) {
-        const char *msg = AS_STRING(args[0]);
-        dmesg_log(msg);
-        console_write("[log] ");
-        console_write(msg);
-        console_write("\n");
-    }
-    return val_nil();
 }
 
 static void sage_task_entry(void *arg) {
     char *script_path = (char *)arg;
-    
-    // Check if this is bytecode or source
-    uint64_t sz = 0;
-    extern const char* vfs_get_embedded_data(const char* path, uint64_t* out_size);
-    const char *data = vfs_get_embedded_data(script_path, &sz);
+    if (!script_path) return;
 
-    if (data && sz >= 4 && data[0] == 'S' && data[1] == 'G' && data[2] == 'V' && data[3] == 'M') {
-        // Run as bytecode via MetalVM
-        MetalVM vm;
-        metal_vm_init(&vm);
-        vm.write_char = bridge_write_char;
-        vm.read_char = bridge_read_char;
-        register_natives(&vm);
-        if (metal_vm_load_binary(&vm, (const uint8_t*)data, (int)sz)) {
-            metal_vm_run(&vm);
+    /* Check if it's bytecode or source */
+    VfsStat st;
+    if (vfs_stat(script_path, &st) == VFS_OK) {
+        uint8_t *data = malloc((size_t)st.size);
+        if (data) {
+            vfs_read(script_path, 0, data, (size_t)st.size);
+        }
+        
+        if (data && st.size >= 4 && data[0] == 'S' && data[1] == 'G' && data[2] == 'V' && data[3] == 'M') {
+            // Run as bytecode via MetalVM
+            MetalVM vm;
+            metal_vm_init(&vm);
+            vm.write_char = bridge_write_char;
+            vm.read_char = bridge_read_char;
+            register_natives(&vm);
+            if (metal_vm_load_binary(&vm, (const uint8_t*)data, (int)st.size)) {
+                metal_vm_run(&vm);
+            } else {
+                console_write("\nsage: error loading bytecode artifact: ");
+                console_write(script_path);
+                console_write("\n");
+            }
+            free(data);
         } else {
-            console_write("\nsage: error loading bytecode artifact: ");
-            console_write(script_path);
-            console_write("\n");
-        }
-    } else {
-        // Run as source via AST interpreter
-        extern void sage_execute(const char *path);
-        ThreadState *ts = (ThreadState*)calloc(1, sizeof(ThreadState));
-        if (ts) {
-            ts->gas_limit = -1;
-            gc_register_thread(ts);
-        }
-        
-        sage_execute(script_path);
-        
-        if (ts) {
-            gc_unregister_thread(ts);
-            free(ts);
+            if (data) free(data);
+            // Run as source via AST interpreter
+            ThreadState *ts = (ThreadState*)calloc(1, sizeof(ThreadState));
+            if (ts) {
+                ts->gas_limit = -1;
+                gc_register_thread(ts);
+            }
+            
+            sage_execute(script_path);
+            
+            if (ts) {
+                gc_unregister_thread(ts);
+                free(ts);
+            }
         }
     }
     
@@ -668,20 +306,25 @@ static void sage_task_entry(void *arg) {
     sys_exit(0);
 }
 
+// --- OS Natives ---
+
+static Value n_os_timer_poll(int argCount, Value* args) {
+    (void)argCount; (void)args;
+    extern void timer_poll(void);
+    
+    sage_gil_release();
+    timer_poll();
+    sage_gil_acquire();
+    
+    return val_nil();
+}
+
 static Value n_os_spawn_task(int argCount, Value* args) {
     if (argCount < 2 || !IS_STRING(args[0]) || !IS_STRING(args[1])) {
         return val_number(-1);
     }
     const char *name = AS_STRING(args[0]);
     const char *script_path = AS_STRING(args[1]);
-
-    /*
-    console_write("[TRACE] os_spawn_task: name=");
-    console_write(name);
-    console_write(" path=");
-    console_write(script_path);
-    console_write("\n");
-    */
 
     char *path_copy = malloc(strlen(script_path) + 1);
     if (!path_copy) return val_number(-2);
@@ -708,190 +351,82 @@ static Value n_os_spawn_task(int argCount, Value* args) {
     return val_number(t->id);
 }
 
-static Value n_os_set_color(int argCount, Value* args) {
+static Value n_os_version(int argCount, Value* args) {
+    (void)argCount; (void)args;
+    return val_string(SAGEOS_VERSION);
+}
+
+static Value n_os_gc_collect(int argCount, Value* args) {
+    (void)argCount; (void)args;
+    gc_collect();
+    return val_nil();
+}
+
+static Value n_os_write_char(int argCount, Value* args) {
     if (argCount >= 1 && IS_NUMBER(args[0])) {
-        console_set_fg((uint32_t)AS_NUMBER(args[0]));
+        console_putc((char)AS_NUMBER(args[0]));
     }
     return val_nil();
 }
 
-extern int battery_percent(void);
-extern uint32_t timer_cpu_percent(void);
-extern uint64_t ram_used_bytes(void);
-extern uint64_t ram_total_bytes(void);
-
-static Value n_os_battery_percent(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    return val_number((double)battery_percent());
-}
-
-static Value n_os_cpu_percent(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    return val_number((double)timer_cpu_percent());
-}
-
-static Value n_os_ram_used_mb(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    return val_number((double)(ram_used_bytes()/1024/1024));
-}
-
-static Value n_os_ram_total_mb(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    return val_number((double)(ram_total_bytes()/1024/1024));
+static Value n_os_write_str(int argCount, Value* args) {
+    if (argCount >= 1 && IS_STRING(args[0])) {
+        console_write(AS_STRING(args[0]));
+    }
+    return val_nil();
 }
 
 static Value n_os_process_exists(int argCount, Value* args) {
-    if (argCount < 1 || !IS_NUMBER(args[0])) return val_bool(0);
-    uint32_t tid = (uint32_t)AS_NUMBER(args[0]);
-    char name[32];
-    thread_state_t state;
-    uint32_t cpu_id;
-    if (sched_get_thread_info(tid, name, &state, &cpu_id)) {
-        return val_bool(state != THREAD_STATE_TERMINATED && state != THREAD_STATE_UNUSED);
+    if (argCount >= 1 && IS_NUMBER(args[0])) {
+        uint32_t pid = (uint32_t)AS_NUMBER(args[0]);
+        thread_t *t = sched_get_thread_by_id(pid);
+        return val_bool(t != NULL && t->state != THREAD_STATE_TERMINATED && t->state != THREAD_STATE_UNUSED);
     }
-    return val_bool(0);
+    return val_bool(false);
 }
-
-static Value n_os_status_refresh(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    extern void status_refresh(void);
-    status_refresh();
-    return val_nil();
-}
-
-// --- Scheduler / Task Management ---
-
-static Value n_os_get_tasks(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    Value tasks = val_array();
-    for (uint32_t i = 0; i < SCHED_MAX_THREADS; i++) {
-        char name[32];
-        thread_state_t state;
-        uint32_t cpu_id;
-        if (sched_get_thread_info(i, name, &state, &cpu_id)) {
-            Value task = val_dict();
-            Value id_val = val_number((double)i);
-            Value name_val = val_string(name);
-            Value state_val = val_number((double)state);
-            Value cpu_val = val_number((double)cpu_id);
-            
-            dict_set(&task, "id", id_val);
-            dict_set(&task, "name", name_val);
-            dict_set(&task, "state", state_val);
-            dict_set(&task, "cpu", cpu_val);
-            
-            array_push(&tasks, task);
-        }
-    }
-    return tasks;
-}
-
-// --- Input / Line Reading ---
-
-static Value n_read_line(int argCount, Value* args) {
-    (void)argCount; (void)args;
-    
-    // Simple line reading implementation
-    char buffer[256];
-    int pos = 0;
-    
-    for (;;) {
-        KeyEvent ev;
-        if (!keyboard_wait_event(&ev)) continue;
-        
-        if (!ev.pressed) continue;
-        
-        int code = key_event_code(&ev);
-        if (code < 0) continue;
-        
-        if (code == 10 || code == 13) {
-            // Enter key
-            console_putc('\n');
-            break;
-        } else if (code == 8 || code == 127) {
-            // Backspace or Delete
-            if (pos > 0) {
-                pos--;
-                console_write("\b \b");
-            }
-        } else if (code >= 32 && code <= 126 && pos < 255) {
-            // Printable character
-            buffer[pos++] = (char)code;
-            console_putc((char)code);
-        }
-    }
-    
-    buffer[pos] = '\0';
-    return val_string(buffer);
-}
-
-// --- Module Registration ---
 
 void register_sageos_natives(ModuleCache* cache) {
-    // We register these globally as well for the shell script compatibility
-    Environment* env = g_global_env;
-
-    env_define(env, "os_write_char", 13, val_native(n_os_write_char));
-    env_define(env, "os_write_str", 12, val_native(n_os_write_str));
-    env_define(env, "os_gc_collect", 13, val_native(n_os_gc_collect));
-    env_define(env, "os_arena_reset", 14, val_native(n_os_arena_reset));
-    env_define(env, "os_num_to_str", 13, val_native(n_os_num_to_str));
-    env_define(env, "os_read_char", 12, val_native(n_os_read_char));
-    env_define(env, "os_read_key", 11, val_native(n_os_read_key));
-    env_define(env, "os_poll_char", 12, val_native(n_os_poll_char));
-    env_define(env, "os_poll_key", 11, val_native(n_os_poll_key));
-    env_define(env, "os_set_color_hex", 16, val_native(n_os_set_color_hex));
-    env_define(env, "os_get_color", 12, val_native(n_os_get_color));
-    env_define(env, "os_input_begin", 14, val_native(n_os_input_begin));
-    env_define(env, "os_line_redraw", 14, val_native(n_os_line_redraw));
-    env_define(env, "os_strlen", 9, val_native(n_os_strlen));
-    env_define(env, "os_char_at", 10, val_native(n_os_char_at));
-    env_define(env, "os_substr", 9, val_native(n_os_substr));
-    env_define(env, "os_chr", 6, val_native(n_os_chr));
-    env_define(env, "os_array_push", 13, val_native(n_os_array_push));
-    env_define(env, "os_shell_suggestion", 18, val_native(n_os_shell_suggestion));
-    env_define(env, "os_shell_completion_common", 25, val_native(n_os_shell_completion_common));
-    env_define(env, "os_shell_print_completions", 25, val_native(n_os_shell_print_completions));
-    env_define(env, "os_console_clear", 16, val_native(n_os_console_clear));
-    env_define(env, "os_dmesg_log", 12, val_native(n_os_dmesg_log));
-    env_define(env, "dmesg_log", 9, val_native(n_os_dmesg_log));
-    env_define(env, "os_version_string", 17, val_native(n_os_version));
-    env_define(env, "os_timer_poll", 13, val_native(n_os_timer_poll));
-    env_define(env, "timer_poll", 10, val_native(n_os_timer_poll));
-    env_define(env, "os_spawn_task", 13, val_native(n_os_spawn_task));
-    env_define(env, "os_process_exists", 17, val_native(n_os_process_exists));
-    env_define(env, "os_set_color", 12, val_native(n_os_set_color));
-    env_define(env, "status_refresh", 14, val_native(n_os_status_refresh));
-    env_define(env, "os_status_refresh", 17, val_native(n_os_status_refresh));
-    env_define(env, "os_get_tasks", 12, val_native(n_os_get_tasks));
-    env_define(env, "read_line", 9, val_native(n_read_line));
-    env_define(env, "os_battery_percent", 18, val_native(n_os_battery_percent));
-    env_define(env, "os_cpu_percent", 14, val_native(n_os_cpu_percent));
-    env_define(env, "os_ram_used_mb", 14, val_native(n_os_ram_used_mb));
-    env_define(env, "os_ram_total_mb", 15, val_native(n_os_ram_total_mb));
-
-    // Register 'os' module
     Module* os = create_native_module(cache, "os");
-    env_define(os->env, "write_str", 9, val_native(n_os_write_str));
-    env_define(os->env, "gc_collect", 10, val_native(n_os_gc_collect));
     env_define(os->env, "timer_poll", 10, val_native(n_os_timer_poll));
-    env_define(os->env, "num_to_str", 10, val_native(n_os_num_to_str));
-    env_define(os->env, "dmesg_log", 9, val_native(n_os_dmesg_log));
     env_define(os->env, "spawn_task", 10, val_native(n_os_spawn_task));
+    env_define(os->env, "version", 7, val_native(n_os_version));
+    env_define(os->env, "gc_collect", 10, val_native(n_os_gc_collect));
+    env_define(os->env, "write_char", 10, val_native(n_os_write_char));
+    env_define(os->env, "write_str", 9, val_native(n_os_write_str));
     env_define(os->env, "process_exists", 14, val_native(n_os_process_exists));
 
-    // Register 'ipc' module
-    Module* ipc = create_native_module(cache, "ipc");
-    env_define(ipc->env, "endpoint_create", 15, val_native(n_ipc_endpoint_create));
-    env_define(ipc->env, "service_register", 16, val_native(n_ipc_service_register));
-    env_define(ipc->env, "service_lookup", 14, val_native(n_ipc_service_lookup));
-
-    // Register 'log' module (one-arg versions for dmesg)
     Module* log = create_native_module(cache, "log");
+    // Just use dmesg_log for all log levels for now
+    extern Value n_os_dmesg_log(int argCount, Value* args);
     env_define(log->env, "info",  4, val_native(n_os_dmesg_log));
     env_define(log->env, "warn",  4, val_native(n_os_dmesg_log));
     env_define(log->env, "error", 5, val_native(n_os_dmesg_log));
-
-    // Register 'vfs' module
-    create_native_module(cache, "vfs");
 }
+
+Value n_os_dmesg_log(int argCount, Value* args) {
+    if (argCount >= 1 && IS_STRING(args[0])) {
+        dmesg_log(AS_STRING(args[0]));
+    }
+    return val_nil();
+}
+
+// --- Stubs for unsupported features ---
+
+void* aot_init(void) { return NULL; }
+void aot_free(void* a) { (void)a; }
+void aot_set_var_type(void* a, const char* n, int t) { (void)a; (void)n; (void)t; }
+void aot_compile_program(void* a, void* p) { (void)a; (void)p; }
+void aot_compile_to_binary(void* a, const char* path) { (void)a; (void)path; }
+void run_passes(void* p) { (void)p; }
+void* parse_program(void* s, void* p) { (void)s;(void)p; return NULL; }
+
+void bytecode_program_free(void* p) { (void)p; }
+void vm_mark_roots(void* v) { (void)v; }
+void vm_execute_program(void* v, void* p) { (void)v; (void)p; }
+void bytecode_program_init(void* p) { (void)p; }
+int bytecode_compile_program(void* p, void* s, int m, char* e, size_t es) { (void)p;(void)s;(void)m;(void)e;(void)es; return 0; }
+int bytecode_program_read_file(void* p, const char* path, char* e, size_t es) { (void)p;(void)path;(void)e;(void)es; return 0; }
+int bytecode_program_write_file(void* p, const char* path, char* e, size_t es) { (void)p;(void)path;(void)e;(void)es; return 0; }
+
+// g_gc_root_stack stub (no TLS)
+EnvRootNode* g_gc_root_stack = NULL;

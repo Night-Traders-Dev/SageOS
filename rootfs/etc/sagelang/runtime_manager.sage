@@ -3,7 +3,6 @@
 
 import os
 import ipc
-import sched
 import vfs
 import log
 
@@ -50,7 +49,9 @@ proc start_service(name):
 proc monitor_loop():
     log.info("Entering service monitoring loop...")
     while true:
-        for name, service in registry:
+        let names = dict_keys(registry)
+        for name in names:
+            let service = registry[name]
             if service["status"] == "pending":
                 start_service(name)
             elif service["status"] == "running":
@@ -60,7 +61,7 @@ proc monitor_loop():
                     service["status"] = "pending"
         
         # Co-operative yield to allow other services to run
-        sched.yield()
+        os_timer_poll()
 
 # Main Bootstrapping
 log.info("Initializing Service Registry...")
