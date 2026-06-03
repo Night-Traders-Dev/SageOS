@@ -66,6 +66,7 @@ proc generate_virt_build(arch):
     let linker_script = linker.generate_script(ld_config)
     
     # Fix linker script segments (ensure data/rodata/bss are in a LOAD segment)
+    linker_script = replace(linker_script, "*(.note)", "*(.note .note.*)")
     linker_script = replace(linker_script, "*(.rodata .rodata.*)", "*(.rodata .rodata.* .srodata .srodata.*)")
     linker_script = replace(linker_script, "*(.data .data.*)", "*(.data .data.* .sdata .sdata.* .got .got.*)")
     linker_script = replace(linker_script, "*(.bss .bss.*)", "*(.bss .bss.* .sbss .sbss.*)")

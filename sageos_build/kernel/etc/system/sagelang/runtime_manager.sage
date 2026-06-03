@@ -2,8 +2,6 @@
 # Manages system services, dependency graphs, and self-healing.
 
 import os
-import ipc
-import vfs
 import log
 
 # Service definition structure:
@@ -38,7 +36,7 @@ proc start_service(name):
             return
 
     log.info("Launching service: " + name)
-    let pid = os_spawn_task(name, registry[name]["exec"])
+    let pid = os.spawn_task(name, registry[name]["exec"])
     if pid > 0:
         registry[name]["pid"] = pid
         registry[name]["status"] = "running"
@@ -61,7 +59,7 @@ proc monitor_loop():
                     service["status"] = "pending"
 
         # Co-operative yield to allow other services to run
-        timer_poll()
+        os.timer_poll()
 
 # Main Bootstrapping
 log.info("Initializing Service Registry...")

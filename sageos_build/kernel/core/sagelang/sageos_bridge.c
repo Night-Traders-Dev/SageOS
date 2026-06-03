@@ -70,6 +70,10 @@ void sage_repl_init(void) {
         extern int g_repl_mode;
         g_repl_mode = 1;
         g_sage_cache = create_module_cache();
+        add_search_path(g_sage_cache, "/lib/sagelang");
+        add_search_path(g_sage_cache, "/etc/sagelang");
+        add_search_path(g_sage_cache, ".");
+        global_module_cache = g_sage_cache;
         g_sage_env = env_create(NULL);
         register_sageos_natives(g_sage_cache);
         init_stdlib(g_sage_env);
