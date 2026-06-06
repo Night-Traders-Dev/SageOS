@@ -4,6 +4,24 @@ All notable changes to SageOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.1] — 2026-06-06
+
+### Added
+- **SageLang v3.6.1 Hardening**: Integrated the latest SageLang version with native C backend hardening and full FFI/Atomic support.
+- **SGVM Integration**: Switched to the latest functional SageVM tools for bytecode compilation and execution.
+- **Support for BYTES type**: Added first-class binary data support to the C runtime, ensuring reliable bytecode parsing.
+- **Native Math Builtins**: Enabled native math primitives in the kernel bridge to break initialization cycles in the standard library.
+
+### Changed
+- **Submodule Management**: Improved automated bootstrap process for the SageLang submodule in the `Makefile`.
+- **Include Paths**: Updated build system to include all necessary SageLang internal headers for v3.6.1.
+- **Libc Shim**: Expanded the C library shim with missing POSIX headers (`netdb.h`, `poll.h`, etc.) to support the updated SageLang runtime.
+
+### Fixed
+- **Circular Dependency**: Resolved `_random_seed` undefined error by correctly identifying and handling native module calls in the C backend.
+- **Module Aliasing**: Fixed a bug where module aliases (e.g., `import thread as host_thread`) were not correctly resolved in namespaced calls.
+- **Conflict Resolution**: Fixed multiple definition errors for `g_gc_root_stack` and `create_ml_native_module` during kernel link.
+
 ## [0.8.0] — 2026-06-02
 
 ### Added

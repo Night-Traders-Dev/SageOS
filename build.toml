@@ -25,7 +25,6 @@ common = [
     "sageos_build/sage_lang/core/src/c/diagnostic.c",
     "sageos_build/sage_lang/core/src/c/gc.c",
     "sageos_build/sage_lang/core/src/c/stdlib.c",
-    "sageos_build/sage_lang/core/src/c/stubs.c",
     "sageos_build/kernel/fs/vfs.c",
     "sageos_build/kernel/fs/fat32.c",
     "sageos_build/kernel/fs/btrfs.c",
@@ -55,7 +54,7 @@ as = "x86_64-linux-gnu-as"
 asflags = "--64"
 cc = "x86_64-linux-gnu-gcc"
 ld = "x86_64-linux-gnu-ld"
-cflags = "-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mno-red-zone -Isageos_build/kernel/include -Isageos_build/kernel/shell -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_X86_64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW"
+cflags = "-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mno-red-zone -Isageos_build/kernel/include -Isageos_build/kernel/shell -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -Isageos_build/sage_lang/core/src/vm -DSAGE_BARE_METAL -DSAGE_NO_NET -DSAGE_NO_FFI -D__sageos__ -DARCH_X86_64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW"
 extra_sources = [
     "arch/x64/kernel/syscall_entry.S",
     "arch/x64/kernel/switch.S",
@@ -67,7 +66,7 @@ as = "aarch64-linux-gnu-as"
 asflags = ""
 cc = "aarch64-linux-gnu-gcc"
 ld = "aarch64-linux-gnu-ld"
-cflags = "-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mstrict-align -mno-outline-atomics -Isageos_build/kernel/include -Isageos_build/kernel/shell -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_AARCH64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW"
+cflags = "-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mstrict-align -mno-outline-atomics -Isageos_build/kernel/include -Isageos_build/kernel/shell -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -Isageos_build/sage_lang/core/src/vm -DSAGE_BARE_METAL -DSAGE_NO_NET -DSAGE_NO_FFI -D__sageos__ -DARCH_AARCH64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW"
 extra_sources = [
     "arch/arm64/kernel/syscall_entry.S",
     "arch/arm64/kernel/switch.S"
@@ -78,7 +77,7 @@ as = "riscv64-linux-gnu-as"
 asflags = "-march=rv64gc -mabi=lp64d"
 cc = "riscv64-linux-gnu-gcc"
 ld = "riscv64-linux-gnu-ld"
-cflags = "-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mcmodel=medany -march=rv64g -mabi=lp64d -Isageos_build/kernel/include -Isageos_build/kernel/shell -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -DSAGE_BARE_METAL -D__sageos__ -DARCH_RV64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW"
+cflags = "-ffreestanding -nostdinc -fno-stack-protector -fno-pie -mcmodel=medany -march=rv64g -mabi=lp64d -Isageos_build/kernel/include -Isageos_build/kernel/shell -Isageos_build/kernel/core/sagelang -Isageos_build/actual_sagelang_build -Isageos_build/actual_sagelang_build/libc -Isageos_build/sage_lang/core/include -Isageos_build/sage_lang/core/include/vm -Isageos_build/sage_lang/core/src/vm -DSAGE_BARE_METAL -DSAGE_NO_NET -DSAGE_NO_FFI -D__sageos__ -DARCH_RV64 -DSAGE_NO_THREADS -DSAGE_NO_CURL -DSAGE_NO_SSL -DSAGE_NO_VULKAN -DSAGE_NO_OPENGL -DSAGE_NO_GLFW"
 extra_sources = [
     "arch/rv64/kernel/syscall_entry.S",
     "arch/rv64/kernel/switch.S"

@@ -22,6 +22,7 @@ double fabs(double x);
 double floor(double x);
 double ceil(double x);
 double pow(double b, double e);
+double tanh(double x);
 double sqrt(double x);
 
 double fmod(double x, double y);

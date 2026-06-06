@@ -219,7 +219,6 @@ static void sage_supervisor_thread(void *arg) {
         console_write("\n[SUPERVISOR] Failed to allocate thread state!\n");
         return;
     }
-    ts->gas_limit = -1; // unlimited
     gc_register_thread(ts);
 
     console_write("\n[SUPERVISOR] Launching /etc/sagelang/runtime_manager.sage...");
@@ -292,7 +291,6 @@ static void sage_task_entry(void *arg) {
             // Run as source via AST interpreter
             ThreadState *ts = (ThreadState*)calloc(1, sizeof(ThreadState));
             if (ts) {
-                ts->gas_limit = -1;
                 gc_register_thread(ts);
             }
             
@@ -432,5 +430,5 @@ int bytecode_compile_program(void* p, void* s, int m, char* e, size_t es) { (voi
 int bytecode_program_read_file(void* p, const char* path, char* e, size_t es) { (void)p;(void)path;(void)e;(void)es; return 0; }
 int bytecode_program_write_file(void* p, const char* path, char* e, size_t es) { (void)p;(void)path;(void)e;(void)es; return 0; }
 
-// g_gc_root_stack stub (no TLS)
-EnvRootNode* g_gc_root_stack = NULL;
+// g_gc_root_stack is now provided by interpreter.c with __thread support
+// EnvRootNode* g_gc_root_stack = NULL;
