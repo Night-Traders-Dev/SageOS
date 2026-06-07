@@ -2,8 +2,6 @@
 # Manages system services, dependency graphs, and self-healing.
 
 import os
-import ipc
-import vfs
 import log
 
 # Service definition structure:
@@ -38,7 +36,7 @@ proc start_service(name):
             return
 
     log.info("Launching service: " + name)
-    let pid = os.spawn_task(registry[name]["exec"])
+    let pid = os.spawn_task(name, registry[name]["exec"])
     if pid > 0:
         registry[name]["pid"] = pid
         registry[name]["status"] = "running"
@@ -59,19 +57,18 @@ proc monitor_loop():
                 if not os.process_exists(service["pid"]):
                     log.error("Service " + name + " died! Attempting restart.")
                     service["status"] = "pending"
-        
+
         # Co-operative yield to allow other services to run
-        os_timer_poll()
+        os.timer_poll()
 
 # Main Bootstrapping
 log.info("Initializing Service Registry...")
 
 # Critical Base Services
-register_service("dev.manager", "/bin/dev_mgr.bc", [])
-register_service("vfs.root", "/bin/vfs_srv.bc", ["dev.manager"])
-register_service("net.stack", "/bin/net_stack.bc", ["dev.manager"])
+register_service("dev.manager", "/etc/sagelang/device.sage", [])
+register_service("vfs.root", "/lib/vfs_bridge.bc", ["dev.manager"])
 
 # System Services
-register_service("shell", "/bin/sage_shell.bc", ["vfs.root", "dev.manager"])
+register_service("shell", "/lib/sage_shell.bc", ["vfs.root", "dev.manager"])
 
 monitor_loop()
