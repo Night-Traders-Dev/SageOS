@@ -327,6 +327,8 @@ static Value n_os_spawn_task(int argCount, Value* args) {
     }
     const char *name = AS_STRING(args[0]);
     const char *script_path = AS_STRING(args[1]);
+    console_write("\n[OS] spawning task: "); console_write(name);
+    console_write(" path: "); console_write(script_path);
 
     char *path_copy = malloc(strlen(script_path) + 1);
     if (!path_copy) return val_number(-2);
@@ -334,9 +336,11 @@ static Value n_os_spawn_task(int argCount, Value* args) {
 
     thread_t *t = sched_create_thread(name, sage_task_entry, path_copy, THREAD_PRIORITY_NORMAL);
     if (!t) {
+        console_write(" -> FAILED");
         free(path_copy);
         return val_number(-3);
     }
+    console_write(" -> SUCCESS PID="); console_u32((uint32_t)t->id);
 
     t->permissions |= PERM_VFS_CAP_ONLY;
 

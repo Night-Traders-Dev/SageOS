@@ -157,6 +157,10 @@ static MetalValue n_dict_has(MetalVM *vm, MetalValue *a, int c) {
 
 void metal_vm_init(MetalVM* vm) {
     memset(vm, 0, sizeof(MetalVM));
+    console_write("[VM] OP_RETURN="); console_u32((uint32_t)OP_RETURN);
+    console_write(" OP_PRINT="); console_u32((uint32_t)OP_PRINT);
+    console_write(" OP_IMPORT="); console_u32((uint32_t)OP_IMPORT);
+    console_write("\n");
     metal_vm_register_native(vm, "dict_keys",   n_dict_keys);
     metal_vm_register_native(vm, "dict_values", n_dict_values);
     metal_vm_register_native(vm, "dict_has",    n_dict_has);
@@ -196,8 +200,12 @@ static int read_u16_be(MetalVM* vm) {
 static int load_const_pool(MetalVM* vm, const unsigned char* data, int length, int* pos, MetalValue* pool, int max) {
     if (*pos + 2 > length) return 0;
     int count = read_u16_le(data, pos);
+    console_write("load_const_pool: count="); console_u32((uint32_t)count); console_write("\n");
     for (int i = 0; i < count; i++) {
-        if (*pos >= length) break;
+        if (*pos >= length) {
+            console_write("load_const_pool: early EOF at i="); console_u32((uint32_t)i); console_write("\n");
+            break;
+        }
         int type = data[(*pos)++];
         MetalValue v;
         if (type == 1) { // Num
@@ -205,16 +213,21 @@ static int load_const_pool(MetalVM* vm, const unsigned char* data, int length, i
             memcpy(&v.as.num_bits, &data[*pos], 8);
             v.type = MV_NUM;
             *pos += 8;
-        } else if (type == 2) { // Str
+        } else if (type == 3) { // Str
             if (*pos + 2 > length) break;
             int slen = read_u16_le(data, pos);
             if (*pos + slen > length) break;
             v = mv_str(vm, (const char*)&data[*pos], slen);
             if (v.as.str_idx < 0) {
-                console_write("Metal VM: FAILED TO INTERN STRING\n");
+                console_write("Metal VM: FAILED TO INTERN STRING '");
+                for(int j=0; j<slen && j<16; j++) console_putc(data[*pos+j]);
+                console_write("'\n");
             }
             *pos += slen;
         } else {
+            console_write("load_const_pool: unknown type "); console_u32((uint32_t)type);
+            console_write(" at i="); console_u32((uint32_t)i); console_write(" pos="); console_u32((uint32_t)*pos);
+            console_write("\n");
             v = mv_nil();
         }
         if (i < max) pool[i] = v;
@@ -231,11 +244,15 @@ int metal_vm_load_binary(MetalVM* vm, const unsigned char* data, int length) {
     
     // Magic "SGVM" + Version (1 byte)
     if (data[0] != 'S' || data[1] != 'G' || data[2] != 'V' || data[3] != 'M') {
-        console_write("load_binary: magic mismatch\n");
+        console_write("load_binary: magic mismatch: ");
+        console_putc(data[0]); console_putc(data[1]); console_putc(data[2]); console_putc(data[3]);
+        console_write("\n");
         return 0;
     }
     if (data[4] != 2) {
-        console_write("load_binary: SGVM version mismatch (expected 2)\n");
+        console_write("load_binary: SGVM version mismatch (expected 2, got ");
+        console_u32((uint32_t)data[4]);
+        console_write(")\n");
         return 0;
     }
     pos = 5;
@@ -244,24 +261,37 @@ int metal_vm_load_binary(MetalVM* vm, const unsigned char* data, int length) {
     vm->main_const_count = load_const_pool(vm, data, length, &pos, vm->main_constants, METAL_CONST_POOL);
     vm->constants = vm->main_constants;
     vm->const_count = vm->main_const_count;
+    console_write("load_binary: loaded "); console_u32((uint32_t)vm->main_const_count); console_write(" global constants\n");
     
     // Main Code
-    if (pos + 4 > length) return 0;
+    if (pos + 4 > length) {
+        console_write("load_binary: unexpected EOF before main code length\n");
+        return 0;
+    }
     int main_len = read_u32_le(data, &pos);
-    if (pos + main_len > length) return 0;
+    console_write("load_binary: main code length "); console_u32((uint32_t)main_len); console_write("\n");
+    if (pos + main_len > length) {
+        console_write("load_binary: unexpected EOF in main code\n");
+        return 0;
+    }
     vm->code = &data[pos];
     vm->code_length = main_len;
     vm->ip = 0;
     pos += main_len;
     
     // Functions
-    if (pos + 2 > length) return 1; // No functions? That's okay.
+    if (pos + 2 > length) {
+        console_write("load_binary: end of data after main code (no functions)\n");
+        return 1;
+    }
     int fn_count = read_u16_le(data, &pos);
+    console_write("load_binary: function count "); console_u32((uint32_t)fn_count); console_write("\n");
     if (fn_count < 0 || fn_count > (int)(sizeof(vm->functions)/sizeof(vm->functions[0]))) {
         console_write("load_binary: too many functions\n");
         return 0;
     }
     vm->fn_count = fn_count;
+    console_write("load_binary: heap at "); console_hex64((uint64_t)vm->heap); console_write("\n");
     for (int i = 0; i < fn_count; i++) {
         if (pos + 2 > length) return 0;
         int param_count = read_u16_le(data, &pos);
@@ -278,21 +308,22 @@ int metal_vm_load_binary(MetalVM* vm, const unsigned char* data, int length) {
         // Load function's constants onto heap
         if (pos + 2 > length) return 0;
         int c_count_peek = (data[pos] | (data[pos+1] << 8));
-        if (vm->heap_used + c_count_peek * sizeof(MetalValue) > METAL_HEAP_SIZE) {
-            console_write("load_binary: heap overflow at fn constants\n");
-            return 0;
-        }
         MetalValue* pool = (MetalValue*)&vm->heap[vm->heap_used];
         int actual_count = load_const_pool(vm, data, length, &pos, pool, c_count_peek);
+        console_write("load_binary: fn "); console_u32((uint32_t)i);
+        console_write(" consts="); console_u32((uint32_t)actual_count);
+        console_write(" pool="); console_hex64((uint64_t)pool); console_write("\n");
         vm->functions[i].constants = pool;
         vm->functions[i].const_count = actual_count;
         vm->heap_used += actual_count * sizeof(MetalValue);
-        
+
         // Function Code
         if (pos + 4 > length) return 0;
         int flen = read_u32_le(data, &pos);
         if (pos + flen > length) return 0;
         vm->functions[i].code = &data[pos];
+        console_write("  code="); console_hex64((uint64_t)vm->functions[i].code);
+        console_write(" len="); console_u32((uint32_t)flen); console_write("\n");
         vm->functions[i].code_length = flen;
         pos += flen;
     }
@@ -752,8 +783,15 @@ static int metal_truthy(MetalValue v) {
 
 int metal_vm_step(MetalVM* vm) {
     if (vm->halted || vm->error || vm->ip >= vm->code_length) return 0;
+
+    static int first = 1;
+    if (first) {
+        console_write("[VM] OP_RETURN value: "); console_u32((uint32_t)OP_RETURN); console_write("\n");
+        first = 0;
+    }
     
     int op = read_u8(vm);
+    // console_write("[VM "); console_hex64((uint64_t)vm); console_write("] OP: "); console_u32((uint32_t)op); console_write(" cc="); console_u32((uint32_t)vm->const_count); console_write("\n");
     trace_log(TRACE_VM_EXEC, (uint64_t)op, (uint64_t)vm->ip);
     if (vm->error) return 0;
 
@@ -763,9 +801,20 @@ int metal_vm_step(MetalVM* vm) {
         case OP_CONSTANT: {
             int idx = read_u16(vm);
             if (vm->error) return 0;
-            if (idx >= 0 && idx < vm->const_count)
+            int cc = vm->const_count;
+            if (idx >= 0 && idx < cc && vm->constants != NULL) {
                 metal_vm_push(vm, vm->constants[idx]);
-            else { vm->error = 1; vm->error_msg = "OP_CONSTANT index error"; return 0; }
+            } else {
+                console_write("\n[VM "); console_hex64((uint64_t)vm); console_write("] OP_CONSTANT error: idx="); console_u32((uint32_t)idx);
+                console_write(" cc="); console_u32((uint32_t)cc);
+                console_write(" pool="); console_hex64((uint64_t)vm->constants);
+                console_write(" check="); 
+                if (idx < 0) console_write("idx<0 ");
+                if (idx >= cc) console_write("idx>=cc ");
+                if (vm->constants == NULL) console_write("pool=NULL ");
+                console_write("\n");
+                vm->error = 1; vm->error_msg = "OP_CONSTANT index error"; return 0;
+            }
             break;
         }
 
@@ -784,6 +833,11 @@ int metal_vm_step(MetalVM* vm) {
             int idx = read_u16(vm);
             if (vm->error) return 0;
             MetalValue val = metal_vm_pop(vm);
+            if (idx < 0 || idx >= vm->const_count) {
+                console_write("\n[VM ERROR] OP_DEFINE_GLOBAL index error: idx="); console_u32((uint32_t)idx);
+                console_write(" const_count="); console_u32((uint32_t)vm->const_count); console_write("\n");
+                vm->error = 1; vm->error_msg = "OP_DEFINE_GLOBAL index error"; return 0;
+            }
             const char* name = metal_string_get(vm, vm->constants[idx].as.str_idx);
             scope_define(vm, metal_fnv1a(name), idx, val);
             break;
@@ -792,6 +846,11 @@ int metal_vm_step(MetalVM* vm) {
         case OP_GET_GLOBAL: {
             int idx = read_u16(vm);
             if (vm->error) return 0;
+            if (idx < 0 || idx >= vm->const_count) {
+                console_write("\n[VM ERROR] OP_GET_GLOBAL index error: idx="); console_u32((uint32_t)idx);
+                console_write(" const_count="); console_u32((uint32_t)vm->const_count); console_write("\n");
+                vm->error = 1; vm->error_msg = "OP_GET_GLOBAL index error"; return 0;
+            }
             const char* name = metal_string_get(vm, vm->constants[idx].as.str_idx);
             MetalValue val;
             if (scope_lookup(vm, metal_fnv1a(name), &val)) metal_vm_push(vm, val);
@@ -935,34 +994,38 @@ int metal_vm_step(MetalVM* vm) {
 
         case OP_BIT_AND: {
             MetalValue b = metal_vm_pop(vm), a = metal_vm_pop(vm);
-            metal_vm_push(vm, mv_num(a.as.num_bits & b.as.num_bits));
+            union { double d; uint64_t u; } va, vb; va.u = a.as.num_bits; vb.u = b.as.num_bits;
+            metal_vm_push(vm, mv_num(va.u & vb.u));
             break;
         }
         case OP_BIT_OR: {
             MetalValue b = metal_vm_pop(vm), a = metal_vm_pop(vm);
-            metal_vm_push(vm, mv_num(a.as.num_bits | b.as.num_bits));
+            union { double d; uint64_t u; } va, vb; va.u = a.as.num_bits; vb.u = b.as.num_bits;
+            metal_vm_push(vm, mv_num(va.u | vb.u));
             break;
         }
         case OP_BIT_XOR: {
             MetalValue b = metal_vm_pop(vm), a = metal_vm_pop(vm);
-            metal_vm_push(vm, mv_num(a.as.num_bits ^ b.as.num_bits));
+            union { double d; uint64_t u; } va, vb; va.u = a.as.num_bits; vb.u = b.as.num_bits;
+            metal_vm_push(vm, mv_num(va.u ^ vb.u));
             break;
         }
         case OP_BIT_NOT: {
             MetalValue a = metal_vm_pop(vm);
-            metal_vm_push(vm, mv_num(~a.as.num_bits));
+            union { double d; uint64_t u; } va; va.u = a.as.num_bits;
+            metal_vm_push(vm, mv_num(~va.u));
             break;
         }
         case OP_SHIFT_LEFT: {
             MetalValue b = metal_vm_pop(vm), a = metal_vm_pop(vm);
-            union { double d; uint64_t u; } vb; vb.u = b.as.num_bits;
-            metal_vm_push(vm, mv_num(a.as.num_bits << (int)vb.d));
+            union { double d; uint64_t u; } va, vb; va.u = a.as.num_bits; vb.u = b.as.num_bits;
+            metal_vm_push(vm, mv_num(va.u << (int)vb.d));
             break;
         }
         case OP_SHIFT_RIGHT: {
             MetalValue b = metal_vm_pop(vm), a = metal_vm_pop(vm);
-            union { double d; uint64_t u; } vb; vb.u = b.as.num_bits;
-            metal_vm_push(vm, mv_num(a.as.num_bits >> (int)vb.d));
+            union { double d; uint64_t u; } va, vb; va.u = a.as.num_bits; vb.u = b.as.num_bits;
+            metal_vm_push(vm, mv_num(va.u >> (int)vb.d));
             break;
         }
 
@@ -1052,7 +1115,7 @@ int metal_vm_step(MetalVM* vm) {
         }
 
         case OP_CALL_METHOD: {
-            int argc = read_u8(vm), name_idx = read_u16(vm);
+            int name_idx = read_u16(vm), argc = read_u8(vm);
             const char* method_name = metal_string_get(vm, name_idx);
             MetalValue receiver = vm->stack[vm->sp - argc - 1];
             if (receiver.type == MV_ARR) {
@@ -1126,6 +1189,9 @@ int metal_vm_step(MetalVM* vm) {
                 if (fn_idx >= 0 && fn_idx < vm->fn_count) {
                     if (vm->frame_count >= METAL_CALL_STACK) { vm->error = 1; vm->error_msg = "stack overflow"; return 0; }
                     MetalFunction* fn = &vm->functions[fn_idx];
+                    console_write("[VM] Calling bytecode fn "); console_u32((uint32_t)fn_idx);
+                    console_write(" at "); console_hex64((uint64_t)fn);
+                    console_write(" consts="); console_u32((uint32_t)fn->const_count); console_write("\n");
                     MetalFrame* frame = &vm->call_stack[vm->frame_count++];
                     frame->ip = vm->ip; frame->code = vm->code; frame->code_length = vm->code_length;
                     frame->sp_base = vm->sp - argc - 1; frame->constants = vm->constants; frame->const_count = vm->const_count;
@@ -1199,6 +1265,14 @@ int metal_vm_step(MetalVM* vm) {
             metal_vm_push(vm, val); break;
         }
 
+        case OP_LOAD_FUNCTION: {
+            int fn_idx = read_u16_be(vm);
+            if (vm->error) return 0;
+            MetalValue v; v.type = MV_FN; v.as.fn_idx = fn_idx;
+            metal_vm_push(vm, v);
+            break;
+        }
+
         case OP_RETURN: {
             MetalValue res = metal_vm_pop(vm);
             if (vm->frame_count > 0) {
@@ -1210,14 +1284,16 @@ int metal_vm_step(MetalVM* vm) {
             } else { vm->halted = 1; return 0; }
         }
 
-        case 52: case 53: case 54: // OP_CLASS, OP_METHOD, OP_INHERIT
-            if (op == 52) { read_u16(vm); read_u16(vm); read_u16(vm); }
-            else if (op == 53) read_u16(vm);
-            else if (op == 54) metal_vm_pop(vm);
+        case OP_CLASS:
+        case OP_METHOD:
+        case OP_INHERIT:
+            if (op == OP_CLASS) { read_u16_be(vm); read_u16_be(vm); read_u8(vm); } // name, method_count, has_parent
+            else if (op == OP_METHOD) read_u16_be(vm); // name
+            else if (op == OP_INHERIT) metal_vm_pop(vm); // parent
             break;
-        case 55: read_u16(vm); read_u16(vm); break; // OP_SETUP_TRY
-        case 56: break; // OP_END_TRY
-        case 57: metal_vm_pop(vm); vm->error = 1; vm->error_msg = "exception raised"; return 0;
+        case OP_SETUP_TRY: read_u16_be(vm); break; // OP_SETUP_TRY (skip jump offset)
+        case OP_END_TRY: break; // OP_END_TRY
+        case OP_RAISE: metal_vm_pop(vm); vm->error = 1; vm->error_msg = "exception raised"; return 0;
 
         default:
             vm->error = 1;
