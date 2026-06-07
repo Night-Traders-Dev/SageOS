@@ -50,48 +50,50 @@ static int ata_wait_drq(void) {
 }
 
 void ata_init(void) {
+    console_write("\n[ATA] Initializing...");
     outb(ATA_PRIMARY_DRIVE, 0xA0);
     ata_io_delay();
     uint8_t status = inb(ATA_PRIMARY_STATUS);
+    console_write(" status="); console_u32((uint32_t)status);
     if (status == 0xFF) {
         ata_present = 0;
-        //console.write("\nata: No Primary Master detected (floating bus)");
+        console_write(" FAILED: Floating bus");
         dmesg_log("ata: No Primary Master detected (floating bus)");
         return;
     }
-    
+
     outb(ATA_PRIMARY_SECCOUNT, 0);
     outb(ATA_PRIMARY_LBA_LOW, 0);
     outb(ATA_PRIMARY_LBA_MID, 0);
     outb(ATA_PRIMARY_LBA_HIGH, 0);
-    
+
     outb(ATA_PRIMARY_COMMAND, 0xEC); // IDENTIFY
     ata_io_delay();
-    
+
     status = inb(ATA_PRIMARY_STATUS);
+    console_write(" identify_status="); console_u32((uint32_t)status);
     if (status == 0) {
         ata_present = 0;
-        //console.write("\nata: Primary Master not ready");
+        console_write(" FAILED: Not ready");
         dmesg_log("ata: Primary Master not ready");
         return;
     }
 
     /* Wait for BSY to clear after IDENTIFY */
     if (!ata_wait_not_busy()) {
-        ata_present = 0;
-        //console.write("\nata: IDENTIFY timed out");
-        dmesg_log("ata: IDENTIFY timed out");
+        console_write(" FAILED: Timeout");
         return;
     }
 
     status = inb(ATA_PRIMARY_STATUS);
-    if (status & (ATA_STATUS_ERR | ATA_STATUS_DF)) {
-        ata_present = 0;
-        //console.write("\nata: Primary Master IDENTIFY failed");
+    if (status & ATA_STATUS_ERR) {
+        console_write(" FAILED: Error");
         dmesg_log("ata: Primary Master IDENTIFY failed");
         return;
     }
 
+    console_write(" SUCCESS");
+    ata_present = 1;
     /* Drain the 256 words of IDENTIFY data so DRQ is cleared
      * and subsequent READ SECTORS commands work correctly.     */
     if (status & ATA_STATUS_DRQ) {
@@ -99,9 +101,6 @@ void ata_init(void) {
             (void)inw(ATA_PRIMARY_DATA);
         }
     }
-
-    ata_present = 1;
-    //console.write("\nata: Primary Master detected (PIO)");
     dmesg_log("ata: Primary Master detected (PIO)");
 }
 

@@ -196,7 +196,7 @@ case "$ARCH" in
                         log_info "Running x64 $DEVICE in QEMU..."
                         QEMU_MACH="$DEVICE"
                         if [[ "$DEVICE" == "lenovo_300e" ]]; then QEMU_MACH="q35"; fi
-                        qemu-system-x86_64 -machine "$QEMU_MACH" -m 4G -nographic -kernel "$BUILD_DIR/x64_${DEVICE}_kernel.elf"
+                        qemu-system-x86_64 -machine "$QEMU_MACH" -m 4G -nographic -drive file="virt.img",format=raw -kernel "$BUILD_DIR/x64_${DEVICE}_kernel.elf"
                     fi
                 fi
                 ;;
