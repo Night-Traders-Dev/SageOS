@@ -20,7 +20,16 @@ static int serial_echo = 1;
  * configured the UART (e.g., 115200 8N1).
  */
 void __attribute__((weak)) serial_init(void) {
-    // UART already initialized by boot.S or firmware
+#if defined(__x86_64__)
+    outb(UART_BASE_X64 + 1, 0x00);    // Disable all interrupts
+    outb(UART_BASE_X64 + 3, 0x80);    // Enable DLAB (set baud rate divisor)
+    outb(UART_BASE_X64 + 0, 0x01);    // Set divisor to 1 (lo byte) 115200 baud
+    outb(UART_BASE_X64 + 1, 0x00);    //                  (hi byte)
+    outb(UART_BASE_X64 + 3, 0x03);    // 8 bits, no parity, one stop bit
+    outb(UART_BASE_X64 + 2, 0xC7);    // Enable FIFO, clear them, with 14-byte threshold
+    outb(UART_BASE_X64 + 4, 0x0B);    // IRQs enabled, RTS/DSR set
+#endif
+    // UART already initialized by boot.S or firmware for other archs
 }
 
 void console_init(SageOSBootInfo *info) {

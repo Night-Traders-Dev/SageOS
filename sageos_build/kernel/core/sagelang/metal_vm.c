@@ -123,9 +123,43 @@ MetalValue metal_vm_string_new(MetalVM* vm, const char* s) {
 // ============================================================================
 // VM Init & Load
 // ============================================================================
+/* Dictionary helper natives */
+static MetalValue n_dict_keys(MetalVM *vm, MetalValue *a, int c) {
+    if (c < 1 || a[0].type != MV_DICT) return mv_nil();
+    int dict_idx = a[0].as.dict_idx;
+    if (dict_idx < 0 || dict_idx >= METAL_POOL_SIZE) return mv_nil();
+    MetalDict *d = &vm->dicts[dict_idx];
+    int arr_idx = metal_array_new(vm);
+    if (arr_idx < 0) return mv_nil();
+    for (int i = 0; i < d->count; i++) {
+        MetalValue key_val; key_val.type = MV_STR; key_val.as.str_idx = d->key_str_idx[i];
+        metal_array_push(vm, arr_idx, key_val);
+    }
+    MetalValue res; res.type = MV_ARR; res.as.arr_idx = arr_idx; return res;
+}
+
+static MetalValue n_dict_values(MetalVM *vm, MetalValue *a, int c) {
+    if (c < 1 || a[0].type != MV_DICT) return mv_nil();
+    int dict_idx = a[0].as.dict_idx;
+    if (dict_idx < 0 || dict_idx >= METAL_POOL_SIZE) return mv_nil();
+    MetalDict *d = &vm->dicts[dict_idx];
+    int arr_idx = metal_array_new(vm);
+    if (arr_idx < 0) return mv_nil();
+    for (int i = 0; i < d->count; i++) metal_array_push(vm, arr_idx, d->values[i]);
+    MetalValue res; res.type = MV_ARR; res.as.arr_idx = arr_idx; return res;
+}
+
+static MetalValue n_dict_has(MetalVM *vm, MetalValue *a, int c) {
+    if (c < 2 || a[0].type != MV_DICT || a[1].type != MV_STR) return mv_bool(0);
+    MetalValue val = metal_dict_get(vm, a[0].as.dict_idx, a[1].as.str_idx);
+    return mv_bool(val.type != MV_NIL);
+}
 
 void metal_vm_init(MetalVM* vm) {
     memset(vm, 0, sizeof(MetalVM));
+    metal_vm_register_native(vm, "dict_keys",   n_dict_keys);
+    metal_vm_register_native(vm, "dict_values", n_dict_values);
+    metal_vm_register_native(vm, "dict_has",    n_dict_has);
     vm->constants = vm->main_constants;
 }
 

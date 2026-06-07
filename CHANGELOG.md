@@ -4,6 +4,24 @@ All notable changes to SageOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.2] — 2026-06-07
+
+### Added
+- **Sage-First Compiler**: Replaced the legacy Python-based SGVM compiler with a pure SageLang implementation (`scripts/compile_to_sgvm.sage`).
+- **Unified Build Tools**: Integrated SGVM binary and C header generation into a single tool for kernel assets.
+- **Math Bit Manipulation**: Added `math.pack64` native function to SageLang for IEEE 754 bit pattern generation.
+- **Kernel Dictionary Support**: Implemented `dict_keys`, `dict_values`, and `dict_has` in `metal_vm` and the kernel bridge to support system services.
+- **X64 Serial Initialization**: Added native COM1 port setup in `virt_console.c` for improved QEMU compatibility.
+
+### Changed
+- **Build Pipeline Modernization**: Removed `compile_to_sgvm.py` and updated all shell scripts to use the Sage-based toolchain.
+- **Improved Boot Reliability**: Refined MetalVM operand parsing and endianness handling for system-wide stability.
+- **Standard Library Expansion**: Updated `math.sage` and other core modules to export new native capabilities.
+
+### Fixed
+- **Submodule Desync**: Resolved issues with stale SageLang artifacts by forcing a full rebuild of the toolchain and VM.
+- **Kernel Linker Warnings**: Cleaned up minor undefined reference warnings related to JIT and module stubs.
+
 ## [0.8.1] — 2026-06-06
 
 ### Added

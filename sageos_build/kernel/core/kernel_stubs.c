@@ -69,3 +69,15 @@ void net_cmd_info(void) { console_write("\nNetwork: Not supported on this platfo
 void net_cmd_selftest(void) { console_write("\nNetwork: Not supported on this platform."); }
 // Sage & VM stubs (now implemented in sageos_bridge.c)
 // VFS / sagelang bridge stubs (implemented in vfs.c)
+
+#include "module.h"
+#include "jit.h"
+
+Module* create_graphics_module(ModuleCache* cache) { (void)cache; return NULL; }
+Module* create_ml_native_module(ModuleCache* cache) { (void)cache; return NULL; }
+
+void jit_record_call(JitState* jit, int func_id, int param_count, Value* args) { (void)jit; (void)func_id; (void)param_count; (void)args; }
+void jit_record_return(JitState* jit, int func_id, Value result) { (void)jit; (void)func_id; (void)result; }
+JitProfile* jit_get_profile(JitState* jit, int func_id) { (void)jit; (void)func_id; return NULL; }
+int jit_should_compile(JitState* jit, int func_id) { (void)jit; (void)func_id; return 0; }
+JitNativeFn jit_compile_function(JitState* jit, void* proc_stmt, void* env) { (void)jit; (void)proc_stmt; (void)env; return NULL; }
