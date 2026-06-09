@@ -112,6 +112,10 @@ static void setup_vectors(void) {
 extern void sage_runtime_init(void);
 
 void kmain(SageOSBootInfo *info) {
+    extern void serial_init(void);
+    serial_init();
+    console_write("KMAIN START\n");
+
     sched_init();
     static SageOSBootInfo dummy_info;
     if (!info || info->magic != SAGEOS_BOOT_MAGIC) {

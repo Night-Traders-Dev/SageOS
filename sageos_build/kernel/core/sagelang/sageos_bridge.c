@@ -106,7 +106,22 @@ void sage_execute_source(const char* source, const char* name) {
                 break;
             }
 
-            interpret(program, g_sage_env);
+            ExecResult res = interpret(program, g_sage_env);
+            if (res.is_throwing) {
+                console_write("\n[INTERPRETER EXCEPTION] ");
+                if (IS_STRING(res.exception_value)) {
+                    console_write(AS_STRING(res.exception_value));
+                } else if (IS_EXCEPTION(res.exception_value)) {
+                    console_write(AS_EXCEPTION(res.exception_value)->message);
+                } else if (res.exception_value.type == VAL_NIL) {
+                    console_write("nil");
+                } else {
+                    console_write("type=");
+                    console_u32((uint32_t)res.exception_value.type);
+                }
+                console_write("\n");
+                break;
+            }
 
             // Find the end of the parsed program statement chain
             Stmt* end = program;
@@ -412,6 +427,7 @@ void register_sageos_natives(ModuleCache* cache) {
     
     // Add to global env as well
     env_define_const(g_sage_env, "dict_keys", 9, val_native(n_dict_keys));
+    env_define(g_sage_env, "os_write_str", 12, val_native(n_os_write_str));
 
     Module* log = create_native_module(cache, "log");
     // Just use dmesg_log for all log levels for now

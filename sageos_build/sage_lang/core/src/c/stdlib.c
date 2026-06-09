@@ -932,13 +932,22 @@ static Value sys_sleep_native(int argCount, Value* args) {
 }
 
 static Value sys_exec_native(int argCount, Value* args) {
+#ifdef SAGE_BARE_METAL
+    (void)argCount; (void)args;
+    return val_number(-1);
+#else
     if (argCount < 1 || !IS_STRING(args[0])) return val_nil();
     const char* cmd = AS_STRING(args[0]);
     int result = system(cmd);
     return val_number(result);
+#endif
 }
 
 static Value sys_shell_exec_native(int argCount, Value* args) {
+#ifdef SAGE_BARE_METAL
+    (void)argCount; (void)args;
+    return val_string("");
+#else
     if (argCount < 1 || !IS_STRING(args[0])) return val_nil();
     const char* cmd = AS_STRING(args[0]);
     
@@ -964,6 +973,7 @@ static Value sys_shell_exec_native(int argCount, Value* args) {
     Value v = val_string(result ? result : "");
     free(result);
     return v;
+#endif
 }
 
 static Value sys_call_native(int argCount, Value* args) {

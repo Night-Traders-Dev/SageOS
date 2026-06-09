@@ -2277,6 +2277,9 @@ static Value path_is_file_native(int argCount, Value* args) {
 void init_stdlib(Env* env) {
     // Initialize address salt for secure hashing (CWE-200 prevention)
     if (g_addr_salt == 0) {
+#ifdef SAGE_BARE_METAL
+        g_addr_salt = 0x123456789ABCDEF0ULL;
+#else
         FILE* urand = fopen("/dev/urandom", "r");
         if (urand) {
             if (fread(&g_addr_salt, sizeof(g_addr_salt), 1, urand) != 1) {
@@ -2286,6 +2289,7 @@ void init_stdlib(Env* env) {
         } else {
             g_addr_salt = (uint64_t)time(NULL) ^ ((uint64_t)getpid() << 32);
         }
+#endif
         if (g_addr_salt == 0) g_addr_salt = 0x123456789ABCDEF0ULL;
     }
 
