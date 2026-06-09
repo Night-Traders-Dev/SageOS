@@ -4,6 +4,16 @@ All notable changes to SageOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.3] — 2026-06-08
+
+### Added
+- **Unified Build System (sagemake)**: Migrated the entire SageOS build pipeline from fragmented shell scripts and `build_virt.sage` to a Python-based `sagemake` orchestrator.
+
+### Fixed
+- **Bytecode Serialization**: Reordered binary blob construction in the compiler to write constants before the main code, aligning with the `MetalVM` loader's expectations in the kernel.
+- **Rootfs Population**: Fixed non-portable bashisms in `populate_rootfs.sh` and corrected incorrect include paths for kernel headers during build script generation.
+- **Build Pipeline Pathing**: Resolved artifact path generation errors when running build scripts from within subdirectories.
+
 ## [0.8.2] — 2026-06-07
 
 ### Added
