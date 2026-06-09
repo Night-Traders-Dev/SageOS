@@ -10,18 +10,10 @@ let input_index = 0
 # --- I/O Stubs ---
 
 proc os_read_key():
-    # To make the shell fully interactive on a host, we need to read from stdin.
-    # SageLang's input() reads a whole line. To simulate os_read_key (which is usually char-by-char),
-    # we buffer the line and return it one char at a time.
-    
     if input_index >= len(input_buffer):
-        # Read a new line from the host
-        # Note: In a container/chroot, stdin is passed through.
-        # input() will wait for the user to press Enter.
         let raw = input()
         if raw == nil:
-            # EOF
-            return 10 # Return newline to trigger shell processing if it's waiting
+            return 10
         end
         input_buffer = raw + "\n"
         input_index = 0
@@ -38,13 +30,10 @@ proc os_read_key():
 end
 
 proc os_write_char(c):
-    # Builtin print() in SageLang usually adds a newline.
-    # If SageLang has a way to write raw to stdout without newline, use it.
-    # For now, we'll rely on the shell's logic which often uses os_write_str for chunks.
+    # Stub
 end
 
 proc os_write_str(s):
-    # Host SageLang print() is usually what we want.
     print(s)
 end
 
@@ -62,7 +51,6 @@ proc os_substr(s, start, length):
     let slen = len(s)
     let end_idx = start + length
     if end_idx > slen: end_idx = slen end
-    # Using slice syntax
     return s[start:end_idx]
 end
 
@@ -141,20 +129,18 @@ proc os_input_begin(): end
 proc os_input_backend(): return "host" end
 
 proc os_line_redraw(line, pos, old_len, suggestion):
-    # On host, we don't want to spam redraws because input() handles it.
-    # However, to show the suggestion, we can print it.
-    # For now, let's keep it quiet to avoid messing up the host line editor.
 end
 
 # --- Shell Completion / Logic Stubs ---
 proc os_shell_completion_common(path, prefix): return "" end
+
 proc os_shell_exec(cmd):
-    # Basic shell logic: handle 'exit' internally
-    if cmd == "exit":
-        exit(0)
+    if cmd == "exit" or cmd == "quit":
+        sys.exit(0)
     end
     print("Container Exec: " + cmd)
 end
+
 proc os_shell_print_completions(path, prefix): end
 proc os_shell_suggestion(line, pos): return "" end
 proc os_path_exists(p):
@@ -162,16 +148,17 @@ proc os_path_exists(p):
 end
 
 # --- Lifecycle Stubs ---
-proc os_halt(): exit(0) end
-proc os_reboot(): exit(0) end
-proc os_shutdown(): exit(0) end
+proc os_halt(): sys.exit(0) end
+proc os_reboot(): sys.exit(0) end
+proc os_shutdown(): sys.exit(0) end
 proc os_suspend(): end
-proc os_qemu_exit(n): exit(n) end
+proc os_qemu_exit(n): sys.exit(n) end
 
 # --- VM / Bytecode Stubs ---
 proc os_sage_exec(bc): print("VM Exec Request") end
+
 proc os_array_push(arr, val):
-    # This might be used by the shell to manage command history or arguments
+    push(arr, val)
 end
 
 # --- Storage Stubs ---
@@ -182,3 +169,8 @@ proc os_swap_used_mb(): return 0 end
 # --- Other missing stubs ---
 proc os_is_paging_enabled(): return 1 end
 proc os_get_kernel_version(): return "0.9.0" end
+
+# --- Global Namespace Injection ---
+proc exit(n):
+    sys.exit(n)
+end
