@@ -17,20 +17,20 @@ SageContainer supports multi-architecture root filesystems located in `SageRoot/
 
 ## Usage
 
-### 1. Set Environment Paths
-Ensure `SAGE_PATH` points to the SageLang standard library:
+### Launch the Container
+Use the `sage-container` wrapper script. It automatically handles `SAGE_PATH`, `sudo` requirements, and absolute path resolution. It is compatible with **Bash, Fish, Zsh**, and other POSIX-compatible shells.
+
+**Example: Entering the default x64 environment**
 ```bash
-export SAGE_PATH=sageos_build/sage_lang/core/lib
+./sage-container
 ```
 
-### 2. Launch the Container
-Use the `run_chroot.sage` script to enter the environment for a specific architecture.
-
-**Example: Entering the x64 environment**
+**Example: Specifying an architecture**
 ```bash
-sudo -E ./sageos_build/sage_lang/core/sage scripts/run_chroot.sage x64
+./sage-container arm64
 ```
-*Note: The `-E` flag preserves your environment variables (like `SAGE_PATH`) for the sudo command.*
+
+*Note: The script will prompt for your sudo password to initialize the Linux namespaces.*
 
 ## Internals
 
