@@ -16,15 +16,17 @@ let absolute_rootfs = rootfs
 
 let config = ns.minimal_container("sage-os-" + arch, absolute_rootfs)
 
-# Populate stubs into the rootfs so the shell can use them
-print("Injecting FFI stubs into container...")
-let stubs_path = absolute_rootfs + "/etc/sagelang/chroot_stubs.sage"
-# We'll use sys.exec to copy it
-sys.exec("cp scripts/chroot_stubs.sage " + stubs_path)
+# Populate stubs into the rootfs and combine with shell
+print("Injecting and combining FFI stubs with shell...")
+let stubs_path = "scripts/chroot_stubs.sage"
+let shell_src = absolute_rootfs + "/etc/sagelang/shell.sage"
+let combined_dest = absolute_rootfs + "/etc/sagelang/shell_container.sage"
 
-# The command inside the container will be the Sage interpreter running the shell
-# We prepend the stubs so functions like os_read_key are defined
-let inner_cmd = "env SAGE_PATH=/lib/sagelang /bin/sage /etc/sagelang/chroot_stubs.sage /etc/sagelang/shell.sage"
+# Create a combined script: stubs + shell
+sys.exec("cat " + stubs_path + " " + shell_src + " > " + combined_dest)
+
+# The command inside the container will be the Sage interpreter running the combined shell
+let inner_cmd = "env SAGE_PATH=/lib/sagelang /bin/sage /etc/sagelang/shell_container.sage"
 
 let unshare_cmd = ns.ns_emit_unshare_cmd(config)
 let full_cmd = unshare_cmd + " " + inner_cmd
