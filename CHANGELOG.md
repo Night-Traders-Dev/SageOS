@@ -4,6 +4,52 @@ All notable changes to SageOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.8.3] — 2026-06-08
+
+### Added
+- **Unified Build System (sagemake)**: Migrated the entire SageOS build pipeline from fragmented shell scripts and `build_virt.sage` to a Python-based `sagemake` orchestrator.
+
+### Fixed
+- **Bytecode Serialization**: Reordered binary blob construction in the compiler to write constants before the main code, aligning with the `MetalVM` loader's expectations in the kernel.
+- **Rootfs Population**: Fixed non-portable bashisms in `populate_rootfs.sh` and corrected incorrect include paths for kernel headers during build script generation.
+- **Build Pipeline Pathing**: Resolved artifact path generation errors when running build scripts from within subdirectories.
+
+## [0.8.2] — 2026-06-07
+
+### Added
+- **Sage-First Compiler**: Replaced the legacy Python-based SGVM compiler with a pure SageLang implementation (`scripts/compile_to_sgvm.sage`).
+- **Unified Build Tools**: Integrated SGVM binary and C header generation into a single tool for kernel assets.
+- **Math Bit Manipulation**: Added `math.pack64` native function to SageLang for IEEE 754 bit pattern generation.
+- **Kernel Dictionary Support**: Implemented `dict_keys`, `dict_values`, and `dict_has` in `metal_vm` and the kernel bridge to support system services.
+- **X64 Serial Initialization**: Added native COM1 port setup in `virt_console.c` for improved QEMU compatibility.
+
+### Changed
+- **Build Pipeline Modernization**: Removed `compile_to_sgvm.py` and updated all shell scripts to use the Sage-based toolchain.
+- **Improved Boot Reliability**: Refined MetalVM operand parsing and endianness handling for system-wide stability.
+- **Standard Library Expansion**: Updated `math.sage` and other core modules to export new native capabilities.
+
+### Fixed
+- **Submodule Desync**: Resolved issues with stale SageLang artifacts by forcing a full rebuild of the toolchain and VM.
+- **Kernel Linker Warnings**: Cleaned up minor undefined reference warnings related to JIT and module stubs.
+
+## [0.8.1] — 2026-06-06
+
+### Added
+- **SageLang v3.6.1 Hardening**: Integrated the latest SageLang version with native C backend hardening and full FFI/Atomic support.
+- **SGVM Integration**: Switched to the latest functional SageVM tools for bytecode compilation and execution.
+- **Support for BYTES type**: Added first-class binary data support to the C runtime, ensuring reliable bytecode parsing.
+- **Native Math Builtins**: Enabled native math primitives in the kernel bridge to break initialization cycles in the standard library.
+
+### Changed
+- **Submodule Management**: Improved automated bootstrap process for the SageLang submodule in the `Makefile`.
+- **Include Paths**: Updated build system to include all necessary SageLang internal headers for v3.6.1.
+- **Libc Shim**: Expanded the C library shim with missing POSIX headers (`netdb.h`, `poll.h`, etc.) to support the updated SageLang runtime.
+
+### Fixed
+- **Circular Dependency**: Resolved `_random_seed` undefined error by correctly identifying and handling native module calls in the C backend.
+- **Module Aliasing**: Fixed a bug where module aliases (e.g., `import thread as host_thread`) were not correctly resolved in namespaced calls.
+- **Conflict Resolution**: Fixed multiple definition errors for `g_gc_root_stack` and `create_ml_native_module` during kernel link.
+
 ## [0.8.0] — 2026-06-02
 
 ### Added

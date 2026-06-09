@@ -222,7 +222,6 @@ static void sage_supervisor_thread(void *arg) {
         console_write("\n[SUPERVISOR] Failed to allocate thread state!\n");
         return;
     }
-    ts->gas_limit = -1; // unlimited
     gc_register_thread(ts);
 
     console_write("\n[SUPERVISOR] Launching /etc/sagelang/runtime_manager.sage...");
@@ -295,7 +294,6 @@ static void sage_task_entry(void *arg) {
             // Run as source via AST interpreter
             ThreadState *ts = (ThreadState*)calloc(1, sizeof(ThreadState));
             if (ts) {
-                ts->gas_limit = -1;
                 gc_register_thread(ts);
             }
             
@@ -332,6 +330,8 @@ static Value n_os_spawn_task(int argCount, Value* args) {
     }
     const char *name = AS_STRING(args[0]);
     const char *script_path = AS_STRING(args[1]);
+    console_write("\n[OS] spawning task: "); console_write(name);
+    console_write(" path: "); console_write(script_path);
 
     char *path_copy = malloc(strlen(script_path) + 1);
     if (!path_copy) return val_number(-2);
@@ -339,9 +339,11 @@ static Value n_os_spawn_task(int argCount, Value* args) {
 
     thread_t *t = sched_create_thread(name, sage_task_entry, path_copy, THREAD_PRIORITY_NORMAL);
     if (!t) {
+        console_write(" -> FAILED");
         free(path_copy);
         return val_number(-3);
     }
+    console_write(" -> SUCCESS PID="); console_u32((uint32_t)t->id);
 
     t->permissions |= PERM_VFS_CAP_ONLY;
 
@@ -392,6 +394,12 @@ static Value n_os_process_exists(int argCount, Value* args) {
     return val_bool(false);
 }
 
+extern Value dict_keys(Value* dict);
+static Value n_dict_keys(int argCount, Value* args) {
+    if (argCount < 1 || !IS_DICT(args[0])) return val_nil();
+    return dict_keys(&args[0]);
+}
+
 void register_sageos_natives(ModuleCache* cache) {
     Module* os = create_native_module(cache, "os");
     env_define(os->env, "timer_poll", 10, val_native(n_os_timer_poll));
@@ -401,6 +409,9 @@ void register_sageos_natives(ModuleCache* cache) {
     env_define(os->env, "write_char", 10, val_native(n_os_write_char));
     env_define(os->env, "write_str", 9, val_native(n_os_write_str));
     env_define(os->env, "process_exists", 14, val_native(n_os_process_exists));
+    
+    // Add to global env as well
+    env_define_const(g_sage_env, "dict_keys", 9, val_native(n_dict_keys));
 
     Module* log = create_native_module(cache, "log");
     // Just use dmesg_log for all log levels for now
@@ -435,5 +446,5 @@ int bytecode_compile_program(void* p, void* s, int m, char* e, size_t es) { (voi
 int bytecode_program_read_file(void* p, const char* path, char* e, size_t es) { (void)p;(void)path;(void)e;(void)es; return 0; }
 int bytecode_program_write_file(void* p, const char* path, char* e, size_t es) { (void)p;(void)path;(void)e;(void)es; return 0; }
 
-
-// External Sage symbols
+// g_gc_root_stack is now provided by interpreter.c with __thread support
+// EnvRootNode* g_gc_root_stack = NULL;

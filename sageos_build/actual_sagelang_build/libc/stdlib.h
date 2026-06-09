@@ -12,6 +12,7 @@ void exit(int status);
 void abort(void);
 
 char *getenv(const char *name);
+double atof(const char *nptr);
 int system(const char *command);
 
 // strtod and strtol are handled by shim

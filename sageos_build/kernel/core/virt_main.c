@@ -175,19 +175,25 @@ void kmain(SageOSBootInfo *info) {
     vfs_init();
 
     // Initialize and mount filesystems
+    console_write("\n[VFS] Attempting FAT32 init...");
     if (fat32_init()) {
+        console_write(" SUCCESS");
         vfs_mount("/", fat32_get_backend());
         vfs_mount("/mnt/fat32", fat32_get_backend());
         vfs_mount("/usr", fat32_get_backend());
         dmesg_log("VFS: Mounted FAT32 at / (root), /mnt/fat32 and /usr");
     } else {
+        console_write(" FAILED");
         dmesg_log("VFS: FAT32 initialization FAILED");
     }
     
+    console_write("\n[VFS] Attempting BTRFS init...");
     if (btrfs_init()) {
+        console_write(" SUCCESS");
         vfs_mount("/mnt/btrfs", btrfs_get_backend());
         dmesg_log("VFS: Mounted BTRFS at /mnt/btrfs");
     } else {
+        console_write(" FAILED");
         dmesg_log("VFS: BTRFS initialization FAILED");
     }
 

@@ -55,6 +55,11 @@ To regenerate the tarballs for all architectures:
 ./scripts/package_toolchains.sh
 ```
 
-## 5. Deployment Note
+## 6. SageLang Integration
 
-The initial installation of the toolchain into a new `virt.img` involves transferring over 1.2GB of data. This process can take several minutes. The installer will automatically skip this step on subsequent builds if it detects that the toolchain is already present.
+SageOS is tightly integrated with the **SageLang** ecosystem (v3.6.1+). The build system automatically bootstraps the `sage` compiler and uses it to compile system components into SGVM bytecode.
+
+Key integration points:
+- **`sgvm`**: The native Sage Virtual Machine, used for executing system scripts and applications.
+- **`sgvmc`**: The SageVM compiler, which transforms `.sage` sources into optimized `.sgvm` binaries.
+- **Native Bridges**: SageOS provides a high-performance C bridge for `math`, `io`, `thread`, and `sys` modules, enabling Sage scripts to interact directly with kernel services.

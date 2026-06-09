@@ -9,7 +9,7 @@ ROOTFS=${ROOTFS:-"rootfs"}
 BUILD_DIR="sageos_build/kernel"
 LIB_DIR="sageos_build/sage_lang/core/lib"
 SAGE_COMPILER="./sageos_build/sage_lang/core/sage"
-COMPILER="python3 scripts/compile_to_sgvm.py"
+COMPILER="$SAGE_COMPILER scripts/compile_to_sgvm.sage"
 
 echo "Populating FHS-compliant $ROOTFS directory..."
 

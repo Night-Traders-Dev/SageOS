@@ -13,4 +13,7 @@ int execv(const char *path, char *const argv[]);
 
 unsigned int sleep(unsigned int seconds);
 
+#define _SC_NPROCESSORS_ONLN 1
+static inline long sysconf(int name) { (void)name; return 1; }
+
 #endif
