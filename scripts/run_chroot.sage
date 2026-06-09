@@ -16,9 +16,10 @@ let absolute_rootfs = rootfs
 
 let config = ns.minimal_container("sage-os-" + arch, absolute_rootfs)
 
-# Explicitly set SAGE_PATH inside the container command since 'sudo -E' might fail
-let sage_path = "SAGE_PATH=/lib/sagelang"
-let inner_cmd = sage_path + " /bin/sage /etc/sagelang/shell.sage"
+# The command inside the container will be the Sage interpreter running the shell
+# Since we copied 'sage' to /bin/sage in the rootfs
+# We use 'env' to set SAGE_PATH so unshare doesn't try to execute the variable assignment
+let inner_cmd = "env SAGE_PATH=/lib/sagelang /bin/sage /etc/sagelang/shell.sage"
 
 let unshare_cmd = ns.ns_emit_unshare_cmd(config)
 let full_cmd = unshare_cmd + " " + inner_cmd
