@@ -4,6 +4,17 @@ All notable changes to SageOS will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [0.9.0] — 2026-06-09
+
+### Added
+- **SageRoot Environment**: Multi-architecture root filesystem staging area (`SageRoot/arm64`, `SageRoot/rv64`, `SageRoot/x64`) for isolated testing and development.
+- **SageContainer (chroot)**: Native Linux namespace-based containerization for SageOS. Allows running the Sage Shell and user-space bytecode in an isolated environment directly on the host.
+- **Container Launcher**: New `scripts/run_chroot.sage` script leveraging SageLang's `os.linux.namespace` API to automate container setup.
+- **SageContainer Guide**: Comprehensive documentation for using the new containerized environment.
+
+### Changed
+- **Rootfs Population**: `populate_rootfs.sh` now supports an optional `ROOTFS` environment variable to target specific staging directories (e.g., `SageRoot/x64`).
+
 ## [0.8.3] — 2026-06-08
 
 ### Added

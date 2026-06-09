@@ -1,17 +1,19 @@
-# SageOS v0.8.0 - High-Stability Hybrid Operating System
+# SageOS v0.9.0 - High-Stability Hybrid Operating System
 
 SageOS is a hybrid operating system that combines a low-level C kernel with a high-level, SageLang-driven runtime. It is designed to be modular, secure, and fully observable across multiple architectures.
 
 ## What SageOS Provides
 - **Hybrid kernel architecture**: C for performance, SageLang for system services, shell logic, and runtime extensions.
 - **Multi-architecture support**: Native ports for x86_64, ARM64 (AArch64), and RISC-V 64.
+- **SageContainer (Isolated Runtime)**: Native Linux namespace-based "chroot" for running SageOS components directly on the host.
 - **Formalized Bootstrap Sequence**: 8 granular stages ensuring predictable system bring-up.
 - **Asynchronous Runtime Supervision**: Managed by `runtime_manager.sage` (PID 1) running as a persistent background kernel task.
 - **Capability-First Security**: Strict authority gating via unforgeable tokens and task-level permissions.
 - **Deep Instrumentation**: System-wide telemetry for real-time observability of scheduler, IPC, and VM events.
 
-## Core Features (v0.8.0)
+## Core Features (v0.9.0)
 - **High-Stability Memory Model**: Coalescing free-list allocator in the kernel's SageLang arena, preventing fragmentation.
+- **SageRoot / SageContainer**: Architecture-isolated root filesystems and namespace-based containerization for rapid testing.
 - **Kernel Software Watchdog**: Real-time monitoring of system health; automatically panics on deadlocks or OOM-induced hangs.
 - **AST Leak Mitigation**: Surgical memory management in the interpreter loop, ensuring nodes are reclaimed after execution.
 - **Managed Memory pressure**: Periodic background GC cycles and explicit collection points in critical system services.
@@ -30,6 +32,7 @@ SageOS is a hybrid operating system that combines a low-level C kernel with a hi
 ## Documentation
 SageOS documentation is organized into focused architectural specifications:
 - [Platform Specification](docs/architecture/platform_spec.md)
+- [SageContainer Guide](docs/guides/sage_container.md)
 - [Core Systems Architecture](docs/core_systems_architecture.md)
 - [IPC Subsystem Spec](docs/architecture/ipc.md)
 - [Syscall ABI Reference](docs/architecture/syscall_abi.md)
