@@ -10,22 +10,41 @@ let input_index = 0
 # --- I/O Stubs ---
 
 proc os_read_key():
+    # To make the shell fully interactive on a host, we need to read from stdin.
+    # SageLang's input() reads a whole line. To simulate os_read_key (which is usually char-by-char),
+    # we buffer the line and return it one char at a time.
+    
     if input_index >= len(input_buffer):
-        # On host, we'll just return 0 if no input is redirected
-        # To avoid blocking or infinite loops in non-interactive tests.
-        return 0
+        # Read a new line from the host
+        # Note: In a container/chroot, stdin is passed through.
+        # input() will wait for the user to press Enter.
+        let raw = input()
+        if raw == nil:
+            # EOF
+            return 10 # Return newline to trigger shell processing if it's waiting
+        end
+        input_buffer = raw + "\n"
+        input_index = 0
     end
     
+    if len(input_buffer) == 0:
+        return 0
+    end
+
     let key = input_buffer[input_index]
     input_index = input_index + 1
+    
     return ord(key)
 end
 
 proc os_write_char(c):
-    # print(chr(c))
+    # Builtin print() in SageLang usually adds a newline.
+    # If SageLang has a way to write raw to stdout without newline, use it.
+    # For now, we'll rely on the shell's logic which often uses os_write_str for chunks.
 end
 
 proc os_write_str(s):
+    # Host SageLang print() is usually what we want.
     print(s)
 end
 
@@ -43,6 +62,7 @@ proc os_substr(s, start, length):
     let slen = len(s)
     let end_idx = start + length
     if end_idx > slen: end_idx = slen end
+    # Using slice syntax
     return s[start:end_idx]
 end
 
@@ -73,7 +93,10 @@ proc os_arch(): return "x86_64" end
 proc os_build(): return "SageContainer" end
 proc os_host(): return "Linux" end
 proc os_is_qemu(): return 0 end
-proc os_sysinfo(): print("SageOS Container v0.9.0") end
+proc os_sysinfo(): 
+    print("SageOS Container v0.9.0")
+    print("Running on: " + os_host() + " " + os_arch())
+end
 proc os_version_string(): return "0.9.0-container" end
 proc os_uptime_str(): return "0:00:01" end
 proc os_ram_used_str(): return "512MB" end
@@ -117,15 +140,20 @@ proc os_console_clear(): print("\033[2J\033[H") end
 proc os_input_begin(): end
 proc os_input_backend(): return "host" end
 
-# Fixed to 4 arguments as used in shell.sage
 proc os_line_redraw(line, pos, old_len, suggestion):
-    # print("\r" + line + suggestion)
+    # On host, we don't want to spam redraws because input() handles it.
+    # However, to show the suggestion, we can print it.
+    # For now, let's keep it quiet to avoid messing up the host line editor.
 end
 
 # --- Shell Completion / Logic Stubs ---
 proc os_shell_completion_common(path, prefix): return "" end
 proc os_shell_exec(cmd):
-    print("Shell Exec: " + cmd)
+    # Basic shell logic: handle 'exit' internally
+    if cmd == "exit":
+        exit(0)
+    end
+    print("Container Exec: " + cmd)
 end
 proc os_shell_print_completions(path, prefix): end
 proc os_shell_suggestion(line, pos): return "" end
@@ -143,7 +171,7 @@ proc os_qemu_exit(n): exit(n) end
 # --- VM / Bytecode Stubs ---
 proc os_sage_exec(bc): print("VM Exec Request") end
 proc os_array_push(arr, val):
-    # arr.push(val)
+    # This might be used by the shell to manage command history or arguments
 end
 
 # --- Storage Stubs ---
