@@ -156,10 +156,10 @@ sageos_str = """x86_64-*-sageos*)
     tmake_file="${tmake_file} i386/t-i386elf t-svr4"
     ;;
 aarch64-*-sageos*)
-    tm_file="${tm_file} elfos.h newlib-stdint.h aarch64/aarch64-elf.h aarch64/aarch64-freebsd.h sageos.h aarch64/sageos.h"
+    tm_file="${tm_file} elfos.h newlib-stdint.h aarch64/aarch64-elf.h aarch64/aarch64-errata.h aarch64/aarch64-elf-raw.h sageos.h aarch64/sageos.h"
     ;;
 riscv64-*-sageos*)
-    tm_file="${tm_file} elfos.h newlib-stdint.h riscv/riscv.h sageos.h riscv/sageos.h"
+    tm_file="${tm_file} elfos.h newlib-stdint.h sageos.h riscv/sageos.h"
     ;;
 """
 
@@ -212,19 +212,9 @@ else:
 fi
 
 step "Patching Newlib..."
-mkdir -p "newlib-${NEWLIB_VER}/newlib/libc/sys/sageos"
-cp "${TOOLCHAIN_DIR}/newlib/libc/sys/sageos/syscalls.c" "newlib-${NEWLIB_VER}/newlib/libc/sys/sageos/"
-cp "${TOOLCHAIN_DIR}/newlib/libc/sys/sageos/crt0.S" "newlib-${NEWLIB_VER}/newlib/libc/sys/sageos/"
-cp "${TOOLCHAIN_DIR}/newlib/libc/sys/sageos/Makefile.inc" "newlib-${NEWLIB_VER}/newlib/libc/sys/sageos/"
-
-# Patch Newlib to recognize SageOS
+# Patch Newlib to recognize SageOS in configure.host
 if ! grep -q "sageos" "newlib-${NEWLIB_VER}/newlib/configure.host"; then
-    sed -i '/case "${host}" in/a \  *-*-sageos*) \n    sys_dir=sageos \n    posix_dir= \n    has_ieee_754_libs=yes \n    ;;' "newlib-${NEWLIB_VER}/newlib/configure.host"
-fi
-
-# Ensure Makefile.inc in libc/sys includes sageos
-if ! grep -q "sageos" "newlib-${NEWLIB_VER}/newlib/libc/sys/Makefile.inc"; then
-    echo -e "if HAVE_LIBC_SYS_SAGEOS_DIR\ninclude %D%/sageos/Makefile.inc\nendif" >> "newlib-${NEWLIB_VER}/newlib/libc/sys/Makefile.inc"
+    sed -i '/case "${host}" in/a \  *-*-sageos*) \n    sys_dir= \n    posix_dir= \n    has_ieee_754_libs=yes \n    ;;' "newlib-${NEWLIB_VER}/newlib/configure.host"
 fi
 
 # 3. Build Binutils
@@ -268,7 +258,6 @@ cd ..
 # 5. Build Newlib
 step "Building Newlib ($ARCH)..."
 mkdir -p build-newlib-${ARCH} && cd build-newlib-${ARCH}
-# Add SageOS to Newlib's configure.host or similar if needed
 ../newlib-${NEWLIB_VER}/configure \
     --target="$TARGET" \
     --prefix="$PREFIX" \
@@ -283,7 +272,16 @@ make -j"$JOBS" MAKEINFO=true
 make install MAKEINFO=true
 cd ..
 
-# 6. Build GCC Stage 2 (Final)
+# 6. Install SageOS Syscalls and CRT0
+step "Installing SageOS Syscalls and CRT0 ($ARCH)..."
+${PREFIX}/bin/${TARGET}-gcc -c ${TOOLCHAIN_DIR}/newlib/libc/sys/sageos/syscalls.c -o syscalls.o -O2
+${PREFIX}/bin/${TARGET}-ar r ${PREFIX}/${TARGET}/lib/libc.a syscalls.o
+${PREFIX}/bin/${TARGET}-gcc -c ${TOOLCHAIN_DIR}/newlib/libc/sys/sageos/crt0.S -o ${PREFIX}/${TARGET}/lib/crt0.o
+# Also put crt0.o in the sysroot if needed
+mkdir -p ${SYSROOT}/usr/lib
+cp ${PREFIX}/${TARGET}/lib/crt0.o ${SYSROOT}/usr/lib/
+
+# 7. Build GCC Stage 2 (Final)
 step "Building GCC Stage 2 ($ARCH)..."
 cd build-gcc-${ARCH}
 ../gcc-${GCC_VER}/configure \

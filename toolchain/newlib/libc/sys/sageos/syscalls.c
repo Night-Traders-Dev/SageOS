@@ -31,6 +31,54 @@
 #define SYS_unlink     87
 #define SYS_getdents64 217
 
+/* Helper macro for syscalls */
+#if defined(__x86_64__)
+static inline long __syscall(long num, long a1, long a2, long a3, long a4, long a5) {
+    long ret;
+    __asm__ volatile (
+        "mov %5, %%r8\n"
+        "mov %4, %%r10\n"
+        "syscall"
+        : "=a"(ret)
+        : "0"(num), "D"(a1), "S"(a2), "d"(a3), "r"(a4), "r"(a5)
+        : "rcx", "r11", "memory"
+    );
+    return ret;
+}
+#elif defined(__aarch64__)
+static inline long __syscall(long num, long a1, long a2, long a3, long a4, long a5) {
+    register long x8 __asm__("x8") = num;
+    register long x0 __asm__("x0") = a1;
+    register long x1 __asm__("x1") = a2;
+    register long x2 __asm__("x2") = a3;
+    register long x3 __asm__("x3") = a4;
+    register long x4 __asm__("x4") = a5;
+    __asm__ volatile (
+        "svc #0"
+        : "+r"(x0)
+        : "r"(x8), "r"(x1), "r"(x2), "r"(x3), "r"(x4)
+        : "memory"
+    );
+    return x0;
+}
+#elif defined(__riscv)
+static inline long __syscall(long num, long a1, long a2, long a3, long a4, long a5) {
+    register long a7 __asm__("a7") = num;
+    register long a0 __asm__("a0") = a1;
+    register long a1_ __asm__("a1") = a2;
+    register long a2_ __asm__("a2") = a3;
+    register long a3_ __asm__("a3") = a4;
+    register long a4_ __asm__("a4") = a5;
+    __asm__ volatile (
+        "ecall"
+        : "+r"(a0)
+        : "r"(a7), "r"(a1_), "r"(a2_), "r"(a3_), "r"(a4_)
+        : "memory"
+    );
+    return a0;
+}
+#endif
+
 /* Implementation of new syscalls */
 pid_t _vfork(void) {
     long ret = __syscall(SYS_vfork, 0, 0, 0, 0, 0);
@@ -97,54 +145,6 @@ int _getdents64(int fd, void *dirp, size_t count) {
     if (ret < 0) { errno = -ret; return -1; }
     return (int)ret;
 }
-
-/* Helper macro for syscalls */
-#if defined(__x86_64__)
-static inline long __syscall(long num, long a1, long a2, long a3, long a4, long a5) {
-    long ret;
-    __asm__ volatile (
-        "mov %5, %%r8\n"
-        "mov %4, %%r10\n"
-        "syscall"
-        : "=a"(ret)
-        : "0"(num), "D"(a1), "S"(a2), "d"(a3), "r"(a4), "r"(a5)
-        : "rcx", "r11", "memory"
-    );
-    return ret;
-}
-#elif defined(__aarch64__)
-static inline long __syscall(long num, long a1, long a2, long a3, long a4, long a5) {
-    register long x8 __asm__("x8") = num;
-    register long x0 __asm__("x0") = a1;
-    register long x1 __asm__("x1") = a2;
-    register long x2 __asm__("x2") = a3;
-    register long x3 __asm__("x3") = a4;
-    register long x4 __asm__("x4") = a5;
-    __asm__ volatile (
-        "svc #0"
-        : "+r"(x0)
-        : "r"(x8), "r"(x1), "r"(x2), "r"(x3), "r"(x4)
-        : "memory"
-    );
-    return x0;
-}
-#elif defined(__riscv)
-static inline long __syscall(long num, long a1, long a2, long a3, long a4, long a5) {
-    register long a7 __asm__("a7") = num;
-    register long a0 __asm__("a0") = a1;
-    register long a1_ __asm__("a1") = a2;
-    register long a2_ __asm__("a2") = a3;
-    register long a3_ __asm__("a3") = a4;
-    register long a4_ __asm__("a4") = a5;
-    __asm__ volatile (
-        "ecall"
-        : "+r"(a0)
-        : "r"(a7), "r"(a1_), "r"(a2_), "r"(a3_), "r"(a4_)
-        : "memory"
-    );
-    return a0;
-}
-#endif
 
 /* ---- write ---- */
 ssize_t _write(int fd, const void *buf, size_t count) {
