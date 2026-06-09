@@ -4,7 +4,7 @@
 
 ![SageLang Logo](core/assets/SageLang.png)
 
-Sage is a systems programming language that combines the readability of Python (indentation blocks, clean syntax) with the performance of C. It features ten execution backends (C, LLVM IR, native x86-64/aarch64/rv64, bytecode VM, **SageMetal VM**, JIT, AOT, **Kotlin/Android**), a **self-hosted interpreter** with hybrid JIT/AOT profile-guided type specialization, **Vulkan + OpenGL graphics**, **true atomic operations** and **POSIX semaphores** for multicore concurrency, **SMP/hyperthreading detection**, and **three GC modes** (tracing, ARC, ORC). As of v3.5.4, Sage features structural value equality in uniqueness checks, safe non-hanging string/value repeating, and robust tab/whitespace token checks in sandbox security guards.
+Sage is a systems programming language that combines the readability of Python (indentation blocks, clean syntax) with the performance of C. It features ten execution backends (C, LLVM IR, native x86-64/aarch64/rv64, bytecode VM, **SageMetal VM**, JIT, AOT, **Kotlin/Android**), a **self-hosted interpreter** with hybrid JIT/AOT profile-guided type specialization, **Vulkan + OpenGL graphics**, **true atomic operations** and **POSIX semaphores** for multicore concurrency, **SMP/hyperthreading detection**, and **three GC modes** (tracing, ARC, ORC). As of v3.5.9, Sage features $O(1)$ dictionary size lookups, $O(N)$ unique checks for simple types (with linear fallback for structural values), native array reversal (~105x faster), safe non-hanging string/value repeating via binary exponentiation (linear in output size), robust tab/whitespace token checks in sandbox security guards, and improved documentation visibility for POSIX error handling. This release also includes fixes for GPIO interrupt handling and relaxed REPL filename validation.
 
 ## Install (One line installer)
 
@@ -163,8 +163,8 @@ Run `make benchmark-python` to compare all Sage execution backends against CPyth
 
 ### Security Hardening
 - **Type-safe value access**: All native functions validate argument types before accessing union members
-- **Recursion depth limits**: Statement interpreter guards against stack overflow (max 1000); expression evaluator inlined for zero per-expression overhead
-- **Loop iteration limits**: While loops capped at 1M iterations; loop nesting capped at 64 levels
+- **Recursion depth limits**: Statement interpreter guards against stack overflow (max 1,000,000); expression evaluator inlined for zero per-expression overhead
+- **Loop iteration limits**: While loops capped at 1M iterations; loop nesting capped at 1024 levels
 - **Buffer safety**: String literals capped at 4096 chars, identifiers at 1024 chars; all allocation via abort-on-OOM wrappers
 - **Shell injection prevention**: Assembly exec/compile paths validate paths and use secure temp files (`mkstemps`)
 - **SSL handle safety**: Opaque pointers stored as `VAL_POINTER` (not truncated doubles); double-free prevention via handle nullification
@@ -272,6 +272,11 @@ SageLang ships with 44 binary format parsers, hardware abstraction, boot, kernel
 | **namespace** | `import os.linux.namespace` | Linux namespaces for containerization |
 | **qemu** | `import os.qemu` | QEMU VM launcher (x86_64/aarch64/riscv64, KVM, drives, networking, GDB, presets) |
 | **qemu_run** | `import os.linux.qemu_run` | Kernel module test runner (automated QEMU test pipelines, init script gen, result parsing) |
+| **Sync** | `import os.sync` | Synchronization primitives (Mutexes, Semaphores) for SageOS |
+| **Errno** | `import os.errno` | POSIX-standard error constants and `strerror` utility |
+| **CPIO** | `import os.cpio` | CPIO archive format parser and generator for initramfs |
+| **Tmpfs** | `import os.tmpfs` | In-memory filesystem for temporary kernel storage |
+| **SMP** | `import os.smp` | Symmetric Multi-Processing: CPU topology, affinity, and work distribution |
 | **Metal Core**| `import metal.core` | Bare-metal stubs: puts, putchar, inb/outb, mmio, cli/sti/hlt, panic |
 | **Metal Serial**| `import metal.serial` | NS16550A/PL011 drivers, baud rate validation, timeout-aware reads, line reading, buffer flushing |
 | **Metal GPIO** | `import metal.gpio` | MMIO-based GPIO, pin modes, pull config, interrupts, batch mask-based operations |
@@ -1332,8 +1337,9 @@ Distributed under the MIT License. See [LICENSE](LICENSE) for more information.
 **Recent Milestones:**
 
 - May 29, 2026: v3.5.6: Fixed doc comment detachment for `errno.strerror` and updated core metadata.
-- May 20, 2026: v3.4.5: Secure `io.mkdir` permissions (0755) and optimized `math.pow_int` with binary exponentiation (O(log n)).
-- May 15, 2026: v3.4.2: High-severity security hardening for AOT compiler and graphics modules.
+- May 25, 2026: v3.5.4: Structural value equality in uniqueness checks, safe non-hanging string/value repeating, and robust sandbox security guards.
+- May 20, 2026: v3.5.1: Critical bug fix in `mutex_lock` for bare-metal targets.
+- May 15, 2026: v3.5.0: Milestone release: Self-hosted compiler parity and synchronization primitives stabilization.
 - May 7, 2026: Optimization: implemented length-aware dictionary lookups and direct token pointers in method dispatch for 15% speedup
 - April 15, 2026: SageMetal VM — freestanding bytecode interpreter for OS kernels (no libc/malloc required)
 - April 10, 2026: Default runtime changed to hybrid JIT+AOT (Silent JIT profiling with auto fallback)

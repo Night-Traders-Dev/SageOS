@@ -1251,6 +1251,19 @@ static char* emit_call_expr(Compiler* compiler, CallExpr* call) {
         return sb_take(&sb);
     }
 
+    if (strcmp(callee_name, "array_reverse") == 0) {
+        if (call->arg_count != 1) {
+            compiler_builtin_arity_error(compiler, call, "array_reverse", "usage: array_reverse(array)", "1");
+            sb_append(&sb, "sage_nil()");
+        } else {
+            char* arg = emit_expr(compiler, call->args[0]);
+            sb_appendf(&sb, "sage_array_reverse(%s)", arg);
+            free(arg);
+        }
+        free(callee_name);
+        return sb_take(&sb);
+    }
+
     if (strcmp(callee_name, "range") == 0) {
         if (call->arg_count == 1) {
             char* arg = emit_expr(compiler, call->args[0]);
@@ -2107,7 +2120,7 @@ static void emit_stmt(Compiler* compiler, Stmt* stmt) {
             TryStmt* try_stmt = &stmt->as.try_stmt;
             emit_line(compiler, "{");
             compiler->indent++;
-            emit_line(compiler, "if (sage_try_depth >= SAGE_MAX_TRY_DEPTH) sage_fail(\"Runtime Error: try nesting too deep\");");
+            emit_line(compiler, "if (sage_try_depth >= SAGE_MAX_TRY_DEPTH) sage_fail(\"Runtime Error: try nesting too deep (max 1024)\");");
             emit_line(compiler, "int _caught = 0;");
             emit_line(compiler, "sage_try_depth++;");
             emit_line(compiler, "if (setjmp(sage_try_stack[sage_try_depth - 1]) == 0) {");
@@ -2332,7 +2345,7 @@ static void emit_runtime_prelude(FILE* out, CompilerTarget target) {
         , out);
     fputs(
         "/* Exception handling via setjmp/longjmp */\n"
-        "#define SAGE_MAX_TRY_DEPTH 64\n"
+        "#define SAGE_MAX_TRY_DEPTH 1024\n"
         "static jmp_buf sage_try_stack[SAGE_MAX_TRY_DEPTH];\n"
         "static SageValue sage_exception_value;\n"
         "static int sage_try_depth = 0;\n"
@@ -2875,6 +2888,23 @@ static void emit_runtime_prelude(FILE* out, CompilerTarget target) {
         "        dst->count += src->count;\n"
         "    }\n"
         "    return sage_nil();\n"
+        "}\n"
+        "\n"
+        "static SageValue sage_array_reverse(SageValue array) {\n"
+        "    if (array.type != SAGE_TAG_ARRAY) return sage_nil();\n"
+        "    SageArray* src = array.as.array;\n"
+        "    sage_gc_pin();\n"
+        "    SageValue result = sage_array();\n"
+        "    if (src->count > 0) {\n"
+        "        SageArray* dst = result.as.array;\n"
+        "        sage_array_reserve(dst, src->count);\n"
+        "        dst->count = src->count;\n"
+        "        for (int i = 0; i < src->count; i++) {\n"
+        "            dst->elements[i] = src->elements[src->count - 1 - i];\n"
+        "        }\n"
+        "    }\n"
+        "    sage_gc_unpin();\n"
+        "    return result;\n"
         "}\n"
         "\n"
         ,

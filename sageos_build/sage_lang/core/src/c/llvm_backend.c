@@ -74,8 +74,8 @@ typedef struct {
     int global_count;
     int global_cap;
     // Loop label stack for break/continue
-    int loop_cond_labels[64];
-    int loop_end_labels[64];
+    int loop_cond_labels[1024];
+    int loop_end_labels[1024];
     int loop_depth;
     // Track whether the current basic block has been terminated (ret/br)
     int block_terminated;
@@ -740,6 +740,8 @@ static void emit_type_definitions(LLVMCompiler* lc) {
     ll_emit(lc, "declare void @sage_rt_array_set(%%SageValue, i32, %%SageValue)\n");
     ll_emit(lc, "declare %%SageValue @sage_rt_array_push(%%SageValue, %%SageValue)\n");
     ll_emit(lc, "declare %%SageValue @sage_rt_array_pop(%%SageValue)\n");
+    ll_emit(lc, "declare %%SageValue @sage_rt_array_extend(%%SageValue, %%SageValue)\n");
+    ll_emit(lc, "declare %%SageValue @sage_rt_array_reverse(%%SageValue)\n");
     ll_emit(lc, "declare %%SageValue @sage_rt_index(%%SageValue, %%SageValue)\n");
     ll_emit(lc, "declare %%SageValue @sage_rt_is_truthy(%%SageValue)\n");
     ll_emit(lc, "declare i32 @sage_rt_get_bool(%%SageValue)\n");
@@ -1508,6 +1510,12 @@ static int llvm_emit_expr(LLVMCompiler* lc, Expr* expr) {
                     ll_line(lc, "%%%d = call %%SageValue @sage_rt_array_push(%%SageValue %%%d, %%SageValue %%%d)", r, arg_regs[0], arg_regs[1]);
                 } else if (strcmp(name, "pop") == 0 && expr->as.call.arg_count == 1) {
                     ll_line(lc, "%%%d = call %%SageValue @sage_rt_array_pop(%%SageValue %%%d)", r, arg_regs[0]);
+                } else if (strcmp(name, "array_extend") == 0 && expr->as.call.arg_count == 2) {
+                    ll_line(lc, "%%%d = call %%SageValue @sage_rt_array_extend(%%SageValue %%%d, %%SageValue %%%d)", r, arg_regs[0], arg_regs[1]);
+                } else if (strcmp(name, "array_reverse") == 0 && expr->as.call.arg_count == 1) {
+                    ll_line(lc, "%%%d = call %%SageValue @sage_rt_array_reverse(%%SageValue %%%d)", r, arg_regs[0]);
+                } else if (strcmp(name, "slice") == 0 && expr->as.call.arg_count == 3) {
+                    ll_line(lc, "%%%d = call %%SageValue @sage_rt_slice(%%SageValue %%%d, %%SageValue %%%d, %%SageValue %%%d)", r, arg_regs[0], arg_regs[1], arg_regs[2]);
                 } else if (strcmp(name, "range") == 0 && expr->as.call.arg_count == 1) {
                     ll_line(lc, "%%%d = call %%SageValue @sage_rt_range(%%SageValue %%%d)", r, arg_regs[0]);
                 } else if (strcmp(name, "dict_keys") == 0 && expr->as.call.arg_count == 1) {
@@ -1864,8 +1872,8 @@ static void llvm_emit_stmt(LLVMCompiler* lc, Stmt* stmt) {
             break;
         }
         case STMT_WHILE: {
-            if (lc->loop_depth >= 64) {
-                fprintf(stderr, "LLVM backend: loop nesting too deep (max 64)\n");
+            if (lc->loop_depth >= 1024) {
+                fprintf(stderr, "LLVM backend: loop nesting too deep (max 1024)\n");
                 lc->failed = 1;
                 return;
             }
@@ -1919,8 +1927,8 @@ static void llvm_emit_stmt(LLVMCompiler* lc, Stmt* stmt) {
             break;
         case STMT_FOR: {
             // for variable in iterable: body
-            if (lc->loop_depth >= 64) {
-                fprintf(stderr, "LLVM backend: loop nesting too deep (max 64)\n");
+            if (lc->loop_depth >= 1024) {
+                fprintf(stderr, "LLVM backend: loop nesting too deep (max 1024)\n");
                 lc->failed = 1;
                 return;
             }

@@ -23,18 +23,18 @@
 
 extern Environment* g_global_env;
 
-#ifndef __sageos__
+#ifdef SAGE_BARE_METAL
+extern EnvRootNode* g_gc_root_stack;
+extern Value g_ast_gc_temps[];
+extern int g_ast_gc_temp_count;
+extern Env* g_ast_gc_env_temps[];
+extern int g_ast_gc_env_temp_count;
+#else
 extern __thread EnvRootNode* g_gc_root_stack;
 extern __thread Value g_ast_gc_temps[];
 extern __thread int g_ast_gc_temp_count;
 extern __thread Env* g_ast_gc_env_temps[];
 extern __thread int g_ast_gc_env_temp_count;
-#else
-#define g_gc_root_stack (gc_get_thread_state()->gc_root_stack)
-#define g_ast_gc_temps (gc_get_thread_state()->ast_gc_temps)
-#define g_ast_gc_temp_count (gc_get_thread_state()->ast_gc_temp_count)
-#define g_ast_gc_env_temps (gc_get_thread_state()->ast_gc_env_temps)
-#define g_ast_gc_env_temp_count (gc_get_thread_state()->ast_gc_env_temp_count)
 #endif
 
 // Thread safety: global GC mutex
@@ -43,23 +43,13 @@ static sage_mutex_t gc_mutex = SAGE_MUTEX_INITIALIZER;
 // Multi-threading support: Thread Registry
 static sage_mutex_t thread_registry_mutex = SAGE_MUTEX_INITIALIZER;
 static ThreadState* thread_registry_head = NULL;
-
-#ifdef __sageos__
-#include "scheduler.h"
-#define g_current_thread_state ((ThreadState*)(sched_current_thread()->language_state))
-#else
 static __thread ThreadState* g_current_thread_state = NULL;
-#endif
 
 void gc_register_thread(ThreadState* ts) {
     sage_mutex_lock(&thread_registry_mutex);
     ts->next = thread_registry_head;
     thread_registry_head = ts;
-#ifdef __sageos__
-    sched_current_thread()->language_state = ts;
-#else
     g_current_thread_state = ts;
-#endif
     sage_mutex_unlock(&thread_registry_mutex);
 }
 
@@ -73,11 +63,7 @@ void gc_unregister_thread(ThreadState* ts) {
         }
         curr = &(*curr)->next;
     }
-#ifdef __sageos__
-    if (sched_current_thread()->language_state == ts) sched_current_thread()->language_state = NULL;
-#else
     if (g_current_thread_state == ts) g_current_thread_state = NULL;
-#endif
     sage_mutex_unlock(&thread_registry_mutex);
 }
 
@@ -527,7 +513,7 @@ void gc_mark_all_roots(void) {
     
     // Also mark the "legacy" globals for the current thread (if not registered)
     // and for compatibility during migration.
-    EnvRootNode* current = g_gc_root_stack;
+    EnvRootNode* current = GET_GC_ROOT_STACK();
     while (current != NULL) {
         gc_mark_env(current->env);
         current = current->next;

@@ -133,9 +133,11 @@ static const char* value_type_name(Value v) {
 static int is_safe_path(const char* path) {
     if (!path) return 1;
     for (const char* p = path; *p; p++) {
-        // Allow only alphanumeric, /, ., -, _, ~
+        // Allow alphanumeric and common filename characters
         if (!isalnum((unsigned char)*p) && *p != '/' && *p != '.' &&
-            *p != '-' && *p != '_' && *p != '~' && *p != ' ') {
+            *p != '-' && *p != '_' && *p != '~' && *p != ' ' &&
+            *p != '+' && *p != '#' && *p != '(' && *p != ')' &&
+            *p != '[' && *p != ']' && *p != '@' && *p != '!') {
             return 0;
         }
     }
@@ -1085,7 +1087,7 @@ static void run_repl(volatile SageRuntimeMode runtime_mode) {
     g_repl_mode = 1;
 
     while (1) {
-        char* line = repl_readline("sage> ");
+        char* volatile line = repl_readline("sage> ");
         if (line == NULL) {
             // EOF (Ctrl-D)
             printf("\n");
@@ -1136,6 +1138,8 @@ static void run_repl(volatile SageRuntimeMode runtime_mode) {
             if (command_matches(line, ":cd", &arg)) {
                 if (*arg == '\0') {
                     printf("Usage: :cd <dir>\n");
+                } else if (!is_safe_path(arg)) {
+                    printf("Security Error: Unsafe characters in path\n");
                 } else if (chdir(arg) != 0) {
                     perror("chdir");
                 } else {
@@ -1158,7 +1162,7 @@ static void run_repl(volatile SageRuntimeMode runtime_mode) {
                     } else {
                         snprintf(cmd, sizeof(cmd), "ls -F %s", arg);
                     }
-                    (void)system(cmd);
+                    if (system(cmd) == -1) { /* ignore */ }
                 }
                 free(line);
                 continue;
@@ -1172,7 +1176,7 @@ static void run_repl(volatile SageRuntimeMode runtime_mode) {
                 } else {
                     char cmd[4096];
                     snprintf(cmd, sizeof(cmd), "cat %s", arg);
-                    (void)system(cmd);
+                    if (system(cmd) == -1) { /* ignore */ }
                 }
                 free(line);
                 continue;
@@ -1182,7 +1186,7 @@ static void run_repl(volatile SageRuntimeMode runtime_mode) {
                 if (*arg == '\0') {
                     printf("Usage: :sh <command>\n");
                 } else {
-                    (void)system(arg);
+                    if (system(arg) == -1) { /* ignore */ }
                 }
                 free(line);
                 continue;
@@ -1203,6 +1207,10 @@ static void run_repl(volatile SageRuntimeMode runtime_mode) {
             if (command_matches(line, ":load", &arg)) {
                 if (*arg == '\0') {
                     printf("Usage: :load <file>\n");
+                    free(line);
+                    continue;
+                } else if (!is_safe_path(arg)) {
+                    printf("Security Error: Unsafe characters in path\n");
                     free(line);
                     continue;
                 }
@@ -1345,6 +1353,8 @@ static void run_repl(volatile SageRuntimeMode runtime_mode) {
             if (command_matches(line, ":save", &arg)) {
                 if (*arg == '\0') {
                     printf("Usage: :save <file>\n");
+                } else if (!is_safe_path(arg)) {
+                    printf("Security Error: Unsafe characters in path\n");
                 } else {
                     repl_save_session(arg);
                 }
@@ -1755,6 +1765,7 @@ int main(int argc, const char* argv[]) {
     ThreadState main_thread_state;
     memset(&main_thread_state, 0, sizeof(ThreadState));
     main_thread_state.thread_id = sage_thread_id();
+    main_thread_state.gas_limit = -1; // unlimited
     gc_register_thread(&main_thread_state);
 
     // ── OIS integration ──────────────────────────────────────────────────────

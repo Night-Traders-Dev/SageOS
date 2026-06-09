@@ -13,13 +13,9 @@ proc concat(left, right):
     append_all(result, right)
     return result
 
+@inline
 proc reverse(values):
-    let result = []
-    let i = len(values) - 1
-    while i >= 0:
-        push(result, values[i])
-        i = i - 1
-    return result
+    return array_reverse(values)
 
 proc map(values, fn):
     let result = []
@@ -64,7 +60,9 @@ proc find(values, predicate):
 
 proc unique(values):
     ## Returns a new array containing only the unique elements of the input.
-    ## Uses a dictionary for O(n) average-case lookup performance.
+    ## Uses a dictionary for O(n) average-case lookup performance for simple
+    ## types. For structural values (arrays, dicts), this falls back to
+    ## linear scans of collision buckets, which may be O(n^2) in the worst case.
     let result = []
     let seen = {}
     for item in values:

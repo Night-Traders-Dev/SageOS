@@ -1199,7 +1199,7 @@ Defer works with all exit paths:
 - `break`/`continue` from a loop
 - Exceptions (defers run before exception propagates)
 
-Implementation: the interpreter collects deferred statements in a 64-slot stack per block. On block exit, they execute in reverse order.
+Implementation: the interpreter collects deferred statements in a 1024-slot stack per block. On block exit, they execute in reverse order.
 
 ### 4.9 Pattern Matching (match/case/default)
 
@@ -1593,7 +1593,9 @@ The practical result is that `bytecode` mode is already useful for long-running 
 
 **Interpreter Overhead**:
 - **AST runtime**: Walks the parsed tree directly. It is still the simplest and most mature execution path.
-- **Bytecode VM**: Adds a statement-at-a-time lowering step, then executes stack bytecode. On mixed arithmetic/loop workloads it is already modestly faster than AST mode, even before deeper optimizations.
+- **Bytecode VM**: Adds a statement-at-a-time lowering step, then executes stack bytecode. On mixed arithmetic/loop workloads it is already modestly faster than AST mode.
+- **Threaded Dispatch**: The VM uses computed gotos (threaded interpretation) for high-performance instruction dispatch on supported compilers, significantly reducing loop overhead.
+- **Register Spilling**: The VM stack pointer and instruction pointer are kept in CPU registers where possible, minimizing memory traffic during the execution loop.
 - **Nested scopes**: Linear search up parent chain; O(depth) for variable lookup.
 - **GC pauses**: Mark-and-sweep still pauses execution during collection, but the trigger is now dynamic and based on both object count and managed bytes.
 
@@ -1714,8 +1716,8 @@ SageLang enforces several compile-time and runtime limits to prevent crashes fro
 
 | Limit | Constant | Value | Location | Behavior on Violation |
 |-------|----------|-------|----------|----------------------|
-| Recursion depth | `MAX_RECURSION_DEPTH` | 1000 | interpreter.c | Catchable exception |
-| Parser nesting | `MAX_PARSER_DEPTH` | 500 | parser.c | Parse error |
+| Recursion depth | `MAX_RECURSION_DEPTH` | 1000000 | interpreter.c | Catchable exception |
+| Parser nesting | `MAX_PARSER_DEPTH` | 100000 | parser.c | Parse error |
 | Loop iterations | `MAX_LOOP_ITERATIONS` | 1,000,000 | interpreter.c | Catchable exception |
 | String literal length | `MAX_STRING_LENGTH` | 4096 | lexer.c | Parse error |
 | Function arguments | Stack array | 255 | interpreter.c | Runtime error |

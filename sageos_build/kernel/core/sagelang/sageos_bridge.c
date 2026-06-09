@@ -61,6 +61,8 @@ void sage_gil_release(void) {
 
 static Env* g_sage_env = NULL;
 static ModuleCache* g_sage_cache = NULL;
+// External Sage symbols
+extern Environment* g_global_env;
 
 void register_sageos_natives(ModuleCache* cache);
 
@@ -75,6 +77,7 @@ void sage_repl_init(void) {
         add_search_path(g_sage_cache, ".");
         global_module_cache = g_sage_cache;
         g_sage_env = env_create(NULL);
+        g_global_env = g_sage_env; // Set global env for modules/tasks
         register_sageos_natives(g_sage_cache);
         init_stdlib(g_sage_env);
     }
@@ -432,5 +435,5 @@ int bytecode_compile_program(void* p, void* s, int m, char* e, size_t es) { (voi
 int bytecode_program_read_file(void* p, const char* path, char* e, size_t es) { (void)p;(void)path;(void)e;(void)es; return 0; }
 int bytecode_program_write_file(void* p, const char* path, char* e, size_t es) { (void)p;(void)path;(void)e;(void)es; return 0; }
 
-// g_gc_root_stack stub (no TLS)
-EnvRootNode* g_gc_root_stack = NULL;
+
+// External Sage symbols

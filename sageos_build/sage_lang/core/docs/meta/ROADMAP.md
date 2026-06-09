@@ -1,22 +1,19 @@
 # Sage Language - Development Roadmap
 
-> **Last Updated**: June 1, 2026
-> **Current Phase**: v3.4.3 — Kernel Multitasking & Stabilization
+> **Last Updated**: June 3, 2026
+> **Current Phase**: v3.6.0 — VM Optimization & Self-Hosted Toolchain, all 18 phases complete
 
 This roadmap outlines the development journey of Sage, from its initial bootstrapping phase to becoming a fully self-hosted systems programming language with low-level capabilities.
 
 ---
 
-## v3.4.3: Kernel Multitasking & Stabilization (June 2026)
+## v3.6.0: VM Optimization & Self-Hosted Toolchain (June 2026)
 
 ### Completed
 
-- **SageOS Multitasking**: Implemented `os_spawn_task` FFI for spawning real scheduler threads from SageLang.
-- **Global Interpreter Lock (GIL)**: Thread-safe AST interpreter orchestration, protecting shared lexer/parser state.
-- **MetalVM Preemption**: Injected `timer_poll()` into bytecode step loop, enabling fluid preemption during compute tasks.
-- **Capability-First VFS**: Mandatory capability gating for file access via `IPC_OBJ_FILE` and `IPC_OBJ_DIR`.
-- **Asynchronous Supervisor**: PID 1 supervisor now runs as a persistent background kernel task.
-- **Thread-Safe Allocator**: Standardized bump allocator with synchronization guards for concurrent kernel tasks.
+- **VM Dispatch Optimization**: Implemented threaded interpretation via computed gotos for significant performance gains on supported compilers.
+- **Register-Backed Stack Pointer**: Optimized the stack VM execution loop to use local pointers and registers for stack management.
+- **Self-Hosted VM Tools**: Ported `sgvmc` and `sgvm` to pure SageLang, enabling fully self-hosted bytecode compilation and execution.
 
 ---
 
@@ -375,8 +372,8 @@ A cross-cutting audit and hardening pass across the entire codebase.
 
 #### Recursion & Execution Safety ✅
 
-- [x] **Interpreter depth limit** - `MAX_RECURSION_DEPTH 1000` with graceful exception on overflow
-- [x] **Parser depth limit** - `MAX_PARSER_DEPTH 500` prevents stack overflow from malicious input
+- [x] **Interpreter depth limit** - `MAX_RECURSION_DEPTH 1000000` with graceful exception on overflow
+- [x] **Parser depth limit** - `MAX_PARSER_DEPTH 100000` prevents stack overflow from malicious input
 - [x] **Iterative lexer** - `scan_token()` converted from recursive to iterative (`for(;;)` loop)
 - [x] **Loop iteration limit** - `MAX_LOOP_ITERATIONS 1000000` prevents runaway `while` loops from exhausting the C stack; throws a catchable exception
 - [x] **String literal length limit** - `MAX_STRING_LENGTH 4096` in lexer rejects oversized string literals at parse time, preventing buffer-related crashes

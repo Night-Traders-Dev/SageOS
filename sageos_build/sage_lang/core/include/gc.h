@@ -13,7 +13,7 @@
 #include "sage_thread.h"
 
 // GC configuration
-#define GC_HEAP_SIZE (64 * 1024 * 1024)        // 64MB heap
+#define GC_HEAP_SIZE (16 * 1024 * 1024)        // 16MB heap
 #define GC_MIN_TRIGGER_OBJECTS 1024        // Minimum live objects before auto-GC
 #define GC_MIN_TRIGGER_BYTES (1024 * 1024)  // Minimum managed bytes before auto-GC
 #define GC_MARK_STACK_INIT 4096           // Initial mark stack capacity
@@ -68,7 +68,7 @@ typedef struct ThreadState {
     Env* ast_gc_env_temps[AST_GC_ENV_TEMP_MAX];
     int ast_gc_env_temp_count;
     
-    // Phase 11: Multitasking state
+    // Multitasking state (SageOS compatibility)
     long gas_limit;
     long gas_used;
     int recursion_depth;

@@ -22,7 +22,7 @@ extern "C" {
 // ============================================================================
 
 #ifndef METAL_STACK_SIZE
-#define METAL_STACK_SIZE      512     // Value stack depth
+#define METAL_STACK_SIZE      4096    // Value stack depth
 #endif
 
 #ifndef METAL_POOL_SIZE
@@ -42,7 +42,7 @@ extern "C" {
 #endif
 
 #ifndef METAL_ENV_DEPTH
-#define METAL_ENV_DEPTH       64      // Maximum scope chain depth
+#define METAL_ENV_DEPTH       1024    // Maximum scope chain depth
 #endif
 
 #ifndef METAL_VARS_PER_SCOPE
@@ -123,8 +123,12 @@ typedef struct {
     int count;
 } MetalScope;
 
+#ifndef METAL_CALL_STACK_SIZE
+#define METAL_CALL_STACK_SIZE 256     // Call stack depth
+#endif
+
 // ============================================================================
-// Metal VM State — all static, zero dynamic allocation
+// Value representation — compact 16-byte tagged union
 // ============================================================================
 
 typedef struct {
@@ -132,14 +136,27 @@ typedef struct {
     MetalValue stack[METAL_STACK_SIZE];
     int sp;                                  // Stack pointer
 
-    // Bytecode
-    const unsigned char* code;               // Bytecode stream
+    // Call stack (for functions/chunks)
+    struct {
+        int ip;
+        const unsigned char* code;
+        int code_length;
+    } call_stack[METAL_CALL_STACK_SIZE];
+    int csp;
+
+    // Bytecode (current chunk)
+    const unsigned char* code;
     int code_length;
     int ip;                                  // Instruction pointer
 
     // Constant pool
     MetalValue constants[METAL_CONST_POOL];
     int const_count;
+
+    // Chunks (top-level segments)
+    const unsigned char* chunks[1024];
+    int chunk_lengths[1024];
+    int chunk_count;
 
     // Scope chain (flat array, not linked list)
     MetalScope scopes[METAL_ENV_DEPTH];
@@ -185,6 +202,12 @@ void metal_vm_init(MetalVM* vm);
 
 // Load bytecode into VM
 void metal_vm_load(MetalVM* vm, const unsigned char* code, int length);
+
+// Load compiled SGVM binary into VM
+int metal_vm_load_binary(MetalVM* vm, const unsigned char* data, int size);
+
+// Verify bytecode for safety and integrity
+int metal_vm_verify(MetalVM* vm);
 
 // Add a constant to the constant pool
 int metal_vm_add_constant(MetalVM* vm, MetalValue value);
