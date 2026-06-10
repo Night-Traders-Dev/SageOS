@@ -288,4 +288,4 @@ iteration over derived caps is required.
 | `ipc_user.h` | User-space C library header | 220 |
 | `ipc_user.c` | User-space C library implementation | 200 |
 | `ipc_sagelang_binding.c` | SageLang/MetalVM FFI bridge | 230 |
-| `ipc_spec.md` | This document | 350 |
+| `ipc.md` | This document | 350 |
