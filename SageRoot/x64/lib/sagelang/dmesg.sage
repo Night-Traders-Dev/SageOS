@@ -1,34 +1,13 @@
-# =============================================================================
-# SageOS dmesg implementation
-# dmesg.sage
-# =============================================================================
+# dmesg.sage - Pure Sage kernel log viewer
 
-proc dmesg_dump_sage():
-    let total = os_dmesg_get_total()
-    let size = os_dmesg_get_size()
-    let head = os_dmesg_get_head()
+proc main():
+    let logs = os_get_dmesg()
+    if logs == nil:
+        os_write_str("\nError: Could not fetch kernel logs")
+        return
     
-    let start = 0
-    let count = 0
-    
-    if total < size:
-        start = 0
-        count = total
-    else:
-        start = head
-        count = size
-        
-    let i = 0
-    os_write_char(10) # Newline
-    while i < count:
-        let idx = (start + i) % size
-        let c = os_dmesg_get_char(idx)
-        if c != 0:
-            os_write_char(c)
-        i = i + 1
+    os_write_str("\n--- Kernel Logs ---\n")
+    os_write_str(logs)
+    os_write_str("\n--- End of Logs ---\n")
 
-# Export for shell dispatch if needed
-proc cmd_dmesg():
-    dmesg_dump_sage()
-    dmesg_log("Test")
-
+main()

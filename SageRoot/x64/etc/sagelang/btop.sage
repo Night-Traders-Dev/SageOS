@@ -156,10 +156,7 @@ proc main():
             mem_used = mem["used"]
             mem_total = mem["total"]
         end
-        let mem_pct = 0
-        if mem_total > 0:
-            mem_pct = (mem_used * 100) / mem_total
-        end
+        let mem_pct = (mem_used * 100) / mem_total
         
         # Update history
         _push(cpu_history, cpu_avg)
@@ -294,7 +291,7 @@ proc _slice(arr, start, limit):
 end
 
 proc _push(arr, val):
-    os_array_push(arr, val)
+    arr[len(arr)] = val
 end
 
 main()

@@ -13,9 +13,13 @@ proc concat(left, right):
     append_all(result, right)
     return result
 
-@inline
 proc reverse(values):
-    return array_reverse(values)
+    let result = []
+    let i = len(values) - 1
+    while i >= 0:
+        push(result, values[i])
+        i = i - 1
+    return result
 
 proc map(values, fn):
     let result = []
@@ -36,29 +40,21 @@ proc reduce(values, initial, fn):
         result = fn(result, item)
     return result
 
-## Returns true if the array contains the given value.
-## Optimization: Uses native array_contains built-in (~14x speedup).
 @inline
 proc contains(values, needle):
-    let res = array_contains(values, needle)
-    if type(res) == "nil":
-        for item in values:
-            if item == needle: return true
-        return false
-    return res
+    for item in values:
+        if item == needle:
+            return true
+    return false
 
-## Returns the index of the first occurrence of needle, or -1 if not found.
-## Optimization: Uses native array_index_of built-in (~61x speedup).
 @inline
 proc index_of(values, needle):
-    let res = array_index_of(values, needle)
-    if type(res) == "nil":
-        let i = 0
-        for item in values:
-            if item == needle: return i
-            i = i + 1
-        return -1
-    return res
+    let i = 0
+    while i < len(values):
+        if values[i] == needle:
+            return i
+        i = i + 1
+    return 0 - 1
 
 proc find(values, predicate):
     for item in values:
@@ -68,9 +64,7 @@ proc find(values, predicate):
 
 proc unique(values):
     ## Returns a new array containing only the unique elements of the input.
-    ## Uses a dictionary for O(n) average-case lookup performance for simple
-    ## types. For structural values (arrays, dicts), this falls back to
-    ## linear scans of collision buckets, which may be O(n^2) in the worst case.
+    ## Uses a dictionary for O(n) average-case lookup performance.
     let result = []
     let seen = {}
     for item in values:
