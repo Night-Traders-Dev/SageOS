@@ -30,16 +30,21 @@ SageOS is a hybrid operating system that combines a low-level C kernel with a hi
 - **Unified Telemetry**: High-performance circular trace buffer providing deep insight into kernel and VM behavior.
 
 ## Documentation
-SageOS documentation is organized into focused architectural specifications:
+SageOS documentation is organized into focused architectural specifications and guides:
+- [**SageOS Book**](docs/SageOS_Book.md): Comprehensive narrative guide to the OS.
+- [**Core Systems Architecture**](docs/core_systems_architecture.md): Philosophical overview and spec index.
 - [Platform Specification](docs/architecture/platform_spec.md)
 - [SageContainer Guide](docs/guides/sage_container.md)
-- [Core Systems Architecture](docs/core_systems_architecture.md)
 - [IPC Subsystem Spec](docs/architecture/ipc.md)
 - [Syscall ABI Reference](docs/architecture/syscall_abi.md)
 - [Security Model](docs/architecture/security.md)
+- [Execution Model](docs/architecture/execution_model.md)
+- [Memory Model](docs/architecture/memory_model.md)
 - [Internal API Contracts](docs/architecture/internal_apis.md)
 - [Telemetry & Observability](docs/architecture/telemetry.md)
 - [Changelog](CHANGELOG.md)
+
+Detailed indices can be found in [docs/README.md](docs/README.md).
 
 ## Why This Repository Exists
 This repository is the central coordination point for SageOS development. It contains:
