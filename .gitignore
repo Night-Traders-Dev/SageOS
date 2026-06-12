@@ -80,3 +80,4 @@ benchmark_chart.png
 rootfs/*.sage
 rootfs/etc/sagelang/*.sage
 rootfs/lib/sagelang/*.sage
+wifi_config.conf
