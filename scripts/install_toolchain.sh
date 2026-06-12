@@ -3,37 +3,35 @@
 # install_toolchain.sh - Install native toolchain into SageOS disk image
 
 set -e
-
-ARCH=${1:-"x86_64"}
-DISK_IMG=${DISK_IMG:-"virt.img"}
+# Configuration
+CROSS_COMPILE="riscv64-linux-gnu-"
+WORKDIR=$(pwd)
 # Prefer second argument, then environment SAGE_NATIVE_DIST, then a local 'toolchain' folder, then fallback
 NATIVE_DIST=${2:-${SAGE_NATIVE_DIST:-"$(pwd)/toolchain/native"}}
-TOOLCHAIN_TAG="v0.4.0-toolchain"
+TOOLCHAIN_TAG="v3.6.8"
+REPO="Night-Traders-Dev/SageLang"
 
 # Map script arch to tarball arch
 TAR_ARCH="$ARCH"
 if [[ "$ARCH" == "x64" ]]; then TAR_ARCH="x86_64"; fi
 if [[ "$ARCH" == "arm64" ]]; then TAR_ARCH="aarch64"; fi
 
-TARBALL="sageos-toolchain-${TAR_ARCH}.tar.gz"
+TARBALL="sageos-toolchain-${TAR_ARCH}-${TOOLCHAIN_TAG}.tar.gz"
 DOWNLOAD_DIR="/tmp/sageos-toolchain-download"
 
 if [ ! -d "$NATIVE_DIST" ]; then
     echo "Local native distribution not found at $NATIVE_DIST."
     echo "Attempting to download prebuilt toolchain ($TAR_ARCH) from GitHub..."
-    
+
     mkdir -p "$DOWNLOAD_DIR"
     cd "$DOWNLOAD_DIR"
-    
+
     if [ ! -f "$TARBALL" ]; then
-        if command -v gh >/dev/null && [ -n "$GH_TOKEN" ]; then
-            gh release download "$TOOLCHAIN_TAG" -p "$TARBALL" --repo "Night-Traders-Dev/SageOS"
-        else
-            URL="https://github.com/Night-Traders-Dev/SageOS/releases/download/${TOOLCHAIN_TAG}/${TARBALL}"
-            echo "Downloading via curl: $URL"
-            curl -L -O "$URL"
-        fi
+        URL="https://github.com/${REPO}/releases/download/${TOOLCHAIN_TAG}/${TARBALL}"
+        echo "Downloading via curl: $URL"
+        curl -L -O "$URL"
     fi
+
     
     echo "Extracting $TARBALL..."
     # The tarballs contain /home/kraken/sageos-toolchain-${TAR_ARCH}/
