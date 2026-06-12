@@ -85,5 +85,6 @@ extra_sources = [
     "arch/rv64/sg2002/kernel/uart/uart.c",
     "arch/rv64/sg2002/kernel/platform_init/platform.c",
     "arch/rv64/sg2002/kernel/traps/traps.c",
-    "arch/rv64/sg2002/kernel/mm/paging.c"
+    "arch/rv64/sg2002/kernel/mm/paging.c",
+    "arch/rv64/sg2002/kernel/timer/timer.c"
 ]
