@@ -95,6 +95,7 @@ extra_sources = [
     "arch/rv64/sg2002/kernel/vm/platform_vm.c",
     "arch/rv64/sg2002/kernel/drivers/sdhci.c",
     "arch/rv64/sg2002/kernel/drivers/vfs_bridge.c",
+    "arch/rv64/sg2002/kernel/ipc/ipc.c",
     "sageos_build/sage_lang/core/src/vm/bytecode.c",
     "sageos_build/sage_lang/core/src/vm/program.c",
     "sageos_build/sage_lang/core/src/vm/runtime.c",
