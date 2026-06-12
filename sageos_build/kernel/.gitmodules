@@ -1,0 +1,6 @@
+[submodule ".deps/SageLang"]
+	path = .deps/SageLang
+	url = https://github.com/Night-Traders-Dev/SageLang.git
+	branch = main
+	shallow = true
+	fetchRecurseSubmodules = false
