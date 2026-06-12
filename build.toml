@@ -92,5 +92,9 @@ extra_sources = [
     "arch/rv64/sg2002/kernel/mm/heap.c",
     "arch/rv64/sg2002/kernel/scheduler/scheduler.c",
     "arch/rv64/sg2002/kernel/scheduler/switch.S",
-    "arch/rv64/sg2002/kernel/vm/platform_vm.c"
+    "arch/rv64/sg2002/kernel/vm/platform_vm.c",
+    "sageos_build/sage_lang/core/src/vm/bytecode.c",
+    "sageos_build/sage_lang/core/src/vm/program.c",
+    "sageos_build/sage_lang/core/src/vm/runtime.c",
+    "sageos_build/sage_lang/core/src/vm/vm.c"
 ]
