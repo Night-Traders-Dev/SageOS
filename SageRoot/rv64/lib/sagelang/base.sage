@@ -1,13 +1,11 @@
-# lib/blockchain/consensus/base.sage
+class Transpiler:
+    proc parse(source: String) -> Object:
+        # To be implemented by specific language parsers
+        raise "Not implemented"
 
-class Consensus:
-    proc init(blockchain):
-        self.blockchain = blockchain
+    proc emit(ast: Object) -> String:
+        # To be implemented by SageLang emitters
+        raise "Not implemented"
 
-    proc validate_block(block):
-        # To be implemented by subclasses
-        return false
-
-    proc seal_block(transactions, miner_address):
-        # To be implemented by subclasses
-        return nil
+    proc transpile(source: String) -> String:
+        return self.emit(self.parse(source))

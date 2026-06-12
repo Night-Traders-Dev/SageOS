@@ -8,8 +8,8 @@
 # BTRFS: Configurable (default 512MB)
 # SWAP: Configurable (default 512MB)
 
-DISK_IMG=${DISK_IMG:-"virt.img"}
-FAT_SIZE_MB=${1:-4096}
+DISK_IMG=${1:-"virt.img"}
+FAT_SIZE_MB=${2:-512}
 BTRFS_SIZE_MB=${2:-512}
 SWAP_SIZE_MB=${3:-512}
 
