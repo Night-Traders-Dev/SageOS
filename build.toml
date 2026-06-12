@@ -101,6 +101,7 @@ extra_sources = [
     "arch/rv64/sg2002/kernel/drivers/usb/usb_device.c",
     "arch/rv64/sg2002/kernel/console/console.c",
     "arch/rv64/sg2002/kernel/ipc/ipc.c",
+    "arch/rv64/sg2002/kernel/ipc/services.c",
     "arch/rv64/sg2002/kernel/smp/smp.c",
     "arch/rv64/sg2002/kernel/smp/dtb_parser.c",
     "sageos_build/sage_lang/core/src/vm/bytecode.c",
