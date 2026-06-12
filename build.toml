@@ -95,6 +95,8 @@ extra_sources = [
     "arch/rv64/sg2002/kernel/vm/platform_vm.c",
     "arch/rv64/sg2002/kernel/drivers/sdhci.c",
     "arch/rv64/sg2002/kernel/drivers/vfs_bridge.c",
+    "arch/rv64/sg2002/kernel/drivers/sdio/sdio_controller.c",
+    "arch/rv64/sg2002/kernel/drivers/usb/serial_bridge.c",
     "arch/rv64/sg2002/kernel/ipc/ipc.c",
     "arch/rv64/sg2002/kernel/smp/smp.c",
     "arch/rv64/sg2002/kernel/smp/dtb_parser.c",
