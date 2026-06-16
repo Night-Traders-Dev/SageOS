@@ -1,0 +1,194 @@
+#!/usr/bin/env python3
+import sys
+import os
+import subprocess
+import shutil
+
+# --- Configuration ---
+ROOT_DIR = os.getcwd()
+SAGE_LANG_DIR = os.path.join(ROOT_DIR, "SageLang")
+SAGE_VM_DIR = os.path.join(ROOT_DIR, "SageVM")
+BUILD_DIR = os.path.join(ROOT_DIR, "build")
+
+VERSION_FILES = [
+    "SageLang/VERSION",
+    "SageLang/core/VERSION",
+    "SageVM/VERSION",
+    "arch/arm64/VERSION",
+    "arch/rv64/VERSION",
+    "arch/x64/VERSION"
+]
+
+# --- Helper Functions ---
+def run(cmd, cwd=ROOT_DIR, check=True):
+    print(f"Executing: {cmd} (in {cwd})")
+    try:
+        subprocess.check_call(cmd, shell=True, cwd=cwd)
+    except subprocess.CalledProcessError as e:
+        print(f"Error executing command: {e}")
+        if check:
+            sys.exit(1)
+        return False
+    return True
+
+def clean():
+    print("Cleaning build artifacts...")
+    if os.path.exists(BUILD_DIR):
+        shutil.rmtree(BUILD_DIR)
+        print(f"  Removed {BUILD_DIR}")
+    
+    # Submodule cleaning
+    if os.path.exists(os.path.join(SAGE_LANG_DIR, "core", "Makefile")):
+        run("make clean", cwd=os.path.join(SAGE_LANG_DIR, "core"))
+    if os.path.exists(os.path.join(SAGE_VM_DIR, "Makefile")):
+        run("make clean", cwd=SAGE_VM_DIR)
+
+def update():
+    print("Updating repository and submodules...")
+    run("git pull", check=False)
+    run("git submodule update --init --recursive")
+
+def check_dependencies():
+    print("Checking dependencies...")
+    
+    # 1. Check submodules
+    if not os.path.exists(os.path.join(SAGE_LANG_DIR, "core", "Makefile")):
+        print("  SageLang submodule missing or not initialized. Initializing...")
+        run("git submodule update --init --recursive")
+    
+    # 2. Check SageLang Compiler (sgvmc and sage)
+    sgvmc_path = os.path.join(SAGE_LANG_DIR, "core", "sgvmc")
+    sage_path = os.path.join(SAGE_LANG_DIR, "core", "sage")
+    
+    if not os.path.exists(sgvmc_path) or not os.path.exists(sage_path):
+        print("  SageLang compilers missing. Building...")
+        build_sage(clean=False)
+    else:
+        # Just run make to ensure it's up to date
+        print("  Ensuring SageLang is up to date...")
+        build_sage(clean=False)
+
+def build(arch, device):
+    check_dependencies()
+    print(f"Building for ARCH={arch}, DEVICE={device}...")
+    run(f"make ARCH={arch} DEVICE={device}")
+
+def build_vm(clean=True):
+    print("Building SageVM...")
+    # Clean, pull, build
+    if os.path.exists(SAGE_VM_DIR):
+        if clean:
+            run("make clean", cwd=SAGE_VM_DIR)
+            run("git pull", cwd=SAGE_VM_DIR, check=False)
+        run("make", cwd=SAGE_VM_DIR)
+    else:
+        print("SageVM submodule missing!")
+
+def build_sage(clean=True):
+    print("Building SageLang...")
+    # Clean, pull, build
+    if os.path.exists(os.path.join(SAGE_LANG_DIR, "core")):
+        core_dir = os.path.join(SAGE_LANG_DIR, "core")
+        if clean:
+            run("make clean", cwd=core_dir)
+            run("git pull", cwd=SAGE_LANG_DIR, check=False)
+        run("make", cwd=core_dir)
+    else:
+        print("SageLang submodule missing!")
+
+def update_version(new_version):
+    print(f"Updating version to {new_version}...")
+    for v_file in VERSION_FILES:
+        path = os.path.join(ROOT_DIR, v_file)
+        if os.path.exists(path):
+            with open(path, "w") as f:
+                f.write(new_version + "\n")
+            print(f"  Updated {v_file}")
+        else:
+            print(f"  Skipping {v_file} (not found)")
+
+def run_tests():
+    print("Running test suite...")
+    if os.path.exists("tests/run_tests.py"):
+        run("python3 tests/run_tests.py")
+    else:
+        print("Test runner tests/run_tests.py not found.")
+
+def run_benchmarks():
+    print("Running benchmarks...")
+    if os.path.exists(os.path.join(SAGE_LANG_DIR, "core", "Makefile")):
+        run("make -C SageLang/core benchmarks")
+    else:
+        print("SageLang/core/Makefile not found, cannot run benchmarks.")
+
+def run_qemu(arch):
+    print(f"Running QEMU for ARCH={arch}...")
+    elf_path = os.path.join(BUILD_DIR, f"sageos_{arch}.elf")
+    
+    if not os.path.exists(elf_path):
+        print(f"Error: {elf_path} not found. Build it first using 'sagemake build {arch}'.")
+        sys.exit(1)
+
+    if arch == "rv64":
+        qemu_cmd = f"qemu-system-riscv64 -M virt -cpu rv64 -m 128M -display none -serial stdio -kernel {elf_path}"
+    elif arch == "x64":
+        qemu_cmd = f"qemu-system-x86_64 -m 128M -display none -serial stdio -device loader,file={elf_path}"
+    elif arch == "arm64":
+        qemu_cmd = f"qemu-system-aarch64 -M virt -cpu cortex-a57 -m 128M -display none -serial stdio -kernel {elf_path}"
+    else:
+        print(f"Error: QEMU command for architecture '{arch}' is not defined.")
+        sys.exit(1)
+
+    run(qemu_cmd)
+
+# --- Command Router ---
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: sagemake [clean|build|update|build-vm|build-sage|version|test-suite|benchmark|run|build-run]")
+        sys.exit(1)
+
+    cmd = sys.argv[1]
+
+    if cmd == "clean":
+        clean()
+    elif cmd == "update":
+        update()
+    elif cmd == "build":
+        if len(sys.argv) < 3:
+             print("Usage: sagemake build <arch> [device]")
+             sys.exit(1)
+        arch = sys.argv[2]
+        device = sys.argv[3] if len(sys.argv) > 3 else "qemu"
+        build(arch, device)
+    elif cmd == "run":
+        if len(sys.argv) < 3:
+            print("Usage: sagemake run <arch>")
+            sys.exit(1)
+        run_qemu(sys.argv[2])
+    elif cmd == "build-run":
+        if len(sys.argv) < 3:
+            print("Usage: sagemake build-run <arch> [device]")
+            sys.exit(1)
+        arch = sys.argv[2]
+        device = sys.argv[3] if len(sys.argv) > 3 else "qemu"
+        build(arch, device)
+        run_qemu(arch)
+    elif cmd == "build-vm":
+        build_vm()
+    elif cmd == "build-sage":
+        build_sage()
+    elif cmd == "version":
+        if len(sys.argv) < 3:
+            print("Usage: sagemake version <x.y.z>")
+            sys.exit(1)
+        update_version(sys.argv[2])
+    elif cmd == "test-suite":
+        run_tests()
+    elif cmd == "benchmark":
+        run_benchmarks()
+    else:
+        print(f"Unknown command: {cmd}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()

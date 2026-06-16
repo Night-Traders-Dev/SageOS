@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+"""
+SageVM Unified Build System (sagemake)
+Modern, visually appealing build & install orchestrator for SageVM.
+"""
+
+import os
+import sys
+import subprocess
+import argparse
+import time
+import shutil
+from pathlib import Path
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.text import Text
+    from rich import box
+    HAS_RICH = True
+except ImportError:
+    HAS_RICH = False
+
+# Configuration
+VERSION = "0.9.3"
+if Path("VERSION").exists():
+    VERSION = Path("VERSION").read_text().strip()
+
+SAGE_BIN = Path(".deps/SageLang/core/sage")
+SAGE_LIB = Path(".deps/SageLang/core/lib")
+
+if HAS_RICH:
+    console = Console()
+    def banner(title):
+        console.print(Panel(Text(title, style="bold cyan", justify="center"), border_style="cyan", box=box.ROUNDED))
+    def section(title):
+        console.print(f"\n [bold cyan]→[/bold cyan] [bold]{title}[/bold]")
+    def step(message):
+        console.print(f"  [yellow]⚙[/yellow] {message: <45}", end="")
+    def step_ok(detail="done"):
+        console.print(f" [bold green]✓[/bold green] [green]done[/green] [dim]({detail})[/dim]")
+    def step_fail(detail="failed"):
+        console.print(f" [bold red]✗[/bold red] [red]{detail}[/red]")
+        sys.exit(1)
+else:
+    def banner(t): print(f"\n{'='*78}\n{t.center(78)}\n{'='*78}")
+    def section(t): print(f"\n--> {t}")
+    def step(m): print(f"  * {m: <45}", end="", flush=True)
+    def step_ok(d="done"): print(f" [OK] ({d})")
+    def step_fail(d="failed"): print(f" [FAIL] {d}"); sys.exit(1)
+
+def run_cmd(cmd, cwd=None, capture_output=True, shell=False, env=None):
+    try:
+        current_env = os.environ.copy()
+        if env:
+            current_env.update(env)
+        if shell:
+            result = subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=True, shell=True, env=current_env)
+        else:
+            result = subprocess.run(cmd, cwd=cwd, capture_output=capture_output, text=True, env=current_env)
+        return result
+    except Exception as e:
+        return None
+
+def prepare_workspace():
+    section("Preparing workspace")
+    
+    step("Updating SageLang submodule")
+    if Path(".git").exists():
+        run_cmd(["git", "-c", "submodule..deps/SageLang.update=checkout", "submodule", "update", "--init", "--no-recurse-submodules"])
+        step_ok("synchronized")
+    else:
+        step_ok("skipped (not a git repo)")
+
+    step("Cleaning old artifacts")
+    for p in ["sgvm", "sgvmc"]:
+        if Path(p).exists():
+            os.remove(p)
+    step_ok("clean")
+
+def build_sagelang(args):
+    if SAGE_BIN.exists() and os.access(SAGE_BIN, os.X_OK) and not args.rebuild_sage:
+        section("SageLang Host")
+        step("Using existing sage binary")
+        step_ok("verified")
+        return
+
+    section("Bootstrapping SageLang")
+    step("Compiling SageLang core")
+    start = time.time()
+    
+    cflags = os.environ.get("SAGE_CFLAGS", "")
+    res = run_cmd(["make", "-C", ".deps/SageLang/core", "-j" + str(os.cpu_count() or 2)], 
+                  env={"CFLAGS_EXTRA": cflags}, capture_output=False)
+    
+    if res and res.returncode == 0:
+        elapsed = int(time.time() - start)
+        step_ok(f"{elapsed}s")
+    else:
+        step_fail("SageLang build failed")
+
+def build_sagevm(args):
+    section("Building SageVM Tools")
+    
+    sage_path = f"src:src/svm:src/srvm:{SAGE_LIB}"
+    env = {
+        "SAGE_PATH": sage_path,
+        "CFLAGS_EXTRA": "-Wno-overlength-strings"
+    }
+    
+    if args.debug:
+        env["CFLAGS_EXTRA"] += " -DSAGE_DEBUG"
+
+    # Build sagevm
+    step("Compiling sagevm.sage")
+    res = run_cmd([str(SAGE_BIN), "--compile", "sagevm.sage", "-o", "sagevm"], env=env)
+    if res and res.returncode == 0:
+        step_ok("native")
+    else:
+        if res:
+            print(f"\n[DEBUG] stdout: {res.stdout}")
+            print(f"[DEBUG] stderr: {res.stderr}")
+        step_fail("sagevm compilation failed")
+    
+    # Symlinks for backward compatibility
+    step("Creating backward compatibility symlinks")
+    for b in ["sgvm", "sgvmc"]:
+        if os.path.exists(b):
+            os.remove(b)
+        os.symlink("sagevm", b)
+    step_ok("done")
+
+def perform_install(args):
+    if not args.install:
+        return
+
+    banner("Installation")
+    section("Installing SageVM system-wide")
+    
+    # Simple install logic: copy binaries to /usr/local/bin
+    bins = ["sagevm"]
+    for b in bins:
+        step(f"Installing {b}")
+        res = run_cmd(["sudo", "cp", b, f"/usr/local/bin/{b}"])
+        if res and res.returncode == 0:
+            run_cmd(["sudo", "chmod", "755", f"/usr/local/bin/{b}"])
+            step_ok("installed")
+        else:
+            step_fail(f"failed to install {b}")
+
+def main():
+    parser = argparse.ArgumentParser(description="SageVM Unified Build System")
+    parser.add_argument("subcommand", nargs="?", help="Subcommand (build, install)")
+    parser.add_argument("--install", action="store_true", help="Install to /usr/local after building")
+    parser.add_argument("--debug", action="store_true", help="Build with debug flags")
+    parser.add_argument("--rebuild-sage", action="store_true", help="Force rebuild of SageLang host")
+    args = parser.parse_args()
+
+    if args.subcommand == "install":
+        args.install = True
+
+    banner(f"SageVM Build Pipeline v{VERSION}")
+
+    prepare_workspace()
+    build_sagelang(args)
+    build_sagevm(args)
+    
+    if args.install:
+        perform_install(args)
+    
+    banner("Build Complete")
+
+if __name__ == "__main__":
+    main()

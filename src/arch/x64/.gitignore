@@ -1,0 +1,8 @@
+core
+sageos-installer.img
+sageos-live.img
+firmware/ath10k/QCA6174/hw3.0/board-2.bin
+firmware/ath10k/QCA6174/hw3.0/firmware-6.bin
+src/esp.img
+src/obj/*
+
