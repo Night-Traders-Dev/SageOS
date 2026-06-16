@@ -11,7 +11,16 @@ proc kmain():
     let STAGE_USERSPACE_SESSION = 7
 
     print "Entering STAGE_1"
-    # TODO: STAGE_1 EARLY_MM Physical allocator and page tables initialized.
+    # STAGE_1 EARLY_MM Physical allocator and page tables initialized.
+    import drivers.memory.pmm as pmm_mgr
+    
+    # Initialize PMM with 128MB of RAM (Standard QEMU -m 128M)
+    # Memory starts at 0x80000000 on RISC-V Virt machine
+    let global_pmm = pmm_mgr.PMM(0x80000000, 128 * 1024 * 1024)
+    
+    # Reserve kernel memory (Assume roughly 1MB for now)
+    global_pmm.reserve_region(0x80000000, 1024 * 1024)
+    print "  PMM initialized and kernel region reserved."
     
     print "Entering STAGE_2"
     # TODO: STAGE_2 IRQ_INIT Exceptions and hardware interrupts enabled.
