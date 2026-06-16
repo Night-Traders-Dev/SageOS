@@ -43,6 +43,15 @@ class VirtIOTransport:
     proc get_status(self):
         return self.read32(VIRTIO_MMIO_STATUS)
 
+    proc notify(self, queue_idx):
+        self.write32(VIRTIO_MMIO_QUEUE_NOTIFY, queue_idx)
+
+    proc setup_queue(self, queue_idx, size, pfn):
+        self.write32(VIRTIO_MMIO_QUEUE_SEL, queue_idx)
+        self.write32(VIRTIO_MMIO_QUEUE_NUM, size)
+        self.write32(VIRTIO_MMIO_QUEUE_ALIGN, 4096)
+        self.write32(VIRTIO_MMIO_QUEUE_PFN, pfn)
+
     proc ack_interrupt(self):
         self.write32(VIRTIO_MMIO_INTERRUPT_ACK, self.read32(VIRTIO_MMIO_INTERRUPT_STATUS))
 
