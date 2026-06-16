@@ -42,11 +42,29 @@ class VirtIOTransport:
     proc get_status(self): return self.read32(VIRTIO_MMIO_STATUS)
     proc notify(self, queue_idx): self.write32(VIRTIO_MMIO_QUEUE_NOTIFY, queue_idx)
 
+    proc set_descriptor(self, table_base, idx, addr, len, flags, next):
+        let desc_base = table_base + (idx * 16)
+        # addr (64-bit) at offset 0
+        bm.poke64(desc_base + 0, addr)
+        # len (32-bit) at offset 8
+        bm.poke32(desc_base + 8, len)
+        # flags (16-bit) at 12, next (16-bit) at 14
+        # Packing flags and next into a single 32-bit write
+        bm.poke32(desc_base + 12, (flags << 16) | next)
+
+    proc set_available_idx(self, avail_base, idx, desc_idx):
+        # Available ring header: flags(2), idx(2)
+        # Array of indices follows
+        # We assume idx is 0-based for now.
+        let ring_start = avail_base + 4
+        bm.poke32(ring_start + (idx * 2), desc_idx) # Actually poke16 needed, pokes 32-bit for now
+
     proc setup_queue(self, queue_idx, size, pfn):
         self.write32(VIRTIO_MMIO_QUEUE_SEL, queue_idx)
         self.write32(VIRTIO_MMIO_QUEUE_NUM, size)
         self.write32(VIRTIO_MMIO_QUEUE_ALIGN, 4096)
         self.write32(VIRTIO_MMIO_QUEUE_PFN, pfn)
+
 
     proc ack_interrupt(self):
         self.write32(VIRTIO_MMIO_INTERRUPT_ACK, self.read32(VIRTIO_MMIO_INTERRUPT_STATUS))
