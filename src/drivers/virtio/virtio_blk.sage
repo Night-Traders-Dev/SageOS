@@ -3,10 +3,12 @@
 
 import drivers.virtio.virtio as virtio
 import drivers.memory.bare_metal as bm
+import drivers.memory.pmm as pmm
 
 class VirtIOBlockDriver:
-    proc init(self, base_addr):
+    proc init(self, base_addr, pmm):
         self.transport = virtio.VirtIOTransport(base_addr)
+        self.pmm = pmm
         print "VirtIO-Block: Initializing..."
         
         # 1. Reset device
@@ -23,18 +25,23 @@ class VirtIOBlockDriver:
         # 5. Set status OK
         self.transport.set_status(1 | 2 | 8) # ACK | DRIVER | FEATURES_OK
         
-        print "VirtIO-Block: Initialized."
+        # 6. Initialize Virtqueue (Queue 0)
+        self.vq_size = 32
+        self.vq_mem = self.pmm.alloc_page() # Simplified: allocate one page
+        self.transport.setup_queue(0, self.vq_size, (self.vq_mem / 4096) | 0)
+        
+        print "VirtIO-Block: Initialized. VQ at " + str(self.vq_mem)
 
     proc read_sector(self, lba):
-        # Placeholder for VirtIO request structure:
-        # Header (type, ioprio, sector)
-        # Data
-        # Status
+        # Header: [Type (0: Read), Ioprio, Sector]
+        # Implementation will involve:
+        # 1. Filling descriptors in vq_mem
+        # 2. Updating Available Ring
+        # 3. Notifying device
         print "VirtIO-Block: Reading sector " + str(lba)
-        # In a real driver, this would map the request to the Virtqueue
-        # and notify the device.
+        # TODO: Implement Virtqueue Descriptor ring access
         return []
 
     proc write_sector(self, lba, data):
         print "VirtIO-Block: Writing sector " + str(lba)
-        # Placeholder
+        # TODO: Implement Virtqueue Descriptor ring access

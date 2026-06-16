@@ -144,7 +144,8 @@ def run_tests():
         "tests/test_fat32_logic.sage",
         "tests/test_pmm_logic.sage",
         "tests/test_vmm_logic.sage",
-        "tests/test_virtio_logic.sage"
+        "tests/test_virtio_logic.sage",
+        "tests/test_virtqueue.sage"
     ]
     
     sage_bin = os.path.join(SAGE_LANG_DIR, "core", "sage")
