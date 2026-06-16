@@ -10,9 +10,13 @@ class MockHardware:
         self.storage = {}
     proc peek64(self, addr):
         let key = str(addr | 0)
-        if dict_has(self.storage, key): return self.storage[key] end
-        return 0
+        let val = 0
+        if dict_has(self.storage, key): val = self.storage[key] end
+        print "  HW: PEEK [" + str(addr | 0) + "] -> " + str(val)
+        return val
+
     proc poke64(self, addr, val):
+        print "  HW: POKE [" + str(addr | 0) + "] = " + str(val)
         self.storage[str(addr | 0)] = val
 
 let ram_start = 0x80200000

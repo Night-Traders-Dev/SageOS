@@ -25,3 +25,8 @@ proc halt():
     # Opcode 47 in patched MetalVM
     # Use gpu.poll_events which emits BC_OP_GPU_POLL_EVENTS
     gpu.poll_events()
+
+proc get_trap():
+    # Opcode 48 in patched MetalVM
+    # Use gpu.cmd_begin_render_pass which emits BC_OP_GPU_CMD_BEGIN_RP
+    return gpu.cmd_begin_render_pass()
