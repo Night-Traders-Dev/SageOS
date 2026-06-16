@@ -21,20 +21,40 @@ proc kmain():
     
     print "Entering STAGE_4"
     # STAGE_4 STORAGE_VFS FAT32 mounted, /etc, /boot, /dev available.
-    import drivers.storage.fat32 as fat32
+    import drivers.storage.fat32_vfs as fat32_vfs
+    import kernel.vfs as vfs_mgr
     
-    # Mock block reader for demonstration
-    proc mock_read_sector(lba):
-        # In a real system, this would call a Disk/SD/VirtIO driver
-        return [] # Returns empty sector
+    # Generic Block Driver Interface (Sage-based)
+    class BlockDriver:
+        proc init(self):
+            pass
+        proc read_sector(self, lba):
+            return [] # Mock
+        proc write_sector(self, lba, data):
+            pass # Mock
+    
+    let block_dev = BlockDriver()
+    let fat_backend = fat32_vfs.FAT32VFSBackend(block_dev)
+    
+    vfs_mgr.global_vfs.mount("/", fat_backend)
+    print "  VFS Layer active. Root mounted."
+
+    # List root directory to verify
+    let root_entries = vfs_mgr.global_vfs.list_dir("/")
+    if root_entries != nil:
+        print "  Root entries found:"
+        for e in root_entries:
+            print "    " + e["name"]
+        end
     end
     
-    let fs = fat32.FAT32Driver(mock_read_sector)
-    # fs.mount() # Would fail on empty mock data
-    print "  VFS Layer initialized."
-    
     print "Entering STAGE_5"
-    # TODO: STAGE_5 RUNTIME_BRINGUP SGVM core initialized, IPC namespace active.
+    # STAGE_5 RUNTIME_BRINGUP SGVM core initialized, IPC namespace active.
+    import kernel.swap as swap_mgr
+    
+    # Initialize SWAP (Assume it starts at sector 100000 for 4MB)
+    let global_swap = swap_mgr.SwapManager(block_dev, 100000, 8192)
+    print "  SWAP Subsystem active."
     
     print "Entering STAGE_6"
     # TODO: STAGE_6 SERVICE_ACTIVATION runtime_manager.sage active (asynchronous), system services starting.

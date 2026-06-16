@@ -9,6 +9,8 @@ ROOT_DIR = os.getcwd()
 SAGE_LANG_DIR = os.path.join(ROOT_DIR, "SageLang")
 SAGE_VM_DIR = os.path.join(ROOT_DIR, "SageVM")
 BUILD_DIR = os.path.join(ROOT_DIR, "build")
+ROOTFS_DIR = os.path.join(ROOT_DIR, "rootfs")
+IMAGE_PATH = os.path.join(BUILD_DIR, "sageos.img")
 
 VERSION_FILES = [
     "SageLang/VERSION",
@@ -48,6 +50,30 @@ def update():
     run("git pull", check=False)
     run("git submodule update --init --recursive")
 
+def sync_rootfs():
+    print(f"Synchronizing rootfs to {IMAGE_PATH}...")
+    if not os.path.exists(ROOTFS_DIR):
+        print(f"Error: {ROOTFS_DIR} not found.")
+        return
+
+    if not os.path.exists(BUILD_DIR):
+        os.makedirs(BUILD_DIR)
+
+    # 1. Create a 64MB blank image
+    run(f"dd if=/dev/zero of={IMAGE_PATH} bs=1M count=64")
+
+    # 2. Format as FAT32
+    run(f"mkfs.fat -F 32 --mbr=y {IMAGE_PATH}")
+
+    # 3. Copy files using mcopy
+    run(f"mcopy -i {IMAGE_PATH} -s {ROOTFS_DIR}/* ::/")
+    
+    # 4. Create a placeholder swap file (4MB)
+    run(f"dd if=/dev/zero of=build/swap.bin bs=1M count=4")
+    run(f"mcopy -i {IMAGE_PATH} build/swap.bin ::/swapfile")
+
+    print(f"✅ rootfs synced to {IMAGE_PATH}")
+
 def check_dependencies():
     print("Checking dependencies...")
     
@@ -72,6 +98,7 @@ def build(arch, device):
     check_dependencies()
     print(f"Building for ARCH={arch}, DEVICE={device}...")
     run(f"make ARCH={arch} DEVICE={device}")
+    sync_rootfs()
 
 def build_vm(clean=True):
     print("Building SageVM...")
@@ -153,6 +180,8 @@ def main():
         clean()
     elif cmd == "update":
         update()
+    elif cmd == "sync-rootfs":
+        sync_rootfs()
     elif cmd == "build":
         if len(sys.argv) < 3:
              print("Usage: sagemake build <arch> [device]")
