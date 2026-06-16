@@ -7,7 +7,7 @@ ARCH=${1:-"x86_64"}
 TARGET="${ARCH}-unknown-sageos"
 HOST="$TARGET"
 PREFIX="/usr"
-INSTALL_DIR="/home/kraken/sageos-native-dist"
+INSTALL_DIR="$HOME/sageos-native-dist"
 
 JOBS=$(nproc)
 BINUTILS_VER="2.42"
@@ -17,7 +17,7 @@ GCC_VER="14.1.0"
 if [ -d "/opt/sageos-toolchain/bin" ]; then
     export PATH="/opt/sageos-toolchain/bin:$PATH"
 else
-    export PATH="/home/kraken/sageos-toolchain/bin:$PATH"
+    export PATH="$HOME/sageos-toolchain/bin:$PATH"
 fi
 
 mkdir -p "$INSTALL_DIR"

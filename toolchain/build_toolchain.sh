@@ -29,7 +29,7 @@ step() { echo -e "${BLUE}>>${NC} $1"; }
 if [ ! -w "$(dirname "$PREFIX")" ] && [ ! -d "$PREFIX" ] && [ "$EUID" -ne 0 ]; then
   if [[ "$PREFIX" == "/opt/sageos-toolchain"* ]]; then
       log "Directory $(dirname "$PREFIX") is not writable and we are not root."
-      DEFAULT_PREFIX="/home/kraken/sageos-toolchain-${ARCH}"
+      DEFAULT_PREFIX="$HOME/sageos-toolchain-${ARCH}"
       log "Setting PREFIX to user-writable path: $DEFAULT_PREFIX"
       PREFIX="$DEFAULT_PREFIX"
       SYSROOT="${PREFIX}/sysroot"

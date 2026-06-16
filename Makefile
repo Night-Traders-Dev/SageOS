@@ -8,7 +8,7 @@ K_OBJ = $(BUILD_DIR)/kernel_sgvm.o
 ELF = $(BUILD_DIR)/sageos_$(ARCH).elf
 
 # Toolchain
-SAGELANG_DIR = /home/elf_g/Devel/sagelang
+SAGELANG_DIR = SageLang
 SGVMC = $(SAGELANG_DIR)/core/sgvmc
 METALVM_INC = $(SAGELANG_DIR)/core/include
 METALVM_SRC = build/metal_vm_patched.c
@@ -32,7 +32,10 @@ $(METALVM_SRC): $(METALVM_ORIG)
 	# Patch MetalVM to include OP_PRINT (opcode 42)
 	cat $(METALVM_ORIG) | sed '635a\        case OP_PRINT: { MetalValue val = metal_vm_pop(vm); metal_print_value(vm, val); metal_print_str(vm, "\\n"); break; }' > $(METALVM_SRC)
 
-$(K_SGVM): $(K_SAGE)
+$(SGVMC):
+	$(MAKE) -C $(SAGELANG_DIR)/core
+
+$(K_SGVM): $(K_SAGE) $(SGVMC)
 	mkdir -p $(BUILD_DIR)
 	(cd $(SAGELANG_DIR)/core && ./sgvmc $(CURDIR)/$(K_SAGE) $(CURDIR)/$(K_SGVM))
 
