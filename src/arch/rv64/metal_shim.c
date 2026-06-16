@@ -36,6 +36,14 @@ static void vm_write_char(char c) {
     sbi_putchar(c);
 }
 
+void handle_trap(unsigned long cause, unsigned long epc, unsigned long sp) {
+    sbi_putchar('T'); sbi_putchar('R'); sbi_putchar('A'); sbi_putchar('P'); sbi_putchar('\n');
+    // For now, just infinite loop to prevent crash, later dispatch to Sage
+    while (1) {
+        __asm__ volatile ("wfi");
+    }
+}
+
 extern unsigned char _binary_build_kernel_sgvm_start[];
 extern unsigned char _binary_build_kernel_sgvm_end[];
 
@@ -50,6 +58,9 @@ void kmain(void) {
     sbi_putchar('L');
     sbi_putchar('O');
     sbi_putchar('\n');
+
+    // Manually trigger an illegal instruction trap
+    __asm__ volatile (".word 0");
 
     metal_vm_init(&g_vm);
     g_vm.write_char = vm_write_char;

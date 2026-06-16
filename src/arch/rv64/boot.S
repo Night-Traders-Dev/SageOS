@@ -9,6 +9,10 @@ _start:
     # Set up stack
     la sp, _stack_top
     
+    # Set trap vector
+    la t0, trap_vector
+    csrw stvec, t0
+    
     # Clear BSS
     la a0, _bss_start
     la a1, _bss_end
@@ -25,6 +29,30 @@ _start:
 halt:
     wfi
     j halt
+
+.align 4
+trap_vector:
+    # UART Debug
+    li t0, 0x10000000
+    li t1, 'T'
+    sb t1, 0(t0)
+    
+    # Save context (minimal for now)
+    addi sp, sp, -16
+    sd t0, 0(sp)
+    sd t1, 8(sp)
+    
+    # Call handle_trap(cause, epc, sp)
+    csrr a0, scause
+    csrr a1, sepc
+    mv a2, sp
+    call handle_trap
+    
+    # Restore context
+    ld t0, 0(sp)
+    ld t1, 8(sp)
+    addi sp, sp, 16
+    sret
 
 .section .bss
 .align 16
