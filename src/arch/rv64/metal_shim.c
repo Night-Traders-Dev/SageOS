@@ -37,8 +37,11 @@ static void vm_write_char(char c) {
 }
 
 void handle_trap(unsigned long cause, unsigned long epc, unsigned long sp) {
+    // Basic bridge to SageLang dispatcher
+    // For now, this is a placeholder. A full implementation requires
+    // calling a pre-compiled Sage function via the VM.
     sbi_putchar('T'); sbi_putchar('R'); sbi_putchar('A'); sbi_putchar('P'); sbi_putchar('\n');
-    // For now, just infinite loop to prevent crash, later dispatch to Sage
+    
     while (1) {
         __asm__ volatile ("wfi");
     }
