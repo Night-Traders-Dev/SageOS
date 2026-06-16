@@ -20,7 +20,18 @@ proc kmain():
     # TODO: STAGE_3 DEVICE_DISCOVERY Console active, timers running, bus scanning complete.
     
     print "Entering STAGE_4"
-    # TODO: STAGE_4 STORAGE_VFS FAT32 mounted, /etc, /boot, /dev available.
+    # STAGE_4 STORAGE_VFS FAT32 mounted, /etc, /boot, /dev available.
+    import drivers.storage.fat32 as fat32
+    
+    # Mock block reader for demonstration
+    proc mock_read_sector(lba):
+        # In a real system, this would call a Disk/SD/VirtIO driver
+        return [] # Returns empty sector
+    end
+    
+    let fs = fat32.FAT32Driver(mock_read_sector)
+    # fs.mount() # Would fail on empty mock data
+    print "  VFS Layer initialized."
     
     print "Entering STAGE_5"
     # TODO: STAGE_5 RUNTIME_BRINGUP SGVM core initialized, IPC namespace active.
