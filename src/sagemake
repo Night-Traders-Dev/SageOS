@@ -135,8 +135,27 @@ def update_version(new_version):
             print(f"  Skipping {v_file} (not found)")
 
 def run_tests():
-    print("Running test suite...")
+    print("Running SageOS Test Suite...")
+    
+    # 1. Logic Tests (Unit tests in interpreter)
+    logic_tests = [
+        "tests/test_vfs_logic.sage",
+        "tests/test_swap_logic.sage",
+        "tests/test_fat32_logic.sage"
+    ]
+    
+    sage_bin = os.path.join(SAGE_LANG_DIR, "core", "sage")
+    if not os.path.exists(sage_bin):
+        print("  SageLang interpreter not found. Building...")
+        build_sage(clean=False)
+    
+    for test in logic_tests:
+        print(f"--- Running {test} ---")
+        run(f"{sage_bin} {test}")
+
+    # 2. Kernel Integration Tests
     if os.path.exists("tests/run_tests.py"):
+        print("--- Running Kernel Integration Tests ---")
         run("python3 tests/run_tests.py")
     else:
         print("Test runner tests/run_tests.py not found.")

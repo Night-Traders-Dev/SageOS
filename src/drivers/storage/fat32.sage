@@ -7,14 +7,15 @@ import os.fat_dir as fat_dir
 
 class FAT32Driver:
     proc init(self, read_sector_cb):
-        self.read_sector = read_sector_cb
+        self._read_sector_cb = read_sector_cb
         self.partition_lba = 0
         self.fs_info = {}
         self.initialized = false
 
     proc mount(self):
         # 1. Read MBR (Sector 0)
-        let mbr = self.read_sector(0)
+        let read_cb = self._read_sector_cb
+        let mbr = read_cb(0)
         if len(mbr) < 512:
             print "ERROR: Failed to read MBR"
             return false
@@ -33,7 +34,7 @@ class FAT32Driver:
         self.partition_lba = mbr[446 + 8] + mbr[446 + 9] * 256 + mbr[446 + 10] * 65536 + mbr[446 + 11] * 16777216
         
         # 2. Parse BPB
-        let bpb_sector = self.read_sector(self.partition_lba)
+        let bpb_sector = read_cb(self.partition_lba)
         self.fs_info = fat_lib.parse_boot_sector(bpb_sector)
         
         if self.fs_info["fat_type"] != "FAT32":
@@ -48,8 +49,8 @@ class FAT32Driver:
 
     # Internal helper to wrap the sector reader for fat_dir
     proc _read_fat_sector(self, lba):
-        return self.read_sector(self.partition_lba + lba)
-    end
+        let read_cb = self._read_sector_cb
+        return read_cb(self.partition_lba + lba)
 
     proc read_fat_entry(self, cluster):
         # We need a disk object that fat_dir expects, but fat_dir functions 
@@ -73,11 +74,9 @@ class FAT32Driver:
             return fat_dir.read_u16(sector_data, inner_offset)
         end
         return 0
-    end
 
     proc is_eof(self, entry):
         return fat_dir.is_end_of_chain(self.fs_info, entry)
-    end
 
     proc read_directory(self, cluster):
         let entries = []
@@ -149,7 +148,6 @@ class FAT32Driver:
 
     proc list_root(self):
         return self.read_directory(self.fs_info["root_cluster"])
-    end
 
     proc read_file(self, start_cluster, size):
         let data = []
@@ -209,3 +207,5 @@ class FAT32Driver:
         let entry = self.resolve_path(path)
         if entry == nil or entry["is_dir"]: return nil end
         return self.read_file(entry["cluster"], entry["size"])
+
+end

@@ -28,16 +28,18 @@ class SwapManager:
             self.driver.write_sector(lba + i, sector_data)
         end
         
-        self.used_pages[page_id] = slot
+        let key = str(page_id)
+        self.used_pages[key] = slot
         return true
 
     proc swap_in(self, page_id):
-        if not dict_has(self.used_pages, page_id):
-            print "SWAP: Page " + str(page_id) + " not found!"
+        let key = str(page_id)
+        if not dict_has(self.used_pages, key):
+            print "SWAP: Page " + key + " not found!"
             return nil
         end
 
-        let slot = self.used_pages[page_id]
+        let slot = self.used_pages[key]
         let lba = self.start_lba + slot * self.sectors_per_page
         let data = []
 
