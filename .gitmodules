@@ -7,3 +7,11 @@
 [submodule "arch/x64"]
 	path = arch/x64
 	url = https://github.com/Night-Traders-Dev/SageOS_x64.git
+[submodule "SageVM"]
+	path = SageVM
+	url = https://github.com/Night-Traders-Dev/SageVM.git
+	branch = main
+[submodule "SageLang"]
+	path = SageLang
+	url = https://github.com/Night-Traders-Dev/SageLang.git
+	branch = main
