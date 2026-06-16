@@ -9,12 +9,12 @@ class PMM:
         self.total_pages = (mem_size / self.page_size) | 0
         
         # Bitmap: 1 bit per page. 
-        # A 128MB RAM system has 32768 pages. 
-        # Bitmap size: 32768 / 8 = 4096 bytes.
         self.bitmap_size = (self.total_pages / 8) | 0
         self.bitmap = []
-        for i in range(0, self.bitmap_size):
+        let i = 0
+        while i < self.bitmap_size:
             push(self.bitmap, 0)
+            i = i + 1
         end
         
         print "PMM: Initialized with " + str(self.total_pages) + " pages."
@@ -36,11 +36,13 @@ class PMM:
 
     proc alloc_page(self):
         # Linear search for first free page
-        for i in range(0, self.total_pages):
+        let i = 0
+        while i < self.total_pages:
             if not self.get_bit(i):
                 self.set_bit(i)
                 return self.start + i * self.page_size
             end
+            i = i + 1
         end
         print "PMM: Out of memory!"
         return 0
@@ -56,8 +58,10 @@ class PMM:
     proc reserve_region(self, addr, size):
         let start_page = ((addr - self.start) / self.page_size) | 0
         let num_pages = ((size + self.page_size - 1) / self.page_size) | 0
-        for i in range(start_page, start_page + num_pages):
+        let i = start_page
+        while i < start_page + num_pages:
             if i < self.total_pages:
                 self.set_bit(i)
             end
+            i = i + 1
         end

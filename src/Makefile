@@ -45,8 +45,15 @@ all: $(ELF)
 
 $(METALVM_SRC): $(METALVM_ORIG)
 	mkdir -p $(BUILD_DIR)
-	# Patch MetalVM to include OP_PRINT (opcode 42)
-	cat $(METALVM_ORIG) | sed '635a\        case OP_PRINT: { MetalValue val = metal_vm_pop(vm); metal_print_value(vm, val); metal_print_str(vm, "\\n"); break; }' > $(METALVM_SRC)
+	# Patch MetalVM
+	cat $(METALVM_ORIG) | \
+	sed '1i#include <stdint.h>' | \
+	sed '635a\        case OP_PRINT: { MetalValue val = metal_vm_pop(vm); metal_print_value(vm, val); metal_print_str(vm, "\\n"); break; }' | \
+	sed 's/case OP_GPU_POLL_EVENTS:/case OP_GPU_POLL_EVENTS: { metal_print_str(vm, "HALT\\n"); while(1) { __asm__ volatile("wfi"); } break; } \/* HALT *\//' | \
+	sed 's/case OP_GPU_KEY_PRESSED:/case OP_GPU_KEY_PRESSED: { MetalValue addr = metal_vm_pop(vm); uint64_t val = *(uint64_t*)((uintptr_t)addr.as.number); metal_vm_push(vm, mv_num((double)val)); break; } \/* PEEK64 *\//' | \
+	sed 's/case OP_GPU_UPDATE_UNIFORM:/case OP_GPU_UPDATE_UNIFORM: { MetalValue val = metal_vm_pop(vm); MetalValue addr = metal_vm_pop(vm); *(uint64_t*)((uintptr_t)addr.as.number) = (uint64_t)val.as.number; break; } \/* POKE64 *\//' | \
+	sed 's/case OP_GPU_CMD_PUSH_CONST:/case OP_GPU_CMD_PUSH_CONST: { MetalValue val = metal_vm_pop(vm); MetalValue addr = metal_vm_pop(vm); *(uint32_t*)((uintptr_t)addr.as.number) = (uint32_t)val.as.number; break; } \/* POKE32 *\//' \
+	> $(METALVM_SRC)
 
 $(SGVMC):
 	$(MAKE) -C $(SAGELANG_DIR)/core
