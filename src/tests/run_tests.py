@@ -12,20 +12,25 @@ def run_test(sage_file):
     
     # 2. Build the test kernel
     # We temporary swap kernel/main.sage with the test file
-    orig_kernel = "kernel/main.sage"
-    temp_kernel = "kernel/main.sage.bak"
+    orig_kernel = os.path.join(os.getcwd(), "kernel", "main.sage")
+    temp_kernel = os.path.join(os.getcwd(), "kernel", "main.sage.bak")
+    
+    # Ensure working directory is set for make
+    os.chdir(os.getcwd())
+    
     os.rename(orig_kernel, temp_kernel)
     try:
         with open(sage_file, "r") as f:
             content = f.read()
         with open(orig_kernel, "w") as f:
             f.write(content)
-        
-        # Build
-        subprocess.run(["make", "all"], check=True)
-        
+
+        # Build - Run make in current directory
+        subprocess.run(["make", "all"], cwd=".", check=True)
+
         # Run QEMU
-        cmd = ["qemu-system-riscv64", "-M", "virt", "-cpu", "rv64", "-m", "128M", "-display", "none", "-serial", "stdio", "-kernel", "build/sageos_rv64.elf"]
+        cmd = ["qemu-system-riscv64", "-M", "virt", "-cpu", "rv64", "-m", "128M", "-display", "none", "-serial", "stdio", "-kernel", "src/build/sageos_rv64.elf"]
+
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         # Capture output for 5 seconds
