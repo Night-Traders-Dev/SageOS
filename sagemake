@@ -121,10 +121,30 @@ def run_benchmarks():
     else:
         print("SageLang/core/Makefile not found, cannot run benchmarks.")
 
+def run_qemu(arch):
+    print(f"Running QEMU for ARCH={arch}...")
+    elf_path = os.path.join(BUILD_DIR, f"sageos_{arch}.elf")
+    
+    if not os.path.exists(elf_path):
+        print(f"Error: {elf_path} not found. Build it first using 'sagemake build {arch}'.")
+        sys.exit(1)
+
+    if arch == "rv64":
+        qemu_cmd = f"qemu-system-riscv64 -M virt -cpu rv64 -m 128M -display none -serial stdio -kernel {elf_path}"
+    elif arch == "x64":
+        qemu_cmd = f"qemu-system-x86_64 -m 128M -display none -serial stdio -kernel {elf_path}"
+    elif arch == "arm64":
+        qemu_cmd = f"qemu-system-aarch64 -M virt -cpu cortex-a57 -m 128M -display none -serial stdio -kernel {elf_path}"
+    else:
+        print(f"Error: QEMU command for architecture '{arch}' is not defined.")
+        sys.exit(1)
+
+    run(qemu_cmd)
+
 # --- Command Router ---
 def main():
     if len(sys.argv) < 2:
-        print("Usage: sagemake [clean|build|update|build-vm|build-sage|version|test-suite|benchmark]")
+        print("Usage: sagemake [clean|build|update|build-vm|build-sage|version|test-suite|benchmark|run|build-run]")
         sys.exit(1)
 
     cmd = sys.argv[1]
@@ -140,6 +160,19 @@ def main():
         arch = sys.argv[2]
         device = sys.argv[3] if len(sys.argv) > 3 else "qemu"
         build(arch, device)
+    elif cmd == "run":
+        if len(sys.argv) < 3:
+            print("Usage: sagemake run <arch>")
+            sys.exit(1)
+        run_qemu(sys.argv[2])
+    elif cmd == "build-run":
+        if len(sys.argv) < 3:
+            print("Usage: sagemake build-run <arch> [device]")
+            sys.exit(1)
+        arch = sys.argv[2]
+        device = sys.argv[3] if len(sys.argv) > 3 else "qemu"
+        build(arch, device)
+        run_qemu(arch)
     elif cmd == "build-vm":
         build_vm()
     elif cmd == "build-sage":
