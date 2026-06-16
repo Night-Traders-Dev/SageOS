@@ -1,0 +1,6 @@
+src/build/
+*.o
+*.elf
+*.sgvm
+*.img
+*.bin
