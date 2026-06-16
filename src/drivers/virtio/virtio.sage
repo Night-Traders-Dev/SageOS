@@ -23,28 +23,24 @@ let VIRTIO_MMIO_INTERRUPT_STATUS = 0x60
 let VIRTIO_MMIO_INTERRUPT_ACK = 0x64
 let VIRTIO_MMIO_STATUS = 0x70
 
+# Ring Flags
+let VIRTQ_DESC_F_NEXT = 1
+let VIRTQ_DESC_F_WRITE = 2
+
 class VirtIOTransport:
     proc init(self, base_addr):
         self.base = base_addr
         print "VirtIO: Initializing device at " + str(base_addr)
 
-    proc read32(self, offset):
-        return bm.peek32(self.base + offset)
+    proc read32(self, offset): return bm.peek32(self.base + offset)
+    proc write32(self, offset, val): bm.poke32(self.base + offset, val)
+    proc read64(self, offset): return bm.peek64(self.base + offset)
+    proc write64(self, offset, val): bm.poke64(self.base + offset, val)
 
-    proc write32(self, offset, val):
-        bm.poke32(self.base + offset, val)
-
-    proc get_device_id(self):
-        return self.read32(VIRTIO_MMIO_DEVICE_ID)
-
-    proc set_status(self, status):
-        self.write32(VIRTIO_MMIO_STATUS, status)
-
-    proc get_status(self):
-        return self.read32(VIRTIO_MMIO_STATUS)
-
-    proc notify(self, queue_idx):
-        self.write32(VIRTIO_MMIO_QUEUE_NOTIFY, queue_idx)
+    proc get_device_id(self): return self.read32(VIRTIO_MMIO_DEVICE_ID)
+    proc set_status(self, status): self.write32(VIRTIO_MMIO_STATUS, status)
+    proc get_status(self): return self.read32(VIRTIO_MMIO_STATUS)
+    proc notify(self, queue_idx): self.write32(VIRTIO_MMIO_QUEUE_NOTIFY, queue_idx)
 
     proc setup_queue(self, queue_idx, size, pfn):
         self.write32(VIRTIO_MMIO_QUEUE_SEL, queue_idx)
@@ -55,11 +51,4 @@ class VirtIOTransport:
     proc ack_interrupt(self):
         self.write32(VIRTIO_MMIO_INTERRUPT_ACK, self.read32(VIRTIO_MMIO_INTERRUPT_STATUS))
 
-    proc read32_raw(self, addr):
-        return bm.peek32(addr)
-
-    proc write32_raw(self, addr, val):
-        bm.poke32(addr, val)
-
-    proc halt(self):
-        bm.halt()
+    proc halt(self): bm.halt()
