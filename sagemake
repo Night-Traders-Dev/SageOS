@@ -48,27 +48,50 @@ def update():
     run("git pull", check=False)
     run("git submodule update --init --recursive")
 
+def check_dependencies():
+    print("Checking dependencies...")
+    
+    # 1. Check submodules
+    if not os.path.exists(os.path.join(SAGE_LANG_DIR, "core", "Makefile")):
+        print("  SageLang submodule missing or not initialized. Initializing...")
+        run("git submodule update --init --recursive")
+    
+    # 2. Check SageLang Compiler (sgvmc and sage)
+    sgvmc_path = os.path.join(SAGE_LANG_DIR, "core", "sgvmc")
+    sage_path = os.path.join(SAGE_LANG_DIR, "core", "sage")
+    
+    if not os.path.exists(sgvmc_path) or not os.path.exists(sage_path):
+        print("  SageLang compilers missing. Building...")
+        build_sage(clean=False)
+    else:
+        # Just run make to ensure it's up to date
+        print("  Ensuring SageLang is up to date...")
+        build_sage(clean=False)
+
 def build(arch, device):
+    check_dependencies()
     print(f"Building for ARCH={arch}, DEVICE={device}...")
     run(f"make ARCH={arch} DEVICE={device}")
 
-def build_vm():
-    print("Building fresh SageVM...")
+def build_vm(clean=True):
+    print("Building SageVM...")
     # Clean, pull, build
     if os.path.exists(SAGE_VM_DIR):
-        run("make clean", cwd=SAGE_VM_DIR)
-        run("git pull", cwd=SAGE_VM_DIR, check=False)
+        if clean:
+            run("make clean", cwd=SAGE_VM_DIR)
+            run("git pull", cwd=SAGE_VM_DIR, check=False)
         run("make", cwd=SAGE_VM_DIR)
     else:
         print("SageVM submodule missing!")
 
-def build_sage():
-    print("Building fresh SageLang...")
+def build_sage(clean=True):
+    print("Building SageLang...")
     # Clean, pull, build
     if os.path.exists(os.path.join(SAGE_LANG_DIR, "core")):
         core_dir = os.path.join(SAGE_LANG_DIR, "core")
-        run("make clean", cwd=core_dir)
-        run("git pull", cwd=SAGE_LANG_DIR, check=False)
+        if clean:
+            run("make clean", cwd=core_dir)
+            run("git pull", cwd=SAGE_LANG_DIR, check=False)
         run("make", cwd=core_dir)
     else:
         print("SageLang submodule missing!")
