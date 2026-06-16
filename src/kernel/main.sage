@@ -22,7 +22,7 @@ proc kmain():
     print "Entering STAGE_4"
     # STAGE_4 STORAGE_VFS FAT32 mounted, /etc, /boot, /dev available.
     import drivers.storage.fat32_vfs as fat32_vfs
-    import kernel.vfs as vfs_mgr
+    import drivers.vfs as vfs_mgr
     
     # Generic Block Driver Interface (Sage-based)
     class BlockDriver:
@@ -50,7 +50,7 @@ proc kmain():
     
     print "Entering STAGE_5"
     # STAGE_5 RUNTIME_BRINGUP SGVM core initialized, IPC namespace active.
-    import kernel.swap as swap_mgr
+    import drivers.swap as swap_mgr
     
     # Initialize SWAP (Assume it starts at sector 100000 for 4MB)
     let global_swap = swap_mgr.SwapManager(block_dev, 100000, 8192)
