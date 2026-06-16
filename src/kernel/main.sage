@@ -1,11 +1,8 @@
-import kernel.interrupts as trap_mgr
-
 proc kmain():
     print "SageOS Booting..."
     print "Kernel started."
-    
+    # ... further init ...
     while true:
-        trap_mgr.poll_traps()
     end
 end
 

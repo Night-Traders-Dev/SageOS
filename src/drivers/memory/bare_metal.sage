@@ -16,7 +16,8 @@ proc get_trap():
 
 proc enable_interrupts():
     # Opcode 49 in patched MetalVM
-    gpu.cmd_end_render_pass()
+    # gpu.cmd_end_render_pass()
+    print "Interrupts enabled (stubbed)"
 
 proc set_timer(interval):
     # Opcode 50 in patched MetalVM
