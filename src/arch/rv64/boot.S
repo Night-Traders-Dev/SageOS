@@ -13,6 +13,10 @@ _start:
     la t0, trap_vector
     csrw stvec, t0
     
+    # Delegate S-mode ECALLs (bit 9) to M-mode
+    li t0, (1 << 9)
+    csrw medeleg, t0
+    
     # Clear BSS
     la a0, _bss_start
     la a1, _bss_end
@@ -32,17 +36,22 @@ halt:
 
 .align 4
 trap_vector:
-    # UART Debug - Entry
-    li t0, 0x10000000
-    li t1, 'V'
-    sb t1, 0(t0)
-    
     # Save context
     addi sp, sp, -32
     sd t0, 0(sp)
     sd t1, 8(sp)
     sd a0, 16(sp)
     sd a1, 24(sp)
+    
+    # UART Debug - Entry
+    li t0, 0x10000000
+    li t1, 'V'
+    sb t1, 0(t0)
+
+    # Increment sepc to skip the faulting instruction
+    csrr t0, sepc
+    addi t0, t0, 4
+    csrw sepc, t0
     
     # Call handle_trap(cause, epc, sp)
     csrr a0, scause
