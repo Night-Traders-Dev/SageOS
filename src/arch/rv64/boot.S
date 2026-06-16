@@ -32,15 +32,17 @@ halt:
 
 .align 4
 trap_vector:
-    # UART Debug
+    # UART Debug - Entry
     li t0, 0x10000000
-    li t1, 'T'
+    li t1, 'V'
     sb t1, 0(t0)
     
-    # Save context (minimal for now)
-    addi sp, sp, -16
+    # Save context
+    addi sp, sp, -32
     sd t0, 0(sp)
     sd t1, 8(sp)
+    sd a0, 16(sp)
+    sd a1, 24(sp)
     
     # Call handle_trap(cause, epc, sp)
     csrr a0, scause
@@ -48,10 +50,17 @@ trap_vector:
     mv a2, sp
     call handle_trap
     
+    # UART Debug - Exit
+    li t0, 0x10000000
+    li t1, 'E'
+    sb t1, 0(t0)
+    
     # Restore context
     ld t0, 0(sp)
     ld t1, 8(sp)
-    addi sp, sp, 16
+    ld a0, 16(sp)
+    ld a1, 24(sp)
+    addi sp, sp, 32
     sret
 
 .section .bss

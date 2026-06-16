@@ -1,5 +1,13 @@
 #include "metal_vm.h"
 
+// Global VM to avoid huge stack usage
+MetalVM g_vm;
+
+// Trap flag variables for SageLang dispatcher
+volatile unsigned long g_trap_cause = 0;
+volatile unsigned long g_trap_epc = 0;
+volatile int g_trap_pending = 0;
+
 // SBI Console Putchar
 static void sbi_putchar(char c) {
     register unsigned long a0 __asm__("a0") = (unsigned long)c;
@@ -7,7 +15,16 @@ static void sbi_putchar(char c) {
     __asm__ volatile ("ecall" : "+r"(a0) : "r"(a7) : "memory");
 }
 
-// libc stubs for metal_vm.c
+void handle_trap(unsigned long cause, unsigned long epc, unsigned long sp) {
+    g_trap_cause = cause;
+    g_trap_epc = epc;
+    g_trap_pending = 1;
+    
+    // Resume VM to let the kernel handle the trap
+    g_vm.halted = 0;
+}
+
+// libc stubs
 void* memset(void* s, int c, unsigned long n) {
     unsigned char* p = (unsigned char*)s;
     while (n--) *p++ = (unsigned char)c;
@@ -36,22 +53,8 @@ static void vm_write_char(char c) {
     sbi_putchar(c);
 }
 
-void handle_trap(unsigned long cause, unsigned long epc, unsigned long sp) {
-    // Basic bridge to SageLang dispatcher
-    // For now, this is a placeholder. A full implementation requires
-    // calling a pre-compiled Sage function via the VM.
-    sbi_putchar('T'); sbi_putchar('R'); sbi_putchar('A'); sbi_putchar('P'); sbi_putchar('\n');
-    
-    while (1) {
-        __asm__ volatile ("wfi");
-    }
-}
-
 extern unsigned char _binary_build_kernel_sgvm_start[];
 extern unsigned char _binary_build_kernel_sgvm_end[];
-
-// Global VM to avoid huge stack usage
-MetalVM g_vm;
 
 void kmain(void) {
     // Initial hardware heartbeat via SBI
