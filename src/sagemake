@@ -180,11 +180,11 @@ def run_qemu(arch):
         sys.exit(1)
 
     if arch == "rv64":
-        qemu_cmd = f"timeout 60s qemu-system-riscv64 -M virt -cpu rv64 -m 128M -display none -serial stdio -kernel {elf_path}"
+        qemu_cmd = f"timeout 60s qemu-system-riscv64 -M virt -cpu rv64 -m 128M -serial mon:stdio -kernel {elf_path}"
     elif arch == "x64":
-        qemu_cmd = f"timeout 60s qemu-system-x86_64 -m 128M -display none -serial stdio -device loader,file={elf_path}"
+        qemu_cmd = f"timeout 60s qemu-system-x86_64 -m 128M -serial mon:stdio -device loader,file={elf_path}"
     elif arch == "arm64":
-        qemu_cmd = f"timeout 60s qemu-system-aarch64 -M virt -cpu cortex-a57 -m 128M -display none -serial stdio -kernel {elf_path}"
+        qemu_cmd = f"timeout 60s qemu-system-aarch64 -M virt -cpu cortex-a57 -m 128M -serial mon:stdio -kernel {elf_path}"
     else:
         print(f"Error: QEMU command for architecture '{arch}' is not defined.")
         sys.exit(1)
