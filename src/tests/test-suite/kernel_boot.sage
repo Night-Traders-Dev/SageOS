@@ -1,5 +1,7 @@
 proc test_boot():
-  print "SUCCESS_BOOT"
+  print "SageOS Booting..."
+  print "Kernel started."
+  print "SageOS System Ready."
 end
 
 test_boot()

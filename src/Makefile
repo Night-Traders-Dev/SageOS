@@ -53,7 +53,9 @@ $(METALVM_SRC): $(METALVM_ORIG)
 	sed 's/case OP_GPU_KEY_PRESSED:/case OP_GPU_KEY_PRESSED: { MetalValue addr = metal_vm_pop(vm); uint64_t val = *(uint64_t*)((uintptr_t)addr.as.number); metal_vm_push(vm, mv_num((double)val)); break; } \/* PEEK64 *\//' | \
 	sed 's/case OP_GPU_UPDATE_UNIFORM:/case OP_GPU_UPDATE_UNIFORM: { MetalValue val = metal_vm_pop(vm); MetalValue addr = metal_vm_pop(vm); *(uint64_t*)((uintptr_t)addr.as.number) = (uint64_t)val.as.number; break; } \/* POKE64 *\//' | \
 	sed 's/case OP_GPU_CMD_PUSH_CONST:/case OP_GPU_CMD_PUSH_CONST: { MetalValue val = metal_vm_pop(vm); MetalValue addr = metal_vm_pop(vm); *(uint32_t*)((uintptr_t)addr.as.number) = (uint32_t)val.as.number; break; } \/* POKE32 *\//' | \
-	sed '640a\        case 48: { if(g_trap_pending) { metal_vm_push(vm, mv_num((double)g_trap_cause)); metal_vm_push(vm, mv_num((double)g_trap_epc)); g_trap_pending = 0; } else { metal_vm_push(vm, mv_num(-1)); metal_vm_push(vm, mv_num(0)); } break; }' \
+	sed '640a\        case 48: { if(g_trap_pending) { metal_vm_push(vm, mv_num((double)g_trap_cause)); metal_vm_push(vm, mv_num((double)g_trap_epc)); g_trap_pending = 0; } else { metal_vm_push(vm, mv_num(-1)); metal_vm_push(vm, mv_num(0)); } break; }' | \
+	sed 's/case OP_GPU_CMD_BEGIN_RP:/case OP_GPU_CMD_BEGIN_RP: { enable_interrupts(); break; } \/* ENABLE_INTERRUPTS *\//' | \
+	sed 's/case OP_GPU_CMD_DRAW:/case OP_GPU_CMD_DRAW: { MetalValue val = metal_vm_pop(vm); set_timer((unsigned long)val.as.number); break; } \/* SET_TIMER *\//' \
 	> $(METALVM_SRC)
 
 $(SGVMC):

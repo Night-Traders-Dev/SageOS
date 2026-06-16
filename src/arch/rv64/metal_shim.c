@@ -15,7 +15,22 @@ static void sbi_putchar(char c) {
     __asm__ volatile ("ecall" : "+r"(a0) : "r"(a7) : "memory");
 }
 
+// RISC-V CSR and SBI helpers
+void enable_interrupts() {
+    unsigned long sstatus;
+    __asm__ volatile ("csrrs %0, sstatus, %1" : "=r"(sstatus) : "r"(0x2)); // Set SIE
+    unsigned long sie;
+    __asm__ volatile ("csrrs %0, sie, %1" : "=r"(sie) : "r"(0x20)); // Set STIE
+}
+
+void set_timer(unsigned long interval) {
+    register unsigned long a0 __asm__("a0") = 0; // Relative time (SBI)
+    // SBI call to set timer
+    __asm__ volatile ("li a7, 0x54494D45; li a6, 0; ecall" : : "r"(a0) : "memory");
+}
+
 void handle_trap(unsigned long cause, unsigned long epc, unsigned long sp) {
+    // Basic bridge to SageLang dispatcher
     g_trap_cause = cause;
     g_trap_epc = epc;
     g_trap_pending = 1;
@@ -64,9 +79,6 @@ void kmain(void) {
     sbi_putchar('L');
     sbi_putchar('O');
     sbi_putchar('\n');
-
-    // Manually trigger an illegal instruction trap
-    __asm__ volatile (".word 0");
 
     metal_vm_init(&g_vm);
     g_vm.write_char = vm_write_char;

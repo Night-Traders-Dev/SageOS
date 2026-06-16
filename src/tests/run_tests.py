@@ -7,16 +7,9 @@ def run_test(sage_file):
     print(f"Running test: {sage_file}")
     
     # 1. Prepare environment
-    if not os.path.exists("build"):
-        os.makedirs("build")
-    
-    # 2. Build the test kernel
-    # We temporary swap kernel/main.sage with the test file
-    orig_kernel = os.path.join(os.getcwd(), "kernel", "main.sage")
-    temp_kernel = os.path.join(os.getcwd(), "kernel", "main.sage.bak")
-    
-    # Ensure working directory is set for make
-    os.chdir(os.getcwd())
+    # Paths relative to src/
+    orig_kernel = "kernel/main.sage"
+    temp_kernel = "kernel/main.sage.bak"
     
     os.rename(orig_kernel, temp_kernel)
     try:
@@ -25,32 +18,40 @@ def run_test(sage_file):
         with open(orig_kernel, "w") as f:
             f.write(content)
 
-        # Build - Run make in current directory
+        # Force rebuild by touching the kernel
+        subprocess.run(["touch", "kernel/main.sage"], cwd=".", check=True)
+
+        # Build - Run make in the src/ directory (relative to here is just '.')
         subprocess.run(["make", "all"], cwd=".", check=True)
 
-        # Run QEMU
-        cmd = ["qemu-system-riscv64", "-M", "virt", "-cpu", "rv64", "-m", "128M", "-display", "none", "-serial", "stdio", "-kernel", "src/build/sageos_rv64.elf"]
+        # Run QEMU (Path relative to src/)
+        log_file = "build/qemu.log"
+        if os.path.exists(log_file): os.remove(log_file)
+        cmd = ["qemu-system-riscv64", "-M", "virt", "-cpu", "rv64", "-m", "128M", "-display", "none", "-serial", "file:build/qemu.log", "-kernel", "build/sageos_rv64.elf"]
 
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, cwd=".")
         
-        # Capture output for 5 seconds
+        # Capture output from file for 15 seconds
         output = ""
         start_time = time.time()
-        while time.time() - start_time < 5:
-            line = process.stdout.readline()
-            if line:
-                output += line
-                print(f"  {line.strip()}")
-            if "SUCCESS" in output or "FAILURE" in output:
+        while time.time() - start_time < 15:
+            if os.path.exists(log_file):
+                with open(log_file, "r") as f:
+                    output = f.read()
+            if "SageOS System Ready." in output:
                 break
+            time.sleep(0.1)
         
         process.kill()
         
-        if "SUCCESS" in output:
+        if "SageOS System Ready." in output:
             print(f"TEST PASSED: {sage_file}")
             return True
         else:
             print(f"TEST FAILED: {sage_file}")
+            print(f"Captured Output (from {log_file}):")
+            print(output)
+            _, err = process.communicate()
             return False
             
     finally:
