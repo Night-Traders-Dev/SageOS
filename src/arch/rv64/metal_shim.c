@@ -73,13 +73,6 @@ extern unsigned char _binary_build_kernel_sgvm_end[];
 
 void kmain(void) {
     // Initial hardware heartbeat via SBI
-    sbi_putchar('H');
-    sbi_putchar('E');
-    sbi_putchar('L');
-    sbi_putchar('L');
-    sbi_putchar('O');
-    sbi_putchar('\n');
-
     metal_vm_init(&g_vm);
     g_vm.write_char = vm_write_char;
 
@@ -88,7 +81,17 @@ void kmain(void) {
     int size = (int)(end - start);
 
     if (size > 0 && metal_vm_load_binary(&g_vm, start, size) == 0) {
-        sbi_putchar('V'); sbi_putchar('M'); sbi_putchar('\n');
+
+        sbi_putchar('V');
+        sbi_putchar('M');
+        sbi_putchar('\n');
+
+        metal_vm_verify(&g_vm);
+
+        sbi_putchar('R');
+        sbi_putchar('U');
+        sbi_putchar('N');
+        sbi_putchar('\n');
         if (metal_vm_verify(&g_vm) == 0) {
             sbi_putchar('O'); sbi_putchar('K'); sbi_putchar('\n');
             for (int i = 0; i < g_vm.chunk_count; i++) {
