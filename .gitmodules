@@ -15,3 +15,6 @@
 	path = SageLang
 	url = https://github.com/Night-Traders-Dev/SageLang.git
 	branch = main
+[submodule "SageBoot"]
+	path = SageBoot
+	url = https://github.com/Night-Traders-Dev/SageBoot.git
