@@ -45,6 +45,22 @@ static void print_string(const char* s) {
 
 MetalVM g_vm;
 
+volatile unsigned long g_trap_cause = 0;
+volatile unsigned long g_trap_epc = 0;
+volatile int g_trap_pending = 0;
+
+void enable_interrupts(void) {
+    __asm__ volatile ("sti");
+}
+
+void set_timer(unsigned long interval) {
+    (void)interval;
+}
+
+void cpu_halt(void) {
+    __asm__ volatile ("hlt");
+}
+
 void kmain(unsigned long handoff_ptr) {
     print_string("kmain: SageOS Kernel booting...\n");
     if (handoff_ptr) {
@@ -81,6 +97,6 @@ void kmain(unsigned long handoff_ptr) {
     }
 
     while (1) {
-        __asm__ volatile ("hlt");
+        cpu_halt();
     }
 }

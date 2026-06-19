@@ -39,26 +39,17 @@ LDFLAGS = -T arch/$(ARCH)/linker.ld
 
 SRCS = arch/$(ARCH)/boot.S arch/$(ARCH)/metal_shim.c $(METALVM_SRC)
 
-.PHONY: all clean run
+SAGEBOOT_DIR = ../SageBoot
+SAGEBOOT_ELF = $(SAGEBOOT_DIR)/sageboot.elf
+
+.PHONY: all clean run sageboot
 
 all: $(ELF)
 
-$(METALVM_SRC): $(METALVM_ORIG)
+$(METALVM_SRC): $(METALVM_ORIG) patch_metal_vm.py
 	mkdir -p $(BUILD_DIR)
 	# Patch MetalVM
-	cat $(METALVM_ORIG) | \
-	sed '1i#include <stdint.h>\nextern volatile unsigned long g_trap_cause;\nextern volatile unsigned long g_trap_epc;\nextern volatile int g_trap_pending;\nvoid enable_interrupts();\nvoid set_timer(unsigned long interval);' | \
-	sed '635a\        case OP_PRINT: { MetalValue val = metal_vm_pop(vm); metal_print_value(vm, val); metal_print_str(vm, "\\n"); break; }' | \
-	sed '/int metal_vm_verify(MetalVM* vm) {/,/return 0;/ s/case OP_ARRAY_LEN:/case OP_GPU_POLL_EVENTS: case OP_GPU_WINDOW_SHOULD_CLOSE: case OP_GPU_GET_TIME: case OP_GPU_KEY_PRESSED: case OP_GPU_KEY_DOWN: case OP_GPU_MOUSE_POS: case OP_GPU_MOUSE_DELTA: case OP_GPU_UPDATE_INPUT: case OP_GPU_BEGIN_COMMANDS: case OP_GPU_END_COMMANDS: case OP_GPU_CMD_BEGIN_RP: case OP_GPU_CMD_END_RP: case OP_GPU_CMD_DRAW: case OP_GPU_CMD_BIND_GP: case OP_GPU_CMD_BIND_DS: case OP_GPU_CMD_SET_VP: case OP_GPU_CMD_SET_SC: case OP_GPU_CMD_BIND_VB: case OP_GPU_CMD_BIND_IB: case OP_GPU_CMD_DRAW_IDX: case OP_GPU_SUBMIT_SYNC: case OP_GPU_ACQUIRE_IMG: case OP_GPU_PRESENT: case OP_GPU_WAIT_FENCE: case OP_GPU_RESET_FENCE: case OP_GPU_UPDATE_UNIFORM: case OP_GPU_CMD_PUSH_CONST: case OP_GPU_CMD_DISPATCH:\n        case 200: case 201: case 202: case 203: case 204: case 205: case 206: break;\n        case OP_ARRAY_LEN:/' | \
-	sed '/case OP_GPU_CMD_DISPATCH:/a \
-        case 200: { metal_print_str(vm, "HALT\\n"); while(1) { __asm__ volatile("wfi"); } break; } \/* HALT *\/\
-        case 201: { if(g_trap_pending) { metal_vm_push(vm, mv_num((double)g_trap_cause)); metal_vm_push(vm, mv_num((double)g_trap_epc)); g_trap_pending = 0; } else { metal_vm_push(vm, mv_num(-1)); metal_vm_push(vm, mv_num(0)); } break; } \/* GET_TRAP *\/\
-        case 202: { enable_interrupts(); break; } \/* ENABLE_INTERRUPTS *\/\
-        case 203: { MetalValue val = metal_vm_pop(vm); set_timer((unsigned long)val.as.number); break; } \/* SET_TIMER *\/\
-        case 204: { MetalValue addr = metal_vm_pop(vm); uint64_t val = *(uint64_t*)((uintptr_t)addr.as.number); metal_vm_push(vm, mv_num((double)val)); break; } \/* PEEK64 *\/\
-        case 205: { MetalValue val = metal_vm_pop(vm); MetalValue addr = metal_vm_pop(vm); *(uint64_t*)((uintptr_t)addr.as.number) = (uint64_t)val.as.number; break; } \/* POKE64 *\/\
-        case 206: { MetalValue val = metal_vm_pop(vm); MetalValue addr = metal_vm_pop(vm); *(uint32_t*)((uintptr_t)addr.as.number) = (uint32_t)val.as.number; break; } \/* POKE32 *\/' \
-	> $(METALVM_SRC)
+	python3 patch_metal_vm.py
 
 $(SGVMC):
 	$(MAKE) -C $(SAGELANG_DIR)/core
@@ -73,14 +64,19 @@ $(K_OBJ): $(K_SGVM)
 $(ELF): $(SRCS) $(K_OBJ)
 	$(CC) $(CFLAGS) $(SRCS) $(K_OBJ) $(LDFLAGS) -o $@
 
+sageboot: $(SGVMC)
+	$(MAKE) -C $(SAGEBOOT_DIR) ARCH=$(ARCH) SAGE_COMPILER=$(CURDIR)/$(SAGELANG_DIR)/core/sage
+
 clean:
 	rm -rf $(BUILD_DIR)
+	$(MAKE) -C $(SAGEBOOT_DIR) clean
 
-run: $(ELF)
+run: $(ELF) sageboot
 ifeq ($(ARCH),rv64)
-	timeout 10s qemu-system-riscv64 -M virt -cpu rv64 -m 128M -display none -serial stdio -kernel $(ELF)
+	timeout 10s qemu-system-riscv64 -M virt -cpu rv64 -m 128M -display none -serial stdio -kernel $(SAGEBOOT_ELF) -device loader,file=$(ELF),addr=0x81000000,force-raw=on
 else ifeq ($(ARCH),x64)
-	timeout 10s qemu-system-x86_64 -m 128M -display none -serial stdio -kernel $(ELF)
+	timeout 10s qemu-system-x86_64 -m 128M -display none -serial stdio -kernel $(SAGEBOOT_ELF) -device loader,file=$(ELF),addr=0x01100000,force-raw=on
 else ifeq ($(ARCH),arm64)
-	timeout 10s qemu-system-aarch64 -M virt -cpu cortex-a57 -m 128M -display none -serial stdio -kernel $(ELF)
+	timeout 10s qemu-system-aarch64 -M virt -cpu cortex-a57 -m 128M -display none -serial stdio -kernel $(SAGEBOOT_ELF) -device loader,file=$(ELF),addr=0x41000000,force-raw=on
 endif
+

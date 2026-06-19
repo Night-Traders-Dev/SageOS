@@ -30,6 +30,10 @@ void set_timer(unsigned long interval) {
     __asm__ volatile ("li a7, 0x54494D45; li a6, 0; ecall" : : "r"(a0) : "memory");
 }
 
+void cpu_halt(void) {
+    __asm__ volatile ("wfi");
+}
+
 void handle_trap(unsigned long cause, unsigned long epc, unsigned long sp) {
     // Basic bridge to SageLang dispatcher
     g_trap_cause = cause;
@@ -115,20 +119,27 @@ void kmain(unsigned long handoff_ptr) {
         sbi_putchar('U');
         sbi_putchar('N');
         sbi_putchar('\n');
-        if (metal_vm_verify(&g_vm) == 0) {
+        int verify_res = metal_vm_verify(&g_vm);
+        if (verify_res == 0) {
             sbi_putchar('O'); sbi_putchar('K'); sbi_putchar('\n');
             for (int i = 0; i < g_vm.chunk_count; i++) {
                 metal_vm_load(&g_vm, g_vm.chunks[i], g_vm.chunk_lengths[i]);
                 metal_vm_run(&g_vm);
             }
         } else {
-            sbi_putchar('E'); sbi_putchar('R'); sbi_putchar('R'); sbi_putchar('\n');
+            sbi_putchar('E'); sbi_putchar('R'); sbi_putchar('R'); sbi_putchar(':');
+            if (verify_res < 0) {
+                sbi_putchar('-');
+                verify_res = -verify_res;
+            }
+            sbi_putchar('0' + verify_res);
+            sbi_putchar('\n');
         }
     } else {
          sbi_putchar('N'); sbi_putchar('O'); sbi_putchar('B'); sbi_putchar('\n');
     }
 
     while (1) {
-        __asm__ volatile ("wfi");
+        cpu_halt();
     }
 }

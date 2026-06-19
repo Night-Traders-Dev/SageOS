@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "metal_vm.h"
 
 static void uart_putchar(char c) {
@@ -45,13 +46,30 @@ static void print_string(const char* s) {
 
 MetalVM g_vm;
 
+volatile unsigned long g_trap_cause = 0;
+volatile unsigned long g_trap_epc = 0;
+volatile int g_trap_pending = 0;
+
+void enable_interrupts(void) {
+    __asm__ volatile ("msr daifclr, #2");
+}
+
+void set_timer(unsigned long interval) {
+    (void)interval;
+}
+
+void cpu_halt(void) {
+    __asm__ volatile ("wfi");
+}
+
 void kmain(unsigned long handoff_ptr) {
     print_string("kmain: SageOS Kernel booting...\n");
     if (handoff_ptr) {
         unsigned long* magic_ptr = (unsigned long*)handoff_ptr;
         if (*magic_ptr == 0x534147454F534249ULL) {
             print_string("kmain: Booted via SageBoot!\n");
-            unsigned long cmdline_ptr = *(unsigned long*)(handoff_ptr + 52);
+            unsigned long cmdline_ptr;
+            memcpy(&cmdline_ptr, (const void*)(handoff_ptr + 52), 8);
             if (cmdline_ptr) {
                 print_string("kmain: Boot cmdline: \"");
                 print_string((const char*)cmdline_ptr);
@@ -81,6 +99,6 @@ void kmain(unsigned long handoff_ptr) {
     }
 
     while (1) {
-        __asm__ volatile ("wfi");
+        cpu_halt();
     }
 }
