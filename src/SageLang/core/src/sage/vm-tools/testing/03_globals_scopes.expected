@@ -1,4 +1,0 @@
-before: global
-inside: global local
-after: updated global
-nested: nested

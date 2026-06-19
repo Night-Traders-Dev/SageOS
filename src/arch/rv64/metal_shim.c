@@ -1,8 +1,8 @@
 #include <stdint.h>
-#include "metal_vm.h"
+#include "metal_rv64_vm.h"
 
 // Global VM to avoid huge stack usage
-MetalVM g_vm;
+MetalRV64VM g_vm;
 
 // Trap flag variables for SageLang dispatcher
 volatile unsigned long g_trap_cause = 0;
@@ -100,40 +100,34 @@ void kmain(unsigned long handoff_ptr) {
         print_string("kmain: Warning - booted directly (no SageBoot metadata).\n");
     }
 
-    metal_vm_init(&g_vm);
+    metal_rv64_vm_init(&g_vm);
     g_vm.write_char = vm_write_char;
+    g_vm.trace = 1;
 
     unsigned char* start = _binary_build_kernel_sgvm_start;
     unsigned char* end = _binary_build_kernel_sgvm_end;
     int size = (int)(end - start);
 
-    if (size > 0 && metal_vm_load_binary(&g_vm, start, size) == 0) {
+    if (size > 0 && metal_rv64_vm_load_binary(&g_vm, start, size) == 0) {
 
         sbi_putchar('V');
         sbi_putchar('M');
         sbi_putchar('\n');
 
-        metal_vm_verify(&g_vm);
-
         sbi_putchar('R');
         sbi_putchar('U');
         sbi_putchar('N');
         sbi_putchar('\n');
-        int verify_res = metal_vm_verify(&g_vm);
-        if (verify_res == 0) {
-            sbi_putchar('O'); sbi_putchar('K'); sbi_putchar('\n');
-            for (int i = 0; i < g_vm.chunk_count; i++) {
-                metal_vm_load(&g_vm, g_vm.chunks[i], g_vm.chunk_lengths[i]);
-                metal_vm_run(&g_vm);
+        sbi_putchar('O'); sbi_putchar('K'); sbi_putchar('\n');
+
+        for (int i = 0; i < g_vm.chunk_count; i++) {
+            g_vm.current_chunk_idx = i;
+            g_vm.bytecode = g_vm.chunks[i];
+            g_vm.bytecode_length = g_vm.chunk_lengths[i];
+            g_vm.pc = 0;
+            if (metal_rv64_vm_run(&g_vm) < 0) {
+                sbi_putchar('E'); sbi_putchar('R'); sbi_putchar('R'); sbi_putchar('\n');
             }
-        } else {
-            sbi_putchar('E'); sbi_putchar('R'); sbi_putchar('R'); sbi_putchar(':');
-            if (verify_res < 0) {
-                sbi_putchar('-');
-                verify_res = -verify_res;
-            }
-            sbi_putchar('0' + verify_res);
-            sbi_putchar('\n');
         }
     } else {
          sbi_putchar('N'); sbi_putchar('O'); sbi_putchar('B'); sbi_putchar('\n');

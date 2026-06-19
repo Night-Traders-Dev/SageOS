@@ -1,5 +1,0 @@
-No error
-Caught: Intentional Error
-After try-catch
-Inner catch: Nested
-Outer catch: Reraised

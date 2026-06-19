@@ -8,11 +8,17 @@ K_OBJ = $(BUILD_DIR)/kernel_sgvm.o
 ELF = $(BUILD_DIR)/sageos_$(ARCH).elf
 
 # Toolchain
-SAGELANG_DIR = SageLang
-SGVMC = $(SAGELANG_DIR)/core/sgvmc
+SAGELANG_DIR = ../SageLang
+SAGEVM_DIR = ../SageVM
+SAGEVM = $(SAGEVM_DIR)/sagevm
 METALVM_INC = $(SAGELANG_DIR)/core/include
 METALVM_SRC = build/metal_vm_patched.c
-METALVM_ORIG = $(SAGELANG_DIR)/core/src/c/metal_vm.c
+
+ifeq ($(ARCH),rv64)
+    METALVM_ORIG = $(SAGELANG_DIR)/core/src/c/metal_rv64_vm.c
+else
+    METALVM_ORIG = $(SAGELANG_DIR)/core/src/c/metal_vm.c
+endif
 
 ifeq ($(ARCH),rv64)
     CROSS_COMPILE = riscv64-linux-gnu-
@@ -49,14 +55,18 @@ all: $(ELF)
 $(METALVM_SRC): $(METALVM_ORIG) patch_metal_vm.py
 	mkdir -p $(BUILD_DIR)
 	# Patch MetalVM
-	python3 patch_metal_vm.py
+	python3 patch_metal_vm.py $(METALVM_ORIG)
 
-$(SGVMC):
-	$(MAKE) -C $(SAGELANG_DIR)/core
+$(SAGEVM):
+	$(MAKE) -C $(SAGEVM_DIR)
 
-$(K_SGVM): $(K_SAGE) $(SGVMC)
+$(K_SGVM): $(K_SAGE) $(SAGEVM)
 	mkdir -p $(BUILD_DIR)
-	(cd $(SAGELANG_DIR)/core && ./sgvmc $(CURDIR)/$(K_SAGE) $(CURDIR)/$(K_SGVM))
+ifeq ($(ARCH),rv64)
+	$(SAGEVM) compile $(K_SAGE) $(K_SGVM) --riscv
+else
+	$(SAGEVM) compile $(K_SAGE) $(K_SGVM)
+endif
 
 $(K_OBJ): $(K_SGVM)
 	$(OBJCOPY) -I binary -O $(OBJCOPY_FORMAT) --binary-architecture $(OBJCOPY_ARCH) $< $@
@@ -64,7 +74,7 @@ $(K_OBJ): $(K_SGVM)
 $(ELF): $(SRCS) $(K_OBJ)
 	$(CC) $(CFLAGS) $(SRCS) $(K_OBJ) $(LDFLAGS) -o $@
 
-sageboot: $(SGVMC)
+sageboot: $(SAGEVM)
 	$(MAKE) -C $(SAGEBOOT_DIR) ARCH=$(ARCH) SAGE_COMPILER=$(CURDIR)/$(SAGELANG_DIR)/core/sage
 
 clean:
