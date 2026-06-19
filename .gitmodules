@@ -1,20 +1,29 @@
 [submodule "arch/arm64"]
-	path = arch/arm64
-	url = https://github.com/Night-Traders-Dev/SageOS_arm64.git
+    path = arch/arm64
+    url = https://github.com/Night-Traders-Dev/SageOS_arm64.git
+    branch = main
+
 [submodule "arch/rv64"]
-	path = arch/rv64
-	url = https://github.com/Night-Traders-Dev/SageOS_rv64.git
+    path = arch/rv64
+    url = https://github.com/Night-Traders-Dev/SageOS_rv64.git
+    branch = main
+
 [submodule "arch/x64"]
-	path = arch/x64
-	url = https://github.com/Night-Traders-Dev/SageOS_x64.git
+    path = arch/x64
+    url = https://github.com/Night-Traders-Dev/SageOS_x64.git
+    branch = main
+
 [submodule "SageVM"]
-	path = SageVM
-	url = https://github.com/Night-Traders-Dev/SageVM.git
-	branch = main
+    path = SageVM
+    url = https://github.com/Night-Traders-Dev/SageVM.git
+    branch = main
+
 [submodule "SageLang"]
-	path = SageLang
-	url = https://github.com/Night-Traders-Dev/SageLang.git
-	branch = main
+    path = SageLang
+    url = https://github.com/Night-Traders-Dev/SageLang.git
+    branch = main
+
 [submodule "SageBoot"]
-	path = SageBoot
-	url = https://github.com/Night-Traders-Dev/SageBoot.git
+    path = SageBoot
+    url = https://github.com/Night-Traders-Dev/SageBoot.git
+    branch = main
