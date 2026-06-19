@@ -1,0 +1,65 @@
+[
+  {
+    "timestamp": "2026-06-19T17:26:08",
+    "root": "/root/Devel/SageOS",
+    "label": null,
+    "duration_s": 1.5262755720177665,
+    "files_scanned": 1262,
+    "files_failed": 1,
+    "total_lines": 206174,
+    "blank_lines": 23184,
+    "code_lines": 182990,
+    "total_bytes": 7553300,
+    "by_ext": {
+      ".c": {
+        "files": 100,
+        "total_lines": 63659,
+        "blank_lines": 6226,
+        "code_lines": 57433,
+        "bytes": 2851849
+      },
+      ".S": {
+        "files": 33,
+        "total_lines": 1827,
+        "blank_lines": 240,
+        "code_lines": 1587,
+        "bytes": 38902
+      },
+      ".sage": {
+        "files": 1025,
+        "total_lines": 111999,
+        "blank_lines": 13163,
+        "code_lines": 98836,
+        "bytes": 3707949
+      },
+      ".h": {
+        "files": 97,
+        "total_lines": 27419,
+        "blank_lines": 3537,
+        "code_lines": 23882,
+        "bytes": 934515
+      },
+      ".svm": {
+        "files": 6,
+        "total_lines": 1249,
+        "blank_lines": 16,
+        "code_lines": 1233,
+        "bytes": 19451
+      },
+      ".s": {
+        "files": 1,
+        "total_lines": 21,
+        "blank_lines": 2,
+        "code_lines": 19,
+        "bytes": 634
+      }
+    },
+    "excluded_user": [
+      "SageLang/core/src/sage/vm-tools",
+      "SageVM/.deps",
+      "arch/arm64/core/sageos_build",
+      "src/arch/arm64/core/sageos_build"
+    ],
+    "excluded_builtin_hits": 1
+  }
+]
