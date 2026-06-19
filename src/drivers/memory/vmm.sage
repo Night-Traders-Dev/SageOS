@@ -39,24 +39,28 @@ class VMM:
         let vpn2 = ((vaddr / 1073741824) | 0) & 511
         let vpn1 = ((vaddr / 2097152) | 0) & 511
         let vpn0 = ((vaddr / 4096) | 0) & 511
-        
+
+        print "  VMM: Map vaddr=" + str(vaddr) + " vpn2=" + str(vpn2) + " vpn1=" + str(vpn1) + " vpn0=" + str(vpn0)
+
         # Level 2 (Root) -> Level 1
         let l1_pt = self.get_or_create_table(self.root_pt, vpn2)
         if l1_pt == 0: return false end
-        
+
         # Level 1 -> Level 0
         let l0_pt = self.get_or_create_table(l1_pt, vpn1)
         if l0_pt == 0: return false end
-        
+
         # Level 0 -> Physical Page
         let pte_addr = l0_pt + vpn0 * 8
-        
+        print "  VMM: Mapping PTE at " + str(pte_addr)
+
         # Build PTE: PPN is phys_addr / 4096, shift to PPN position (10)
         let ppn = (paddr / 4096) | 0
         let pte = (ppn * 1024) + (flags | 1)
-        
-        self.hw.poke64(pte_addr, pte)
+
+        bm.poke64(pte_addr, pte)
         return true
+
 
     proc get_or_create_table(self, table_addr, index):
         let pte_addr = table_addr + index * 8
