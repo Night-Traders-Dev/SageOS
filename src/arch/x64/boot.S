@@ -3,6 +3,9 @@
 .global _start
 _start:
     cli
+    # Save handoff structure pointer (passed in %rdi) in %rbx
+    mov %rdi, %rbx
+
     # Simple Heartbeat 'A' via COM1 (0x3F8)
     mov $0x3F8, %dx
     mov $'A', %al
@@ -19,6 +22,8 @@ _start:
     xor %rax, %rax
     rep stosb
 
+    # Restore handoff pointer in %rdi as argument to kmain
+    mov %rbx, %rdi
     # Jump to kmain
     call kmain
 

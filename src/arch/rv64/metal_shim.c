@@ -1,3 +1,4 @@
+#include <stdint.h>
 #include "metal_vm.h"
 
 // Global VM to avoid huge stack usage
@@ -71,8 +72,30 @@ static void vm_write_char(char c) {
 extern unsigned char _binary_build_kernel_sgvm_start[];
 extern unsigned char _binary_build_kernel_sgvm_end[];
 
-void kmain(void) {
+static void print_string(const char* s) {
+    while (*s) sbi_putchar(*s++);
+}
+
+void kmain(unsigned long handoff_ptr) {
     // Initial hardware heartbeat via SBI
+    print_string("kmain: SageOS Kernel booting...\n");
+    if (handoff_ptr) {
+        uint64_t* magic_ptr = (uint64_t*)handoff_ptr;
+        if (*magic_ptr == 0x534147454F534249ULL) {
+            print_string("kmain: Booted via SageBoot!\n");
+            uint64_t cmdline_ptr = *(uint64_t*)(handoff_ptr + 52);
+            if (cmdline_ptr) {
+                print_string("kmain: Boot cmdline: \"");
+                print_string((const char*)cmdline_ptr);
+                print_string("\"\n");
+            }
+        } else {
+            print_string("kmain: Warning - invalid SageBoot handoff magic.\n");
+        }
+    } else {
+        print_string("kmain: Warning - booted directly (no SageBoot metadata).\n");
+    }
+
     metal_vm_init(&g_vm);
     g_vm.write_char = vm_write_char;
 

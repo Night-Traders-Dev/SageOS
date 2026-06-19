@@ -39,10 +39,30 @@ static void vm_write_char(char c) {
 extern unsigned char _binary_build_kernel_sgvm_start[];
 extern unsigned char _binary_build_kernel_sgvm_end[];
 
+static void print_string(const char* s) {
+    while (*s) uart_putchar(*s++);
+}
+
 MetalVM g_vm;
 
-void kmain(void) {
-    uart_putchar('H'); uart_putchar('E'); uart_putchar('L'); uart_putchar('L'); uart_putchar('O'); uart_putchar('\n');
+void kmain(unsigned long handoff_ptr) {
+    print_string("kmain: SageOS Kernel booting...\n");
+    if (handoff_ptr) {
+        unsigned long* magic_ptr = (unsigned long*)handoff_ptr;
+        if (*magic_ptr == 0x534147454F534249ULL) {
+            print_string("kmain: Booted via SageBoot!\n");
+            unsigned long cmdline_ptr = *(unsigned long*)(handoff_ptr + 52);
+            if (cmdline_ptr) {
+                print_string("kmain: Boot cmdline: \"");
+                print_string((const char*)cmdline_ptr);
+                print_string("\"\n");
+            }
+        } else {
+            print_string("kmain: Warning - invalid SageBoot handoff magic.\n");
+        }
+    } else {
+        print_string("kmain: Warning - booted directly (no SageBoot metadata).\n");
+    }
 
     metal_vm_init(&g_vm);
     g_vm.write_char = vm_write_char;

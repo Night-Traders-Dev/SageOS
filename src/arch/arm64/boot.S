@@ -1,6 +1,9 @@
 .section .text
 .global _start
 _start:
+    // Save handoff structure pointer (passed in x0) in x19
+    mov x19, x0
+
     # Enable FP/SIMD (CPACR_EL1)
     mov x0, #3 << 20
     msr cpacr_el1, x0
@@ -24,6 +27,8 @@ _start:
     str xzr, [x0], #8
     b 1b
 2:
+    // Restore handoff structure pointer in x0 as argument to kmain
+    mov x0, x19
     # Jump to kmain
     bl kmain
 

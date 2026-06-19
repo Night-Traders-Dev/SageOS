@@ -1,6 +1,9 @@
 .section .text.entry
 .global _start
 _start:
+    # Save handoff structure pointer (passed in a0) in s0
+    mv s0, a0
+
     # Heartbeat 'A'
     li t0, 0x10000000
     li t1, 0x41
@@ -26,6 +29,8 @@ _start:
     addi a0, a0, 8
     bltu a0, a1, 1b
 2:
+    # Restore handoff structure pointer in a0 as argument to kmain
+    mv a0, s0
     # Jump to kmain
     call kmain
 

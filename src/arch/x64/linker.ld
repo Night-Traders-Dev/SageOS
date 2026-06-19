@@ -3,7 +3,7 @@ ENTRY(_start)
 SECTIONS
 {
     /* Multiboot expects the kernel to be loaded at 1MB or higher */
-    . = 1M;
+    . = 2M;
 
     .text : {
         *(.text)
