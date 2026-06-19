@@ -53,7 +53,7 @@ from rich import box
 # Configuration
 # --------------------------------------------------------------------------- #
 
-DEFAULT_EXTENSIONS = {".sage", ".svm", ".c", ".h", ".s", ".S"}
+DEFAULT_EXTENSIONS = {".sage", ".svm", ".c", ".h", ".s", ".S", ".py"}
 DEFAULT_HISTORY_FILENAME = ".codestats_history.json"
 # Directory names we always skip descending into, regardless of user excludes.
 BUILTIN_SKIP_DIRS = {".git", ".hg", ".svn", ".jj"}
