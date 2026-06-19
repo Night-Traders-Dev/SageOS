@@ -5,11 +5,12 @@ import subprocess
 import shutil
 
 # --- Configuration ---
-ROOT_DIR = os.getcwd()
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(SCRIPT_DIR)
 SAGE_LANG_DIR = os.path.join(ROOT_DIR, "SageLang")
 SAGE_VM_DIR = os.path.join(ROOT_DIR, "SageVM")
-BUILD_DIR = os.path.join(ROOT_DIR, "build")
-ROOTFS_DIR = os.path.join(ROOT_DIR, "rootfs")
+BUILD_DIR = os.path.join(SCRIPT_DIR, "build")
+ROOTFS_DIR = os.path.join(SCRIPT_DIR, "rootfs")
 IMAGE_PATH = os.path.join(BUILD_DIR, "sageos.img")
 
 VERSION_FILES = [
@@ -22,7 +23,7 @@ VERSION_FILES = [
 ]
 
 # --- Helper Functions ---
-def run(cmd, cwd=ROOT_DIR, check=True):
+def run(cmd, cwd=SCRIPT_DIR, check=True):
     print(f"Executing: {cmd} (in {cwd})")
     try:
         subprocess.check_call(cmd, shell=True, cwd=cwd)
@@ -47,8 +48,8 @@ def clean():
 
 def update():
     print("Updating repository and submodules...")
-    run("git pull", check=False)
-    run("git submodule update --init --recursive")
+    run("git pull", cwd=ROOT_DIR, check=False)
+    run("git submodule update --init --recursive", cwd=ROOT_DIR)
 
 def sync_rootfs():
     print(f"Synchronizing rootfs to {IMAGE_PATH}...")
@@ -80,7 +81,7 @@ def check_dependencies():
     # 1. Check submodules
     if not os.path.exists(os.path.join(SAGE_LANG_DIR, "core", "Makefile")):
         print("  SageLang submodule missing or not initialized. Initializing...")
-        run("git submodule update --init --recursive")
+        run("git submodule update --init --recursive", cwd=ROOT_DIR)
     
     # 2. Check SageLang Compiler (sgvmc and sage)
     sgvmc_path = os.path.join(SAGE_LANG_DIR, "core", "sgvmc")
@@ -167,7 +168,7 @@ def run_tests():
 def run_benchmarks():
     print("Running benchmarks...")
     if os.path.exists(os.path.join(SAGE_LANG_DIR, "core", "Makefile")):
-        run("make -C SageLang/core benchmarks")
+        run("make -C SageLang/core benchmarks", cwd=ROOT_DIR)
     else:
         print("SageLang/core/Makefile not found, cannot run benchmarks.")
 
