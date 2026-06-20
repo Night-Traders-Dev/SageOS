@@ -74,5 +74,81 @@
       "src/arch/arm64/core/sageos_build/sage_lang"
     ],
     "excluded_builtin_hits": 1
+  },
+  {
+    "timestamp": "2026-06-19T19:03:05",
+    "root": "/root/Devel/SageOS",
+    "label": null,
+    "duration_s": 3.5303872900549322,
+    "files_scanned": 2088,
+    "files_failed": 1,
+    "total_lines": 336653,
+    "blank_lines": 36790,
+    "code_lines": 299863,
+    "total_bytes": 13456031,
+    "by_ext": {
+      ".py": {
+        "files": 70,
+        "total_lines": 12063,
+        "blank_lines": 1558,
+        "code_lines": 10505,
+        "bytes": 501940
+      },
+      ".S": {
+        "files": 80,
+        "total_lines": 4166,
+        "blank_lines": 533,
+        "code_lines": 3633,
+        "bytes": 84190
+      },
+      ".sage": {
+        "files": 1188,
+        "total_lines": 129892,
+        "blank_lines": 15453,
+        "code_lines": 114439,
+        "bytes": 4217626
+      },
+      ".c": {
+        "files": 311,
+        "total_lines": 113308,
+        "blank_lines": 13037,
+        "code_lines": 100271,
+        "bytes": 4449246
+      },
+      ".h": {
+        "files": 426,
+        "total_lines": 75530,
+        "blank_lines": 6191,
+        "code_lines": 69339,
+        "bytes": 4175632
+      },
+      ".svm": {
+        "files": 12,
+        "total_lines": 1673,
+        "blank_lines": 16,
+        "code_lines": 1657,
+        "bytes": 26763
+      },
+      ".s": {
+        "files": 1,
+        "total_lines": 21,
+        "blank_lines": 2,
+        "code_lines": 19,
+        "bytes": 634
+      }
+    },
+    "excluded_user": [
+      "SageLang/core/src/sage/vm-tools",
+      "SageVM/.deps",
+      "arch/arm64/core/src/arch/arm64/core/sageos_build/actual_sagelang_build",
+      "arch/arm64/core/src/arch/arm64/core/sageos_build/sage_lang",
+      "arch/rv64/core/src/arch/arm64/core/sageos_build/actual_sagelang_build",
+      "arch/rv64/core/src/arch/arm64/core/sageos_build/sage_lang",
+      "arch/x64/core/src/arch/arm64/core/sageos_build/actual_sagelang_build",
+      "arch/x64/core/src/arch/arm64/core/sageos_build/sage_lang",
+      "src/arch/arm64/core/sageos_build/actual_sagelang_build",
+      "src/arch/arm64/core/sageos_build/sage_lang"
+    ],
+    "excluded_builtin_hits": 1
   }
 ]

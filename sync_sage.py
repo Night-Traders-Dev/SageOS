@@ -5,10 +5,15 @@ import os
 import sys
 import shutil
 import argparse
+import threading
 import multiprocessing
 import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from rich.console import Console
+from rich.console import Console, Group
+from rich.live import Live
+from rich.table import Table
+from rich.text import Text
+from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TaskID
 
 # Initialize rich console for beautiful text handling
@@ -24,6 +29,100 @@ TARGETS = [
     os.path.join("arch", "rv64"),
     os.path.join("arch", "x64"),
 ]
+
+# Live detail panel state: repo_name -> most recent output line (e.g. which
+# nested submodule of SageLang is currently being cloned/checked out).
+# Guarded by a lock since multiple worker threads write to it concurrently.
+_status_lock = threading.Lock()
+_status_lines: dict[str, str] = {}
+
+
+def set_status(repo_name: str, line: str) -> None:
+    with _status_lock:
+        _status_lines[repo_name] = line
+
+
+def clear_status(repo_name: str) -> None:
+    with _status_lock:
+        _status_lines.pop(repo_name, None)
+
+
+def render_status_panel() -> Table:
+    """Builds the 'what's actually happening right now' table shown below
+    the main progress bars. Rebuilt fresh on every Live refresh tick."""
+    table = Table(box=None, show_header=False, padding=(0, 1, 0, 0))
+    table.add_column("repo", style="cyan", no_wrap=True, width=12)
+    table.add_column("detail", style="dim", no_wrap=True, overflow="ellipsis")
+    with _status_lock:
+        items = sorted(_status_lines.items())
+    if not items:
+        table.add_row("", "[dim italic]waiting for git output...[/dim italic]")
+    for name, line in items:
+        # Wrap raw git output in Text() rather than passing a plain string:
+        # git messages can legitimately contain '[' ']' (branch names, ref
+        # updates, etc.) which Rich would otherwise try to parse as markup.
+        table.add_row(name, Text(line))
+    return table
+
+
+class LiveActivityPanel:
+    """Wraps render_status_panel() so the outer Live re-renders it fresh on
+    every refresh tick, instead of freezing a snapshot taken once at the
+    moment this object was composed into the display."""
+
+    def __rich_console__(self, console, options):
+        yield Panel(
+            render_status_panel(),
+            title="Live Git Activity",
+            border_style="grey50",
+            padding=(0, 1),
+        )
+
+
+def stream_subprocess(command: list[str], cwd: str, on_line) -> tuple[int, str]:
+    """Runs `command`, streaming its combined stdout/stderr as it arrives.
+
+    Git's progress meters (clone/fetch percentages, "Submodule path 'X':
+    checked out 'Y'") use '\\r' to overwrite a line in place rather than
+    always terminating with '\\n'. Reading with readline()/iteration would
+    block waiting for a '\\n' that may never come until the whole command
+    finishes, which defeats the point of live progress. So we read one
+    character at a time and treat both '\\r' and '\\n' as segment breaks.
+
+    `on_line(line)` is called for every non-empty segment as it streams in.
+    Returns (returncode, full_combined_output) for error reporting.
+    """
+    process = subprocess.Popen(
+        command,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+
+    chunks: list[str] = []
+    buf = ""
+    assert process.stdout is not None
+    while True:
+        ch = process.stdout.read(1)
+        if ch == "":
+            break  # EOF: process closed stdout
+        if ch in ("\r", "\n"):
+            line = buf.strip()
+            if line:
+                on_line(line)
+                chunks.append(line)
+            buf = ""
+        else:
+            buf += ch
+
+    line = buf.strip()
+    if line:
+        on_line(line)
+        chunks.append(line)
+
+    returncode = process.wait()
+    return returncode, "\n".join(chunks)
 
 
 def parse_args() -> argparse.Namespace:
@@ -113,7 +212,9 @@ def run_bootstrap_phase(root_path: str) -> list[str]:
 
 
 def run_git_sync(repo_path: str, repo_name: str, progress: Progress, task_id: TaskID, *, skip_global_submodule_update: bool = False):
-    """Executes sequential git steps for a single repository, updating its progress bar.
+    """Executes sequential git steps for a single repository, updating its
+    progress bar and streaming live detail (e.g. which nested submodule of
+    SageLang is currently being cloned/checked out) into the status panel.
 
     skip_global_submodule_update: set True only for the SageOS root task.
     Root's "git submodule update --init --remote" (no path arg) checks out
@@ -125,34 +226,38 @@ def run_git_sync(repo_path: str, repo_name: str, progress: Progress, task_id: Ta
     """
     steps = [("Syncing Submodules", ["git", "submodule", "sync"])]
     if not skip_global_submodule_update:
-        steps.append(("Updating Submodules", ["git", "submodule", "update", "--init", "--remote"]))
-    steps.append(("Pulling Changes", ["git", "pull", "origin", "main"]))
+        # --progress forces git to emit clone/checkout progress even though
+        # stdout/stderr here is a pipe, not a tty (git suppresses progress
+        # output by default when not attached to a terminal). Without it,
+        # SageLang's nested submodules would only become visible *after*
+        # each one finished, defeating the point of a live activity panel.
+        steps.append(("Updating Submodules", ["git", "submodule", "update", "--init", "--remote", "--progress"]))
+    steps.append(("Pulling Changes", ["git", "pull", "origin", "main", "--progress"]))
 
     # 3 major git commands per repository
     progress.update(task_id, total=len(steps))
 
     for description, command in steps:
         progress.update(task_id, description=f"[cyan]{repo_name}[/cyan]: {description}...")
-        try:
-            # Run command; capture output to prevent terminal intermixing
-            result = subprocess.run(
-                command,
-                cwd=repo_path,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=True
-            )
-            progress.advance(task_id, advance=1)
-        except subprocess.CalledProcessError as e:
+        set_status(repo_name, f"starting: {description}")
+
+        returncode, output = stream_subprocess(
+            command, repo_path, on_line=lambda line: set_status(repo_name, line)
+        )
+
+        if returncode != 0:
             progress.update(
                 task_id,
                 description=f"[bold red]❌ {repo_name} failed during '{description}'[/bold red]"
             )
+            set_status(repo_name, f"failed during {description}")
             # Print the failed command details clearly out of the progress workflow
-            console.print(f"\n[bold red]Failure in {repo_name}:[/bold red]\n{e.stderr.strip()}")
+            console.print(f"\n[bold red]Failure in {repo_name}:[/bold red]\n{output.strip()}")
             return False, repo_name
 
+        progress.advance(task_id, advance=1)
+
+    clear_status(repo_name)
     progress.update(task_id, description=f"[bold green]✅ {repo_name} Complete[/bold green]")
     return True, repo_name
 
@@ -169,14 +274,20 @@ def main():
     cpu_cores = multiprocessing.cpu_count()
     console.print(f"[bold blue]🚀 Starting SageOS Parallel Sync Engine[/bold blue] (Jobs: {cpu_cores} threads)\n")
 
-    # Set up rich tracking bars
-    with Progress(
+    # Set up rich tracking bars. Constructed directly (not as its own context
+    # manager) because it's composed into our own outer Live below alongside
+    # the activity panel — Progress only needs to own its own Live when used
+    # standalone via `with Progress(...) as progress:`.
+    progress = Progress(
         SpinnerColumn(),
         TextColumn("{task.description}"),
         BarColumn(bar_width=40),
         TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
-        transient=False
-    ) as progress:
+        console=console,
+    )
+    display = Group(progress, LiveActivityPanel())
+
+    with Live(display, console=console, refresh_per_second=10, transient=False) as live:
 
         futures = []
         # Leverage thread pool up to CPU core count
@@ -202,6 +313,10 @@ def main():
 
             # Keep execution block open until all parallel tasks finish
             results = [future.result() for future in as_completed(futures)]
+
+        # Make sure the final frame reflects the last status/progress update,
+        # rather than whatever the last 100ms auto-refresh tick happened to catch.
+        live.refresh()
 
     # Quick final summary health check
     failures = [name for success, name in results if not success] + bootstrap_failures
