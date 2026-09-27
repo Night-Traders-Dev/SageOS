@@ -45,6 +45,30 @@ LDFLAGS = -T arch/$(ARCH)/linker.ld
 
 SRCS = arch/$(ARCH)/boot.S arch/$(ARCH)/metal_shim.c $(METALVM_SRC)
 
+# The Sage compiler to use, and the directory to put first on PATH for the steps
+# that shell out to one.
+#
+# sagevm resolves the compiler by taking the first `sage` on PATH and does not
+# check that it works. A stale or broken `sage` earlier on PATH therefore makes
+# it fail with
+#     "Statement requires AST fallback ... Unsupported stmt type 17"
+# which reads like a problem with the Sage source and is not one at all. That
+# was reproducible here: planting a failing `sage` first on PATH produced the
+# exact failure from both make and a plain shell, while the real compiler
+# succeeded from both.
+#
+# Prefer the compiler built from the SageLang submodule, so the superproject
+# builds against the SageLang it has pinned. Fall back to whatever `sage` is on
+# PATH, but record it and check it is executable so the failure is legible.
+SAGE_COMPILER ?= $(shell test -x $(SAGELANG_DIR)/core/sage \
+                     && echo $(CURDIR)/$(SAGELANG_DIR)/core/sage \
+                     || command -v sage)
+# Strip the trailing slash: $(dir) leaves one, and prepending it to PATH made
+# sagevm try "$$PATH/sage" as a second, doubled-slash candidate
+# (/usr/local/bin//sage) after the correct one. It was exec'd and then failed,
+# and sagevm reported the failure as an unsupported statement in the Sage source.
+SAGE_BINDIR = $(patsubst %/,%,$(dir $(SAGE_COMPILER)))
+
 SAGEBOOT_DIR = ../SageBoot
 SAGEBOOT_ELF = $(SAGEBOOT_DIR)/sageboot.elf
 
@@ -62,10 +86,22 @@ $(SAGEVM):
 
 $(K_SGVM): $(K_SAGE) $(SAGEVM)
 	mkdir -p $(BUILD_DIR)
+	@test -x "$(SAGE_COMPILER)" || { \
+	    echo "error: no usable Sage compiler. Looked for '$(SAGE_COMPILER)'."; \
+	    echo "       Build it with: make -C $(SAGELANG_DIR)"; \
+	    echo "       or set SAGE_COMPILER=/path/to/sage."; \
+	    exit 1; }
+	@$(SAGE_COMPILER) --version >/dev/null 2>&1 || { \
+	    echo "error: '$(SAGE_COMPILER)' is executable but does not run."; \
+	    echo "       sagevm takes the first 'sage' on PATH and does not check it,"; \
+	    echo "       so a broken one fails with a misleading 'AST fallback' error."; \
+	    echo "       Set SAGE_COMPILER to a working compiler."; \
+	    exit 1; }
+	@echo "  sage compiler: $(SAGE_COMPILER)"
 ifeq ($(ARCH),rv64)
-	$(SAGEVM) compile $(K_SAGE) $(K_SGVM) --riscv
+	PATH="$(SAGE_BINDIR):$$PATH" $(SAGEVM) compile $(K_SAGE) $(K_SGVM) --riscv
 else
-	$(SAGEVM) compile $(K_SAGE) $(K_SGVM)
+	PATH="$(SAGE_BINDIR):$$PATH" $(SAGEVM) compile $(K_SAGE) $(K_SGVM)
 endif
 
 $(K_OBJ): $(K_SGVM)
@@ -75,7 +111,7 @@ $(ELF): $(SRCS) $(K_OBJ)
 	$(CC) $(CFLAGS) $(SRCS) $(K_OBJ) $(LDFLAGS) -o $@
 
 sageboot: $(SAGEVM)
-	$(MAKE) -C $(SAGEBOOT_DIR) ARCH=$(ARCH) SAGE_COMPILER=$(CURDIR)/$(SAGELANG_DIR)/core/sage
+	$(MAKE) -C $(SAGEBOOT_DIR) ARCH=$(ARCH) SAGE_COMPILER="$(SAGE_COMPILER)"
 
 clean:
 	rm -rf $(BUILD_DIR)

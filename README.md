@@ -47,45 +47,69 @@ affected and it looked like a build-system problem rather than a source one.
 The terminators are removed. This is the same class of bug as the `pass` that
 had been sitting in the ESP32 `boot.sage`.
 
-### Open: `sagevm` fails when invoked from `make`
+### Open: the Sage compiler's VM emit step is unreliable
 
-With `main.sage` fixed, the very next step fails:
+With `main.sage` fixed, the next step fails:
 
 ```
-../SageVM/sagevm compile kernel/main.sage build/kernel.sgvm --riscv
 VM compile error: Statement requires AST fallback and cannot be emitted as a
 compiled VM artifact yet.
 DEBUG: Unsupported stmt type 17 requires AST fallback
 ```
 
-The odd part is that **the identical command succeeds in a shell, every time**.
-Running it 40 times in a row: 40 successes. Running `make ARCH=rv64` from a
-clean tree: 0/5. And immediately after a *failing* `make`, the same command from
-the shell succeeds.
+Two distinct bugs are involved.
 
-Everything that could plausibly explain it has been excluded:
+**1. `sagevm` does not validate the compiler it finds. (Fixed.)**
 
-| Candidate | Result |
+`sagevm` resolves the Sage compiler by taking the first `sage` on `PATH`, and
+never checks that it works. A stale or broken `sage` earlier on `PATH` therefore
+produces the "AST fallback" message above, which reads like a fault in the Sage
+source and is not one. This was found by planting a failing `sage` on `PATH`,
+which reproduced the exact failure from both `make` and a plain shell while the
+real compiler succeeded from both. In the wild it was a `sage` left in
+`~/.opencode/bin` (an agent tooling directory that is on `PATH`), shadowing
+`/usr/local/bin/sage`.
+
+`src/Makefile` now pins the compiler -- preferring the one built from the
+pinned `SageLang` submodule -- puts its directory first on `PATH` for both the
+`sagevm` and `sageboot` steps, and fails with an explicit message if the chosen
+compiler is not executable or does not run. The build now prints which compiler
+it is using instead of silently using whatever it finds.
+
+**2. `sage --emit-vm` is genuinely flaky. (Open.)**
+
+Pinning did not finish the job. Under `strace` the failing invocation is visible:
+
+```
+execve("/usr/local/bin/sage", ["sage","--emit-vm","kernel/main.sage",
+                               "-o","kernel/main.sage.svm"]) = 0
++++ exited with 1 +++
+```
+
+That is the whole failure: the compiler exits 1, and `sagevm` reports it with
+the misleading AST message. But the behaviour is not stable. Back to back, with
+the same pinned compiler, same arguments, same tree:
+
+| Invocation | Result |
 | --- | --- |
-| working directory | identical (`src/`) under both |
-| binary | same file, same md5 (`78b5f19a4dcb…`) |
-| arguments | captured under `make`, byte-identical |
-| environment | full sorted diff is 5 vars: `ARCH`, `MAKEFLAGS`, `MAKELEVEL`, `MFLAGS`, `SHLVL`; all tested individually and combined, all pass |
-| stdin | `/dev/null`, closed, and inherited all pass |
-| stdout | pipe, file, `/dev/null` and a tty all behave the same once the run is in the passing state |
-| shell | `sh -c` (dash, what make uses) passes |
-| `build/` contents | empty, and with `metal_vm_patched.c`, both pass |
-| submodules | `SageLang` and `SageVM` both clean, not modified by the build |
+| `sage --emit-vm ...` from a shell | fails |
+| `sagevm compile ...` from a shell | succeeds |
+| `make ARCH=rv64` | fails |
 
-`make -n` and `make --trace` confirm exactly one `sagevm` invocation with exactly
-the arguments shown, and no hidden sub-make. The SageVM sub-build also fails
-outright and separately: `make -C ../SageVM` reports "✗ SageLang build failed",
-though it leaves the existing binary in place.
+and at other moments the same `sage --emit-vm` command succeeded repeatedly
+(40 runs, 40 successes). Excluded as causes: output path, presence of the tracked
+`kernel/main.sage.svm` beside the source, `build/` contents, compiler identity
+and version, arguments, working directory, environment (full sorted diff),
+stdin, stdout as pipe/file/`/dev null`/tty, `sh -c`, and signal dispositions
+(SIGCHLD, SIGPIPE, SIGINT, SIGQUIT set to `SIG_IGN`). `make -n` and `--trace`
+show one `sagevm` invocation with byte-identical arguments and no hidden
+sub-make.
 
-The most likely explanation is uninitialised memory or a file-descriptor or
-signal-handling dependency inside `sagevm`, since no input distinguishes the two
-invocations. It needs a debugger on the SageVM side, not more guessing from
-outside.
+Identical inputs producing different outcomes points at uninitialised memory in
+the compiler. That needs a debugger inside `sage` -- specifically
+`--emit-vm` / statement-type dispatch -- rather than more experiments from
+outside. `make -C ../SageVM` also fails separately with "✗ SageLang build
+failed", though it leaves the existing binary in place.
 
 ## Two copies of every architecture
 
