@@ -47,7 +47,7 @@ affected and it looked like a build-system problem rather than a source one.
 The terminators are removed. This is the same class of bug as the `pass` that
 had been sitting in the ESP32 `boot.sage`.
 
-### Open: the Sage compiler's VM emit step is unreliable
+### Resolved: the Sage compiler's VM emit step was rejecting aliased imports
 
 With `main.sage` fixed, the next step fails:
 
@@ -76,9 +76,9 @@ pinned `SageLang` submodule -- puts its directory first on `PATH` for both the
 compiler is not executable or does not run. The build now prints which compiler
 it is using instead of silently using whatever it finds.
 
-**2. `sage --emit-vm` is genuinely flaky. (Open.)**
+**2. `sage --emit-vm` rejected aliased imports. (Fixed, in SageLang.)**
 
-Pinning did not finish the job. Under `strace` the failing invocation is visible:
+Under `strace` the failing invocation was just the compiler exiting 1:
 
 ```
 execve("/usr/local/bin/sage", ["sage","--emit-vm","kernel/main.sage",
@@ -86,30 +86,76 @@ execve("/usr/local/bin/sage", ["sage","--emit-vm","kernel/main.sage",
 +++ exited with 1 +++
 ```
 
-That is the whole failure: the compiler exits 1, and `sagevm` reports it with
-the misleading AST message. But the behaviour is not stable. Back to back, with
-the same pinned compiler, same arguments, same tree:
+`main.sage` opens with
 
-| Invocation | Result |
+```sage
+import drivers.memory.pmm as pmm_mgr
+import drivers.memory.vmm as vmm_mgr
+```
+
+so the cause is the alias form. It reproduced deterministically, with a
+four-case matrix:
+
+| source | result |
 | --- | --- |
-| `sage --emit-vm ...` from a shell | fails |
-| `sagevm compile ...` from a shell | succeeds |
-| `make ARCH=rv64` | fails |
+| no import | compiles |
+| `import os` | compiles |
+| `import os as o` | **fails** |
+| `from os import path as p` | **fails** |
 
-and at other moments the same `sage --emit-vm` command succeeded repeatedly
-(40 runs, 40 successes). Excluded as causes: output path, presence of the tracked
-`kernel/main.sage.svm` beside the source, `build/` contents, compiler identity
-and version, arguments, working directory, environment (full sorted diff),
-stdin, stdout as pipe/file/`/dev null`/tty, `sh -c`, and signal dispositions
-(SIGCHLD, SIGPIPE, SIGINT, SIGQUIT set to `SIG_IGN`). `make -n` and `--trace`
-show one `sagevm` invocation with byte-identical arguments and no hidden
-sub-make.
+The error named a type number, which sent the investigation after a missing
+enum case:
 
-Identical inputs producing different outcomes points at uninitialised memory in
-the compiler. That needs a debugger inside `sage` -- specifically
-`--emit-vm` / statement-type dispatch -- rather than more experiments from
-outside. `make -C ../SageVM` also fails separately with "✗ SageLang build
-failed", though it leaves the existing binary in place.
+```
+VM compile error: Statement requires AST fallback and cannot be emitted as a
+compiled VM artifact yet.
+DEBUG: Unsupported stmt type 17 requires AST fallback
+```
+
+`17` is `STMT_IMPORT`, and `compile_stmt` does have a `case STMT_IMPORT` for it.
+The emitter was never the problem: it already writes `BC_OP_IMPORT` followed by
+`BC_OP_DEFINE_GLOBAL` naming the alias, or the last dotted segment when there is
+no alias. What rejected the statement was `stmt_requires_ast_fallback`, which
+vetoed any import with an alias, on the belief that aliased imports "need the
+richer binding logic in interpreter.c". So the emitter and the gate disagreed
+about which forms were compilable, and the gate won.
+
+Fixed in SageLang `4128a9a3`, by dropping the alias from the veto. From-imports
+still need the AST walker and still fail, but now by name:
+
+```
+from-imports ('from module import name') are not supported by the bytecode VM
+yet; use 'import module' or 'import module as name'
+```
+
+The artifact path stays `BYTECODE_COMPILE_STRICT` on purpose. The walker is
+reached through `chunk->ast_stmts[]`, which holds pointers into the *live* AST
+and is never serialized, so a fallback opcode in a file would load and then do
+nothing. Constructs that need the walker have to compile natively instead.
+
+`make ARCH=rv64` is 6/6 and links a 32 KB ELF. The checked-in
+`kernel/main.sage.svm` grows 436 → 1537 bytes, which is the import opcode plus
+the module bindings that were previously missing.
+
+One loose end: `sage --emit-vm` was also observed succeeding 40 runs out of 40
+on this same input, which the fix above does not account for. Nothing in the
+build depends on that variance now, so it is noted rather than chased.
+
+**3. `BC_OP_IMPORT` has no execution case. (Open, in SageLang.)**
+
+With the kernel compiling, `sagevm run` reaches
+
+```
+SageOS Booting...
+  Initializing PMM...
+  PMM Init OK.
+```
+
+only because `src/Makefile` resolves the driver modules at compile time. Import
+a module the build cannot resolve and the opcode binds an empty module, because
+`core/src/vm/vm.c` never executes `BC_OP_IMPORT` — it appears only in the
+validator's opcode tables. The kernel cannot call into the drivers it imports
+until that opcode actually loads a module.
 
 ## Two copies of every architecture
 
